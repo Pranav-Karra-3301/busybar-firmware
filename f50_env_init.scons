@@ -1,0 +1,7 @@
+Import("env")
+
+SConscript(
+    "#/lib/register_f50_libs.scons",
+    exports={"env": env},
+    duplicate=0,
+)
