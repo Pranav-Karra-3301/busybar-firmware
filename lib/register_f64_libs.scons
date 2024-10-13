@@ -1,0 +1,9 @@
+Import("env")
+
+for libname in [
+    "simplicity_sdk",
+    "wiseconnect",
+]:
+    # print(f"In {env.Real(Dir('.'))}, registering {libname}")
+    env.RegisterComponent(f"fwlib_{libname}", env.FindComponentSconscript(libname))
+
