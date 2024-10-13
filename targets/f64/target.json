@@ -53,15 +53,18 @@
         "config",
         "furi_hal"
     ],
+    "env_setup_scripts": [
+        "#/f64_env_init.scons"
+    ],
+    "extra_tool_paths": [
+        "../../scripts/fbt_f64_tools"
+    ],
     "sdk_header_paths": [],
     "sources": [
         "*/*.c"
     ],
     "linker_script_flash": "SiWG917M111_flash.ld",
     "rtos_flavor": "freertos-cm4",
-    "extra_tool_paths": [
-        "../../scripts/fbt_f64_tools"
-    ],
     "lib_modules": [
         "lib_base",
         "mlib",
