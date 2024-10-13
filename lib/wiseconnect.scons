@@ -7,14 +7,14 @@ MCU_INCDIR = f"#/lib/{MCU_DIR}"
 
 env.Append(
     CPPPATH=[
-        Dir(f"{MCU_INCDIR}/core/config").srcnode(),
-        Dir(f"{MCU_INCDIR}/core/chip/inc").srcnode(),
-        Dir(f"{MCU_INCDIR}/drivers/rom_driver/inc").srcnode(),
-        Dir(f"{MCU_INCDIR}/drivers/systemlevel/inc").srcnode(),
-        Dir(f"{MCU_INCDIR}/drivers/peripheral_drivers/inc").srcnode(),
-        Dir(f"{MCU_INCDIR}/drivers/cmsis_driver").srcnode(),
-        Dir(f"{MCU_INCDIR}/drivers/cmsis_driver/CMSIS/Driver/Include").srcnode(),
-        Dir(f"{MCU_INCDIR}/drivers/service/clock_manager/inc").srcnode(),
+        Dir(f"{MCU_INCDIR}/core/config").rdir(),
+        Dir(f"{MCU_INCDIR}/core/chip/inc").rdir(),
+        Dir(f"{MCU_INCDIR}/drivers/rom_driver/inc").rdir(),
+        Dir(f"{MCU_INCDIR}/drivers/systemlevel/inc").rdir(),
+        Dir(f"{MCU_INCDIR}/drivers/peripheral_drivers/inc").rdir(),
+        Dir(f"{MCU_INCDIR}/drivers/cmsis_driver").rdir(),
+        Dir(f"{MCU_INCDIR}/drivers/cmsis_driver/CMSIS/Driver/Include").rdir(),
+        Dir(f"{MCU_INCDIR}/drivers/service/clock_manager/inc").rdir(),
     ],
     CPPDEFINES=[
         "SI917",
