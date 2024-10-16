@@ -1,18 +1,11 @@
 #include <furi.h>
 #include <furi_hal_gpio.h>
 
-#include <rsi_rom_egpio.h>
+#include <sl_si91x_gpio_common.h>
+
+#define DRIVE_STRENGTH_12MA (3UL)
 
 // static volatile GpioInterrupt gpio_interrupt[GPIO_NUMBER];
-
-// FIXME: give proper pin num
-static uint8_t furi_hal_gpio_get_pin_num(const GpioPin* gpio) {
-    uint8_t pin_num = 0;
-    for(pin_num = 0; pin_num < GPIO_NUMBER; pin_num++) {
-        if(gpio->pin & (1 << pin_num)) break;
-    }
-    return pin_num;
-}
 
 void furi_hal_gpio_init_simple(const GpioPin* gpio, const GpioMode mode) {
     furi_hal_gpio_init(gpio, mode, GpioPullNo, GpioSpeedLow);
@@ -23,11 +16,50 @@ void furi_hal_gpio_init(
     const GpioMode mode,
     const GpioPull pull,
     const GpioSpeed speed) {
-    // we cannot set alternate mode in this function
-    furi_check(mode != GpioModeAltFunctionPushPull);
-    furi_check(mode != GpioModeAltFunctionOpenDrain);
-
     furi_hal_gpio_init_ex(gpio, mode, pull, speed, GpioAltFnUnused);
+}
+
+static void furi_hal_gpio_init_ex_hp_ulp(EGPIO_Type* port, const GpioPin* gpio, const GpioMode mode, const GpioAltFn alt_fn) {
+    port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.MODE = alt_fn;
+
+    switch(mode) {
+    case GpioModeInput:
+        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = SET;
+        break;
+    case GpioModeOutputPushPull:
+        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = CLR;
+        break;
+    case GpioModeOutputOpenDrain:
+        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = SET;
+        port->PIN_CONFIG[gpio->pin].BIT_LOAD_REG = CLR;
+        break;
+    default:
+        furi_crash();
+    }
+}
+
+static void furi_hal_gpio_init_uulp(
+    const GpioPin* gpio,
+    const GpioMode mode,
+    const GpioAltFn alt_fn) {
+    // Enable Pad receiver (mandatory?)
+    UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_REN = SET;
+    UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_MODE = alt_fn;
+
+    switch(mode) {
+    case GpioModeInput:
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = SET;
+        break;
+    case GpioModeOutputPushPull:
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = CLR;
+        break;
+    case GpioModeOutputOpenDrain:
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = SET;
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OUT = CLR;
+        break;
+    default:
+        furi_crash();
+    }
 }
 
 void furi_hal_gpio_init_ex(
@@ -36,137 +68,97 @@ void furi_hal_gpio_init_ex(
     const GpioPull pull,
     const GpioSpeed speed,
     const GpioAltFn alt_fn) {
-    UNUSED(alt_fn);
-    RSI_EGPIO_PadSelectionEnable(gpio->pad);
-    RSI_EGPIO_PadReceiverEnable(gpio->pin);
-    RSI_EGPIO_SetPinMux(EGPIO, gpio->port, gpio->pin, 0);
-
-    // const uint32_t sys_exti_port = GET_SYSCFG_EXTI_PORT(gpio->port);
-    // const uint32_t sys_exti_line = GET_SYSCFG_EXTI_LINE(gpio->pin);
-    // const uint32_t exti_line = GET_EXTI_LINE(gpio->pin);
-    // const uint32_t pwr_port = GET_PWR_PORT(gpio->port);
-    // const uint32_t pwr_pin = GET_PWR_PIN(gpio->pin);
-
     // Configure gpio with interrupts disabled
     FURI_CRITICAL_ENTER();
 
-    // Set gpio speed
-    switch(speed) {
-    case GpioSpeedLow:
-        // LL_GPIO_SetPinSpeed(gpio->port, gpio->pin, LL_GPIO_SPEED_FREQ_LOW);
-        break;
-    case GpioSpeedMedium:
-        // LL_GPIO_SetPinSpeed(gpio->port, gpio->pin, LL_GPIO_SPEED_FREQ_MEDIUM);
-        break;
-    case GpioSpeedHigh:
-        // LL_GPIO_SetPinSpeed(gpio->port, gpio->pin, LL_GPIO_SPEED_FREQ_HIGH);
-        break;
-    case GpioSpeedVeryHigh:
-        // LL_GPIO_SetPinSpeed(gpio->port, gpio->pin, LL_GPIO_SPEED_FREQ_VERY_HIGH);
-        break;
-    }
+    switch(gpio->type) {
+    case GpioTypeHp:
+        // Enable Pad receiver (mandatory?)
+        PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_REN = SET;
 
-    // Set gpio pull mode
-    switch(pull) {
-    case GpioPullNo:
-        // LL_GPIO_SetPinPull(gpio->port, gpio->pin, LL_GPIO_PULL_NO);
-        // LL_PWR_DisableGPIOPullUp(pwr_port, pwr_pin);
-        // LL_PWR_DisableGPIOPullDown(pwr_port, pwr_pin);
+        PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_SR = speed;
+        PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_P1_P2 = pull;
+        PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_E1_E2 = DRIVE_STRENGTH_12MA;
+
+        furi_hal_gpio_init_ex_hp_ulp(GPIO, gpio, mode, alt_fn);
         break;
-    case GpioPullUp:
-        // LL_GPIO_SetPinPull(gpio->port, gpio->pin, LL_GPIO_PULL_UP);
-        // LL_PWR_DisableGPIOPullDown(pwr_port, pwr_pin);
-        // LL_PWR_EnableGPIOPullUp(pwr_port, pwr_pin);
+
+    case GpioTypeUlp:
+        // Enable Pad receiver (mandatory?)
+        ULP_PAD_CONFIG2_REG->ULP_PAD_CONFIG_REG2 |= 1UL << gpio->pin;
+
+        // NOTE: Speed and Pull-Up settings are dependent for pins 0...3, 4...8, 8...11
+        if(gpio->pin < 4) {
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_SR_1 = speed;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_P1_P2_1 = pull;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_E1_E2_1 = DRIVE_STRENGTH_12MA;
+        } else if(gpio->pin < 8) {
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_SR_2 = speed;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_P1_P2_2 = pull;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_E1_E2_2 = DRIVE_STRENGTH_12MA;
+        } else {
+            ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_SR_1 = speed;
+            ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_P1_P2_1 = pull;
+            ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_E1_E2_1 = DRIVE_STRENGTH_12MA;
+        }
+
+        furi_hal_gpio_init_ex_hp_ulp(ULP_GPIO, gpio, mode, alt_fn);
         break;
-    case GpioPullDown:
-        // LL_GPIO_SetPinPull(gpio->port, gpio->pin, LL_GPIO_PULL_DOWN);
-        // LL_PWR_DisableGPIOPullUp(pwr_port, pwr_pin);
-        // LL_PWR_EnableGPIOPullDown(pwr_port, pwr_pin);
+
+    case GpioTypeUulp:
+        furi_hal_gpio_init_uulp(gpio, mode, alt_fn);
         break;
+
     default:
-        furi_crash("Incorrect GpioPull");
+        furi_crash();
     }
 
-    // Set gpio mode
-    if(mode >= GpioModeInterruptRise) {
-        // Set pin in interrupt mode
-        // LL_GPIO_SetPinMode(gpio->port, gpio->pin, LL_GPIO_MODE_INPUT);
-        // LL_SYSCFG_SetEXTISource(sys_exti_port, sys_exti_line);
-        if(mode == GpioModeInterruptRise || mode == GpioModeInterruptRiseFall) {
-            // LL_EXTI_EnableRisingTrig_0_31(exti_line);
-        }
-        if(mode == GpioModeInterruptFall || mode == GpioModeInterruptRiseFall) {
-            // LL_EXTI_EnableFallingTrig_0_31(exti_line);
-        }
-        if(mode == GpioModeEventRise || mode == GpioModeEventRiseFall) {
-            // LL_EXTI_EnableEvent_0_31(exti_line);
-            // LL_EXTI_EnableRisingTrig_0_31(exti_line);
-        }
-        if(mode == GpioModeEventFall || mode == GpioModeEventRiseFall) {
-            // LL_EXTI_EnableEvent_0_31(exti_line);
-            // LL_EXTI_EnableFallingTrig_0_31(exti_line);
-        }
-    } else {
-        // Disable interrupts if set
-        // if(LL_SYSCFG_GetEXTISource(sys_exti_line) == sys_exti_port &&
-        //    LL_EXTI_IsEnabledIT_0_31(exti_line)) {
-        //     LL_EXTI_DisableIT_0_31(exti_line);
-        //     LL_EXTI_ClearFlag_0_31(exti_line);
-        //     LL_EXTI_DisableRisingTrig_0_31(exti_line);
-        //     LL_EXTI_DisableFallingTrig_0_31(exti_line);
-        // }
-
-        // Prepare alternative part if any
-        if(mode == GpioModeAltFunctionPushPull || mode == GpioModeAltFunctionOpenDrain) {
-            // set alternate function
-            if(furi_hal_gpio_get_pin_num(gpio) < 8) {
-                // LL_GPIO_SetAFPin_0_7(gpio->port, gpio->pin, alt_fn);
-            } else {
-                // LL_GPIO_SetAFPin_8_15(gpio->port, gpio->pin, alt_fn);
-            }
-        }
-
-        // Set not interrupt pin modes
-        switch(mode) {
-        case GpioModeInput:
-            RSI_EGPIO_SetDir(EGPIO, gpio->port, gpio->pin, EGPIO_CONFIG_DIR_INPUT);
-            // LL_GPIO_SetPinMode(gpio->port, gpio->pin, LL_GPIO_MODE_INPUT);
-            break;
-        case GpioModeOutputPushPull:
-            RSI_EGPIO_SetDir(EGPIO, gpio->port, gpio->pin, EGPIO_CONFIG_DIR_OUTPUT);
-            // LL_GPIO_SetPinOutputType(gpio->port, gpio->pin, LL_GPIO_OUTPUT_PUSHPULL);
-            // LL_GPIO_SetPinMode(gpio->port, gpio->pin, LL_GPIO_MODE_OUTPUT);
-            break;
-        case GpioModeAltFunctionPushPull:
-            // LL_GPIO_SetPinOutputType(gpio->port, gpio->pin, LL_GPIO_OUTPUT_PUSHPULL);
-            // LL_GPIO_SetPinMode(gpio->port, gpio->pin, LL_GPIO_MODE_ALTERNATE);
-            break;
-        case GpioModeOutputOpenDrain:
-            // LL_GPIO_SetPinOutputType(gpio->port, gpio->pin, LL_GPIO_OUTPUT_OPENDRAIN);
-            // LL_GPIO_SetPinMode(gpio->port, gpio->pin, LL_GPIO_MODE_OUTPUT);
-            break;
-        case GpioModeAltFunctionOpenDrain:
-            // LL_GPIO_SetPinOutputType(gpio->port, gpio->pin, LL_GPIO_OUTPUT_OPENDRAIN);
-            // LL_GPIO_SetPinMode(gpio->port, gpio->pin, LL_GPIO_MODE_ALTERNATE);
-            break;
-        case GpioModeAnalog:
-            // LL_GPIO_SetPinMode(gpio->port, gpio->pin, LL_GPIO_MODE_ANALOG);
-            break;
-        default:
-            furi_crash("Incorrect GpioMode");
-        }
-    }
     FURI_CRITICAL_EXIT();
 }
 
 void furi_hal_gpio_write(const GpioPin* gpio, const bool state) {
-    furi_check(gpio);
-    RSI_EGPIO_SetPin(EGPIO, gpio->port, gpio->pin, state);
+    switch(gpio->type) {
+    case GpioTypeHp:
+        GPIO->PIN_CONFIG[gpio->pin].BIT_LOAD_REG = state;
+        break;
+    case GpioTypeUlp:
+        ULP_GPIO->PIN_CONFIG[gpio->pin].BIT_LOAD_REG = state;
+        break;
+    case GpioTypeUulp:
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OUT = state;
+        break;
+    default:
+        furi_crash();
+    }
+}
+
+void furi_hal_gpio_write_open_drain(const GpioPin* gpio, const bool state) {
+    switch(gpio->type) {
+    case GpioTypeHp:
+        GPIO->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = state;
+        break;
+    case GpioTypeUlp:
+        ULP_GPIO->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = state;
+        break;
+    case GpioTypeUulp:
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = state;
+        break;
+    default:
+        furi_crash();
+    }
 }
 
 bool furi_hal_gpio_read(const GpioPin* gpio) {
-    furi_check(gpio);
-    return RSI_EGPIO_GetPin(EGPIO, gpio->port, gpio->pin);
+    switch(gpio->type) {
+    case GpioTypeHp:
+        return GPIO->PIN_CONFIG[gpio->pin].BIT_LOAD_REG;
+    case GpioTypeUlp:
+        return ULP_GPIO->PIN_CONFIG[gpio->pin].BIT_LOAD_REG;
+    case GpioTypeUulp:
+        return FURI_BIT(UULP_GPIO_STATUS, gpio->pin);
+    default:
+        furi_crash();
+    }
 }
 
 // void furi_hal_gpio_add_int_callback(const GpioPin* gpio, GpioExtiCallback cb, void* ctx) {

@@ -12,6 +12,7 @@ env.Append(
         Dir(f"{MCU_INCDIR}/drivers/rom_driver/inc").rdir(),
         Dir(f"{MCU_INCDIR}/drivers/systemlevel/inc").rdir(),
         Dir(f"{MCU_INCDIR}/drivers/peripheral_drivers/inc").rdir(),
+        Dir(f"{MCU_INCDIR}/drivers/unified_peripheral_drivers/inc").rdir(),
         Dir(f"{MCU_INCDIR}/drivers/cmsis_driver").rdir(),
         Dir(f"{MCU_INCDIR}/drivers/cmsis_driver/CMSIS/Driver/Include").rdir(),
         Dir(f"{MCU_INCDIR}/drivers/service/clock_manager/inc").rdir(),

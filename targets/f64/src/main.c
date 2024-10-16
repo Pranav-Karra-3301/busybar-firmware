@@ -9,19 +9,16 @@ static int32_t init_task(void* context) {
     furi_hal_init();
     furi_log_set_level(FuriLogLevelDebug);
 
-    // GPIO_10
-    const GpioPin gpio = {
-        5,
-        0,
-        10,
-    };
-
-    furi_hal_bus_enable(FuriHalBusEGPIO_CLK);
-
-    furi_hal_gpio_init_simple(&gpio, GpioModeOutputPushPull);
+    furi_hal_gpio_init_simple(&gpio_10, GpioModeOutputPushPull);
+    furi_hal_gpio_init_simple(&gpio_50, GpioModeOutputPushPull);
+    furi_hal_gpio_init_simple(&gpio_ulp_2, GpioModeOutputPushPull);
+    furi_hal_gpio_init_simple(&gpio_uulp_0, GpioModeOutputPushPull);
 
     for(;;) {
-        furi_hal_gpio_write(&gpio, !furi_hal_gpio_read(&gpio));
+        furi_hal_gpio_write(&gpio_10, !furi_hal_gpio_read(&gpio_10));
+        furi_hal_gpio_write(&gpio_50, !furi_hal_gpio_read(&gpio_50));
+        furi_hal_gpio_write(&gpio_ulp_2, !furi_hal_gpio_read(&gpio_ulp_2));
+        furi_hal_gpio_write(&gpio_uulp_0, !furi_hal_gpio_read(&gpio_uulp_0));
         furi_delay_ms(500);
     }
 
