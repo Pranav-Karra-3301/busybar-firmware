@@ -129,6 +129,9 @@ SECTIONS {
         __heap_end__ = .;
     } > RAM
 
+    /* Store remaining heap size as a symbol address */
+    __heap_size__ = __heap_end__ - __heap_start__;
+
     .stack (NOLOAD) : {
         . = ALIGN(4);
         __StackLimit = .;
