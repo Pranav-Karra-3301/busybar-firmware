@@ -122,7 +122,5 @@
         "vscode_env",
         "cli"
     ],
-    "platform": "stm32u5",
-    "svd_file": "STM32U5Gx.svd",
-    "flash_address": "0x08000000"
+    "platform_desc": "../../scripts/debug/platforms/stm32u595.json"
 }
