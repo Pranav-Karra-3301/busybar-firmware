@@ -86,5 +86,5 @@
         "debug",
         "lint"
     ],
-    "platform_desc": "../../scripts/debug/platforms/stm32u595.json"
+    "platform_desc": "../../scripts/debug/platforms/siw917.json"
 }
