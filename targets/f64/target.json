@@ -86,7 +86,5 @@
         "debug",
         "lint"
     ],
-    "platform": "si917",
-    "svd_file": "SiWG917_CM4.svd",
-    "flash_address": "0x08202000"
+    "platform_desc": "../../scripts/debug/platforms/stm32u595.json"
 }
