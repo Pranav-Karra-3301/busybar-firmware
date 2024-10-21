@@ -5,5 +5,5 @@ App(
     entry_point="oled_screen",
     stack_size=1024 * 10,
     order=90,
-    targets=["f60"],
+    targets=["f20"],
 )

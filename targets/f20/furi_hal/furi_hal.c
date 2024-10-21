@@ -12,7 +12,6 @@ void furi_hal_init_early(void) {
     // furi_hal_os_init();
     furi_hal_spi_config_init_early();
     furi_hal_i2c_init_early();
-    furi_hal_led_indicator_init_early();
     // furi_hal_light_init();
     // furi_hal_rtc_init_early();
 }

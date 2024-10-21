@@ -5,5 +5,5 @@ App(
     entry_point="desktop_srv",
     stack_size=1024 * 8,
     order=70,
-    targets=["f50", "f60"],
+    targets=["f50", "f20"],
 )

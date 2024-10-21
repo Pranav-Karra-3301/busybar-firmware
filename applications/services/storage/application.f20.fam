@@ -16,5 +16,5 @@ App(
         "storage_sd_api.c",
         "storages/storage_ext_sdmmc.c",
     ],
-    targets=["f50", "f60"],
+    targets=["f50", "f20"],
 )

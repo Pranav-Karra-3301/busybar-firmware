@@ -6,7 +6,7 @@ App(
     cdefines=["SRV_INPUT"],
     stack_size=1 * 1024,
     order=80,
-    targets=["f60"],
+    targets=["f20"],
     sources=["input_simple.c"],
     # sdk_headers=["input.h"],
 )

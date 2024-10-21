@@ -16,5 +16,4 @@
 #include <furi_hal_serial_types.h>
 #include <furi_hal_spi.h>
 #include <furi_hal_i2c.h>
-#include <furi_hal_led_indicator.h>
 #include <furi_hal_dac.h>

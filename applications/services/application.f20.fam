@@ -12,5 +12,5 @@ App(
         "loader_simple",
         "oled_screen"
     ],
-    targets=["f60"],
+    targets=["f20"],
 )

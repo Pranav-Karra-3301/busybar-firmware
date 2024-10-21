@@ -7,7 +7,7 @@ App(
     requires=["gui"],
     stack_size=2 * 1024,
     order=90,
-    targets=["f50", "f60"],
+    targets=["f50", "f20"],
     sdk_headers=[
         # "loader.h",
         # "firmware_api/firmware_api.h",
