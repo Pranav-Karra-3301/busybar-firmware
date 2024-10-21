@@ -10,7 +10,8 @@ App(
         "input",
         "desktop_simple",
         "loader_simple",
-        "oled_screen"
+        "oled_screen",
+        "led_display"
     ],
     targets=["f20"],
 )
