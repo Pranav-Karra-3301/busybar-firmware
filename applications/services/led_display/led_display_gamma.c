@@ -18,13 +18,11 @@ void led_display_gamma_lut_generate(uint16_t* gamma_lut, float gamma_val, uint8_
 
     uint32_t out_max = (brightness * 65535) / BRIGHTNESS_VAL_MAX;
 
-    // float inv_gamma = 1.f / (float)gamma_val;
-    UNUSED(gamma_val); // FIXME:
+    float inv_gamma = 1.f / (float)gamma_val;
 
     for(uint16_t i = 0; i < 256; i++) {
         float val_in = ((float)i) / 255.f;
-        // float val_out = powf(val_in, inv_gamma);
-        float val_out = val_in;  // FIXME:
+        float val_out = powf(val_in, inv_gamma);
         gamma_lut[i] = (uint16_t)(val_out * out_max);
     }
 }

@@ -8,6 +8,7 @@ env.Append(
     LINT_SOURCES=[
         Dir(LIB_FOLDER),
     ],
+    FW_LIBS=["m"], #FIXME:
 )
 
 
