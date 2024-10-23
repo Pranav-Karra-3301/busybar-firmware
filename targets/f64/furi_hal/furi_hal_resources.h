@@ -40,23 +40,23 @@ extern const GpioPin gpio_usart0_rx;
 extern const GpioPin gpio_56;
 extern const GpioPin gpio_57;
 
-extern const GpioPin gpio_64; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_65; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_66; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_67; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_68; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_69; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_70; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_71; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_72; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_73; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_74; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_75; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_64; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_65; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_66; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_67; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_68; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_69; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_70; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_71; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_uart1_rx; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_73; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_74; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_uart1_tx; /**< Not available on the package, internal use only */
 
 extern const GpioPin gpio_ulp_0;
 extern const GpioPin gpio_ulp_1;
 extern const GpioPin gpio_ulp_2;
-extern const GpioPin gpio_ulp_3; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_ulp_i_3; /**< Not available on the package, internal use only */
 extern const GpioPin gpio_ulp_4;
 extern const GpioPin gpio_ulp_5;
 extern const GpioPin gpio_ulp_6;

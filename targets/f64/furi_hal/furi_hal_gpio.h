@@ -33,7 +33,6 @@ typedef enum {
     GpioModeInput,
     GpioModeOutputPushPull,
     GpioModeOutputOpenDrain,
-    GpioModeUlpOnHp, /**< Only for ULP pins */
 } GpioMode;
 
 /**
@@ -60,23 +59,26 @@ typedef enum {
     GpioAltFnUnused = 0,
     GpioAltFn1 = 1,
 
+    GpioAltFn2USART0_CLK = 2, /**< USART0_CLK on GPIO_52 */
     GpioAltFn2USART0_TX = 2, /**< USART0_TX on GPIO_54 */
     GpioAltFn2USART0_RX = 2, /**< USART0_RX on GPIO_55 */
 
-    GpioAltFn3ULP_UART_RX = 3, /**< ULPUART_RX on ULP GPIO2 */
-    GpioAltFn3ULP_UART_TX = 3, /**< ULPUART_TX on ULP GPIO3 */
+    GpioAltFn3ULP_UART_RX = 3, /**< ULP_UART_RX on ULP_GPIO_2 */
+    GpioAltFn3ULP_UART_TX = 3, /**< ULP_UART_TX on ULP_GPIO_3 (via mux only) */
 
     GpioAltFn4 = 4,
     GpioAltFn5 = 5,
 
-    GpioAltFn6SOCPERH_ON_ULP_GPIO_8 = 6, /**< SOC Peripheral from GPIO_72 on ULP_GPIO_8 */
-    GpioAltFn6SOCPERH_ON_ULP_GPIO_11 = 6, /**< SOC Peripheral from GPIO_75 on ULP_GPIO_11 */
+    GpioAltFn6SOCPERH_ON_ULP_GPIO_8 = 6, /**< Multiplexed HP Peripheral on ULP_GPIO_8 */
+    GpioAltFn6SOCPERH_ON_ULP_GPIO_11 = 6, /**< Multiplexed HP Peripheral on ULP_GPIO_11 */
+    GpioAltFn6UART1_RX = 6, /**< UART1_RX via SOCPERH_ON_ULP_GPIO_8 */
 
     GpioAltFn7 = 7,
     GpioAltFn8 = 8,
 
-    GpioAltFn9ULPPERH_ON_SOC_GPIO_2 = 9, /**< ULP Peripheral from ULP GPIO2 on GPIO8 */
-    GpioAltFn9ULPPERH_ON_SOC_GPIO_3 = 9, /**< ULP Peripheral from ULP GPIO3 on GPIO9 */
+    GpioAltFn9ULPPERH_ON_SOC_GPIO_2 = 9, /**< Multiplexed ULP Peripheral on GPIO_8 */
+    GpioAltFn9ULPPERH_ON_SOC_GPIO_3 = 9, /**< Multiplexed ULP Peripheral on GPIO_9 */
+    GpioAltFn9UART1_TX = 9, /**< UART1_TX via SOCPERH_ON_ULP_GPIO_11 */
 
     GpioAltFn10 = 10,
     GpioAltFn11 = 11,
@@ -131,6 +133,13 @@ void furi_hal_gpio_init_ex(
     const GpioPull pull,
     const GpioSpeed speed,
     const GpioAltFn alt_fn);
+
+/**
+ * Enable ULP to HP GPIO multiplexer
+ * @param ulp_gpio GpioPin (must belong to ULP domain)
+ * @param alt_fn GpioAltFn
+ */
+void furi_hal_gpio_enable_ulp_on_hp(const GpioPin* ulp_gpio, GpioAltFn alt_fn);
 
 /**
  * Add and enable interrupt

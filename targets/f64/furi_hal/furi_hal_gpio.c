@@ -23,14 +23,14 @@ static void furi_hal_gpio_init_ex_hp_ulp(EGPIO_Type* port, const GpioPin* gpio, 
     port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.MODE = alt_fn;
 
     if(mode == GpioModeInput) {
-        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = SET;
+        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 1;
 
     } else if(mode == GpioModeOutputPushPull) {
-        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = CLR;
+        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 0;
 
     } else if(mode == GpioModeOutputOpenDrain) {
-        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = SET;
-        port->PIN_CONFIG[gpio->pin].BIT_LOAD_REG = CLR;
+        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 1;
+        port->PIN_CONFIG[gpio->pin].BIT_LOAD_REG = 0;
 
     } else {
         furi_crash();
@@ -42,18 +42,18 @@ static void furi_hal_gpio_init_uulp(
     const GpioMode mode,
     const GpioAltFn alt_fn) {
     // Enable Pad receiver (mandatory?)
-    UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_REN = SET;
+    UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_REN = 1;
     UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_MODE = alt_fn;
 
     if(mode == GpioModeInput) {
-        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = SET;
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = 1;
 
     } else if(mode == GpioModeOutputPushPull) {
-        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = CLR;
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = 0;
 
     } else if(mode == GpioModeOutputOpenDrain) {
-        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = SET;
-        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OUT = CLR;
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OEN = 1;
+        UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_OUT = 0;
 
     } else {
         furi_crash();
@@ -71,7 +71,7 @@ void furi_hal_gpio_init_ex(
 
     if(gpio->type == GpioTypeHp) {
         // Enable Pad receiver (mandatory?)
-        PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_REN = SET;
+        PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_REN = 1;
 
         PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_SR = speed;
         PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_P1_P2 = pull;
@@ -80,30 +80,25 @@ void furi_hal_gpio_init_ex(
         furi_hal_gpio_init_ex_hp_ulp(GPIO, gpio, mode, alt_fn);
 
     } else if(gpio->type == GpioTypeUlp) {
-        if(mode == GpioModeUlpOnHp) {
-            ULPCLK->ULP_SOC_GPIO_MODE_REG[gpio->pin].ULP_SOC_GPIO_MODE_REG_b.ULP_SOC_GPIO_MODE_REG = alt_fn;
+        // Enable Pad receiver (mandatory?)
+        ULP_PAD_CONFIG2_REG->ULP_PAD_CONFIG_REG2 |= 1UL << gpio->pin;
 
+        // NOTE: Speed and Pull-Up settings are co-dependent for pins 0...3, 4...8, 8...11
+        if(gpio->pin < 4) {
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_SR_1 = speed;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_P1_P2_1 = pull;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_E1_E2_1 = DRIVE_STRENGTH_12MA;
+        } else if(gpio->pin < 8) {
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_SR_2 = speed;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_P1_P2_2 = pull;
+            ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_E1_E2_2 = DRIVE_STRENGTH_12MA;
         } else {
-            // Enable Pad receiver (mandatory?)
-            ULP_PAD_CONFIG2_REG->ULP_PAD_CONFIG_REG2 |= 1UL << gpio->pin;
-
-            // NOTE: Speed and Pull-Up settings are dependent for pins 0...3, 4...8, 8...11
-            if(gpio->pin < 4) {
-                ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_SR_1 = speed;
-                ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_P1_P2_1 = pull;
-                ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_E1_E2_1 = DRIVE_STRENGTH_12MA;
-            } else if(gpio->pin < 8) {
-                ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_SR_2 = speed;
-                ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_P1_P2_2 = pull;
-                ULP_PAD_CONFIG0_REG->ULP_GPIO_PAD_CONFIG_REG_0.PADCONFIG_E1_E2_2 = DRIVE_STRENGTH_12MA;
-            } else {
-                ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_SR_1 = speed;
-                ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_P1_P2_1 = pull;
-                ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_E1_E2_1 = DRIVE_STRENGTH_12MA;
-            }
-
-            furi_hal_gpio_init_ex_hp_ulp(ULP_GPIO, gpio, mode, alt_fn);
+            ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_SR_1 = speed;
+            ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_P1_P2_1 = pull;
+            ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_E1_E2_1 = DRIVE_STRENGTH_12MA;
         }
+
+        furi_hal_gpio_init_ex_hp_ulp(ULP_GPIO, gpio, mode, alt_fn);
 
     } else if(gpio->type == GpioTypeUulp) {
         furi_hal_gpio_init_uulp(gpio, mode, alt_fn);
@@ -113,6 +108,13 @@ void furi_hal_gpio_init_ex(
     }
 
     FURI_CRITICAL_EXIT();
+}
+
+void furi_hal_gpio_enable_ulp_on_hp(const GpioPin* ulp_gpio, GpioAltFn alt_fn) {
+    furi_check(ulp_gpio);
+    furi_check(ulp_gpio->type == GpioTypeUlp);
+
+    ULPCLK->ULP_SOC_GPIO_MODE_REG[ulp_gpio->pin].ULP_SOC_GPIO_MODE_REG_b.ULP_SOC_GPIO_MODE_REG = alt_fn;
 }
 
 void furi_hal_gpio_write(const GpioPin* gpio, const bool state) {

@@ -35,10 +35,23 @@ const GpioPin gpio_usart0_rx = {.type = GpioTypeHp, .pin = 55};
 const GpioPin gpio_56 = {.type = GpioTypeHp, .pin = 56};
 const GpioPin gpio_57 = {.type = GpioTypeHp, .pin = 57};
 
+const GpioPin gpio_i_64 = {.type = GpioTypeHp, .pin = 64};
+const GpioPin gpio_i_65 = {.type = GpioTypeHp, .pin = 65};
+const GpioPin gpio_i_66 = {.type = GpioTypeHp, .pin = 66};
+const GpioPin gpio_i_67 = {.type = GpioTypeHp, .pin = 67};
+const GpioPin gpio_i_68 = {.type = GpioTypeHp, .pin = 68};
+const GpioPin gpio_i_69 = {.type = GpioTypeHp, .pin = 69};
+const GpioPin gpio_i_70 = {.type = GpioTypeHp, .pin = 70};
+const GpioPin gpio_i_71 = {.type = GpioTypeHp, .pin = 71};
+const GpioPin gpio_i_uart1_rx = {.type = GpioTypeHp, .pin = 72};
+const GpioPin gpio_i_73 = {.type = GpioTypeHp, .pin = 73};
+const GpioPin gpio_i_74 = {.type = GpioTypeHp, .pin = 74};
+const GpioPin gpio_i_uart1_tx = {.type = GpioTypeHp, .pin = 75};
+
 const GpioPin gpio_ulp_0 = {.type = GpioTypeUlp, .pin = 0};
 const GpioPin gpio_ulp_1 = {.type = GpioTypeUlp, .pin = 1};
 const GpioPin gpio_ulp_2 = {.type = GpioTypeUlp, .pin = 2};
-const GpioPin gpio_ulp_3 = {.type = GpioTypeUlp, .pin = 3};
+const GpioPin gpio_ulp_i_3 = {.type = GpioTypeUlp, .pin = 3};
 const GpioPin gpio_ulp_4 = {.type = GpioTypeUlp, .pin = 4};
 const GpioPin gpio_ulp_5 = {.type = GpioTypeUlp, .pin = 5};
 const GpioPin gpio_ulp_6 = {.type = GpioTypeUlp, .pin = 6};
