@@ -59,7 +59,9 @@ typedef enum {
 typedef enum {
     GpioAltFnUnused = 0,
     GpioAltFn1 = 1,
-    GpioAltFn2 = 2,
+
+    GpioAltFn2USART0_TX = 2, /**< USART0_TX on GPIO_54 */
+    GpioAltFn2USART0_RX = 2, /**< USART0_RX on GPIO_55 */
 
     GpioAltFn3ULP_UART_RX = 3, /**< ULPUART_RX on ULP GPIO2 */
     GpioAltFn3ULP_UART_TX = 3, /**< ULPUART_TX on ULP GPIO3 */
@@ -67,10 +69,8 @@ typedef enum {
     GpioAltFn4 = 4,
     GpioAltFn5 = 5,
 
-    GpioAltFn6SOCPERH_ON_ULP_GPIO_6 = 6, /**< HP Peripheral on ULP GPIO6 */
-    GpioAltFn6SOCPERH_ON_ULP_GPIO_7 = 6, /**< HP Peripheral on ULP GPIO7 */
-    GpioAltFn6UART1_RX = 6, /**< UART1_RX on GPIO29 */
-    GpioAltFn6UART1_TX = 6, /**< UART1_RX on GPIO30 */
+    GpioAltFn6SOCPERH_ON_ULP_GPIO_8 = 6, /**< SOC Peripheral from GPIO_72 on ULP_GPIO_8 */
+    GpioAltFn6SOCPERH_ON_ULP_GPIO_11 = 6, /**< SOC Peripheral from GPIO_75 on ULP_GPIO_11 */
 
     GpioAltFn7 = 7,
     GpioAltFn8 = 8,

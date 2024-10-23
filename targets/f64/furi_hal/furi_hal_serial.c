@@ -25,7 +25,7 @@ typedef struct {
 
 static const FuriHalSerialConfig furi_hal_serial_config[FuriHalSerialIdMax] = {
     [FuriHalSerialIdUsart0] = {
-        .periph = USART0,
+        .periph = UART0,
     },
     [FuriHalSerialIdUart1] = {
         .periph = UART1,
@@ -37,21 +37,40 @@ static const FuriHalSerialConfig furi_hal_serial_config[FuriHalSerialIdMax] = {
 
 void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
     furi_check(handle);
-    UNUSED(furi_hal_serial_config);
 
     if(handle->id == FuriHalSerialIdUsart0) {
         furi_hal_bus_enable(FuriHalBusUSART1_PCLK);
         furi_hal_bus_enable(FuriHalBusUSART1_SCLK);
 
-        furi_hal_gpio_init_ex(&gpio_usart0_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn6SOCPERH_ON_ULP_GPIO_6);
-        furi_hal_gpio_init_ex(&gpio_usart0_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn6SOCPERH_ON_ULP_GPIO_7);
+        // TODO: This should be elsewhere (not here)
+        // Select SOC PLL clock
+        M4CLK->CLK_CONFIG_REG2_b.USART1_SCLK_SEL = 0x01;
+        // Wait for the switch to complete
+        while ((M4CLK->PLL_STAT_REG_b.USART1_SCLK_SWITCHED) != 1)
+          ;
+        // No clock division
+        M4CLK->CLK_CONFIG_REG2_b.USART1_SCLK_DIV_FAC = 0;
+
+        furi_hal_gpio_init_ex(&gpio_usart0_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
+        furi_hal_gpio_init_ex(&gpio_usart0_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_TX);
 
     } else if(handle->id == FuriHalSerialIdUart1) {
         furi_hal_bus_enable(FuriHalBusUSART2_PCLK);
         furi_hal_bus_enable(FuriHalBusUSART2_SCLK);
 
-        furi_hal_gpio_init_ex(&gpio_uart1_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn6UART1_RX);
-        furi_hal_gpio_init_ex(&gpio_uart1_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn6UART1_TX);
+        // TODO: This should be elsewhere (not here)
+        // Select SOC PLL clock
+        M4CLK->CLK_CONFIG_REG2_b.USART2_SCLK_SEL = 0x01;
+        // Wait for the switch to complete
+        while ((M4CLK->PLL_STAT_REG_b.USART2_SCLK_SWITCHED) != 1)
+          ;
+        // No clock division
+        M4CLK->CLK_CONFIG_REG2_b.USART2_SCLK_DIV_FAC = 0;
+
+        furi_hal_gpio_init_ex(&gpio_uart1_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn6SOCPERH_ON_ULP_GPIO_8);
+        furi_hal_gpio_init_ex(&gpio_uart1_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn6SOCPERH_ON_ULP_GPIO_11);
+
+        // TODO: Complete GPIO initialisation
 
     } else if(handle->id == FuriHalSerialIdUlpuart) {
         furi_hal_bus_enable(FuriHalBusUlpPCLK_UART);
@@ -59,14 +78,16 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
 
         // TODO: This should be elsewhere (not here)
         // Enable ULP clock from HP domain
-        M4CLK->CLK_ENABLE_SET_REG1_b.ULPSS_CLK_ENABLE_b = 1;
+        furi_hal_bus_enable(FuriHalBusULPSS_CLK);
         // No clock division
         M4CLK->CLK_CONFIG_REG4_b.ULPSS_CLK_DIV_FAC = 0;
         // Select HP to ULP clock
         ULPCLK->ULP_UART_CLK_GEN_REG_b.ULP_UART_CLK_SEL = 6;
 
-        furi_hal_gpio_init_ex(&gpio_sw_busy, GpioModeUlpOnHp, GpioPullNo, GpioSpeedHigh, GpioAltFn3ULP_UART_RX);
+        // TODO: This should be managed using a different API ?
+        furi_hal_gpio_init_ex(&gpio_ulp_2, GpioModeUlpOnHp, GpioPullNo, GpioSpeedHigh, GpioAltFn3ULP_UART_RX);
         furi_hal_gpio_init_ex(&gpio_ulp_3, GpioModeUlpOnHp, GpioPullNo, GpioSpeedHigh, GpioAltFn3ULP_UART_TX);
+
         furi_hal_gpio_init_ex(&gpio_ulp_uart_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn9ULPPERH_ON_SOC_GPIO_2);
         furi_hal_gpio_init_ex(&gpio_ulp_uart_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn9ULPPERH_ON_SOC_GPIO_3);
 
