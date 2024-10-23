@@ -81,7 +81,6 @@
     "linker_script_app": "application_ext.ld",
     "sdk_symbols": "api_symbols.csv",
     "platform_desc": "../../scripts/debug/platforms/stm32u595.json",
-    "apps_c_template": "apps_c_template.tmpl",
     "rtos_flavor": "freertos-cm33-ntz",
     "lib_modules": [
         "fw_updater_opts",
