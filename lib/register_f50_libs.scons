@@ -4,7 +4,10 @@ for libname in [
     "canvas_nema",
     "tinyusb",
     "nema_gfx",
-    "canvas_oled"
+    "canvas_oled",
+    "lwip",
+    "network",
+    "mongoose",
 ]:
     # print(f"In {env.Real(Dir('.'))}, registering {libname}")
     env.RegisterComponent(f"fwlib_{libname}", env.FindComponentSconscript(libname))

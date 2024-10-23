@@ -64,7 +64,8 @@
         "st",
         "st/include",
         "driver",
-        "st_abomination"
+        "st_abomination",
+        "lwip"
     ],
     "env_setup_scripts": [
         "#/f50_env_init.scons"
@@ -95,6 +96,9 @@
         "tinyusb",
         "print",
         "fatfs",
+        "lwip",
+        "network",
+        "mongoose",
         "canvas_oled",
         "flipper_format",
         "flipper_application",

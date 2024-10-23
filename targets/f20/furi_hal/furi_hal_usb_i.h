@@ -6,6 +6,8 @@
 
 #define VERSION_BCD(maj, min, rev) (((maj & 0xFF) << 8) | ((min & 0x0F) << 4) | (rev & 0x0F))
 
+void usb_net_init(void);
+
 /* String descriptors */
 enum UsbDevDescStr {
     UsbDevLang = 0,

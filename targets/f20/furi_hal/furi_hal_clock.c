@@ -34,6 +34,7 @@ void furi_hal_clock_init(void) {
 
     LL_SYSTICK_DisableIT();
     furi_hal_bus_enable(FuriHalBusPWR);
+    furi_hal_bus_enable(FuriHalBusSYSCFG);
 
     {
         // Todo move to furi_hal_bus? furi_hal_cortex?

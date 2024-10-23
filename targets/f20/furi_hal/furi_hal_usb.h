@@ -13,6 +13,7 @@ struct FuriHalUsbInterface {
     bool (*control_xfer_cb)(uint8_t rhport, uint8_t stage, tusb_control_request_t const* request);
     bool (*xfer_cb)(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes);
     void (*sof)(uint8_t rhport, uint32_t frame_count);
+    char* (*str_desc_custom)(uint8_t rhport, uint8_t index);
 
     void (*connect_state)(bool state);
 

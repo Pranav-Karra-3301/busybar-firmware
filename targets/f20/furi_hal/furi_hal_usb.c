@@ -1,15 +1,13 @@
 #include <furi_hal.h>
-#include <furi_hal_usb.h>
 #include "furi_hal_usb_i.h"
 #include <toolbox/api_lock.h>
 #include <stm32u5xx_ll_pwr.h>
-#include <tusb.h>
 
 #define TAG "USB"
 
-#define USB_RECONNECT_DELAY     500
+#define USB_RECONNECT_DELAY 500
 #define USB_DESC_STRING_LEN_MAX (32)
-#define USB_LANGID_EN           ((const char[]){0x09, 0x04})
+#define USB_LANGID_EN ((const char[]){0x09, 0x04})
 
 typedef enum {
     UsbApiEventTypeSetConfig,
@@ -150,7 +148,6 @@ void tud_mount_cb(void) {
     }
 }
 
-// Vbus is not connected - using suspend as a disconnect event
 void tud_suspend_cb(bool remote_wakeup_en) {
     UNUSED(remote_wakeup_en);
     if(usb_service.connected) {
@@ -179,6 +176,10 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
             string_src = usb_service.cfg->str_prod_descr;
         } else if(index == UsbDevSerial) {
             string_src = usb_service.cfg->str_serial_descr;
+        }
+
+        if((string_src == NULL) && (usb_service.cfg->str_desc_custom)) {
+            string_src = usb_service.cfg->str_desc_custom(BOARD_TUD_RHPORT, index);
         }
 
         do {
@@ -384,15 +385,11 @@ static int32_t furi_hal_usb_thread(void* context) {
 
 void furi_hal_usb_init(void) {
     // USB Clock
-    // furi_hal_bus_enable(FuriHalBusSYSCFG); // TODO: move to clock init
-
     LL_RCC_SetUSBPHYClockSource(LL_RCC_USBPHYCLKSOURCE_HSE);
     MODIFY_REG(
         SYSCFG->OTGHSPHYCR,
         SYSCFG_OTGHSPHYCR_CLKSEL,
         SYSCFG_OTGHSPHYCR_CLKSEL_0 | SYSCFG_OTGHSPHYCR_CLKSEL_1); // TODO: HSE value
-
-    LL_PWR_EnableVddIO2(); // TODO: move to clock init
 
     furi_hal_gpio_init_ex(
         &gpio_usb_dm, GpioModeAltFunctionPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn10USB_HS);

@@ -11,7 +11,8 @@ App(
         "desktop_simple",
         "loader_simple",
         "oled_screen",
-        "led_display"
+        "led_display",
+        "httpd_test"
     ],
     targets=["f20"],
 )
