@@ -75,7 +75,8 @@
         "freertos",
         "print",
         "targets",
-        "furi"
+        "furi",
+        "si917_applications"
     ],
     "fw_modules": [
         "fw_elf",
