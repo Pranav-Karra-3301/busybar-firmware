@@ -26,8 +26,8 @@ const GpioPin gpio_46 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_47 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_48 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_49 = {.type = GpioTypeHp, .pin = 40};
-const GpioPin gpio_50 = {.type = GpioTypeHp, .pin = 50};
-const GpioPin gpio_51 = {.type = GpioTypeHp, .pin = 51};
+const GpioPin gpio_sw_pomodoro = {.type = GpioTypeHp, .pin = 50};
+const GpioPin gpio_sw_settings = {.type = GpioTypeHp, .pin = 51};
 const GpioPin gpio_usart0_clk = {.type = GpioTypeHp, .pin = 52};
 const GpioPin gpio_53 = {.type = GpioTypeHp, .pin = 53};
 const GpioPin gpio_usart0_tx = {.type = GpioTypeHp, .pin = 54};
@@ -49,22 +49,22 @@ const GpioPin gpio_i_74 = {.type = GpioTypeHp, .pin = 74};
 const GpioPin gpio_i_uart1_tx = {.type = GpioTypeHp, .pin = 75};
 
 const GpioPin gpio_ulp_0 = {.type = GpioTypeUlp, .pin = 0};
-const GpioPin gpio_ulp_1 = {.type = GpioTypeUlp, .pin = 1};
+const GpioPin gpio_irq = {.type = GpioTypeUlp, .pin = 1};
 const GpioPin gpio_ulp_2 = {.type = GpioTypeUlp, .pin = 2};
 const GpioPin gpio_ulp_i_3 = {.type = GpioTypeUlp, .pin = 3};
 const GpioPin gpio_ulp_4 = {.type = GpioTypeUlp, .pin = 4};
 const GpioPin gpio_ulp_5 = {.type = GpioTypeUlp, .pin = 5};
-const GpioPin gpio_ulp_6 = {.type = GpioTypeUlp, .pin = 6};
-const GpioPin gpio_ulp_7 = {.type = GpioTypeUlp, .pin = 7};
+const GpioPin gpio_sw_apps = {.type = GpioTypeUlp, .pin = 6};
+const GpioPin gpio_sw_busy = {.type = GpioTypeUlp, .pin = 7};
 const GpioPin gpio_uart1_rx = {.type = GpioTypeUlp, .pin = 8};
-const GpioPin gpio_ulp_9 = {.type = GpioTypeUlp, .pin = 9};
-const GpioPin gpio_ulp_10 = {.type = GpioTypeUlp, .pin = 10};
+const GpioPin gpio_encoder_a = {.type = GpioTypeUlp, .pin = 9};
+const GpioPin gpio_encoder_b = {.type = GpioTypeUlp, .pin = 10};
 const GpioPin gpio_uart1_tx = {.type = GpioTypeUlp, .pin = 11};
 
-const GpioPin gpio_uulp_0 = {.type = GpioTypeUulp, .pin = 0};
-const GpioPin gpio_uulp_1 = {.type = GpioTypeUulp, .pin = 1};
-const GpioPin gpio_uulp_2 = {.type = GpioTypeUulp, .pin = 2};
-const GpioPin gpio_uulp_3 = {.type = GpioTypeUulp, .pin = 3};
+const GpioPin gpio_sw_off = {.type = GpioTypeUulp, .pin = 0};
+const GpioPin gpio_sw_back = {.type = GpioTypeUulp, .pin = 1};
+const GpioPin gpio_sw_start_pause = {.type = GpioTypeUulp, .pin = 2};
+const GpioPin gpio_sw_ok = {.type = GpioTypeUulp, .pin = 3};
 
 void furi_hal_resources_init_early(void) {
     // Enable GPIO clock
