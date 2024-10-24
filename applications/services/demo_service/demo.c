@@ -11,10 +11,30 @@
 
 typedef struct {
     FuriEventLoop* event_loop;
+    FuriMessageQueue* message_queue;
     FuriHalSerialHandle* usart0;
     FuriHalSerialHandle* uart1;
     uint32_t counter;
 } DemoService;
+
+typedef enum {
+    DemoButtonPomodoro,
+    DemoButtonBusy,
+} DemoButton;
+
+static void demo_service_pomodoro_int_callback(void* context) {
+    DemoService* instance = context;
+    const DemoButton button = DemoButtonPomodoro;
+    // No checking, don't care if event is lost due queue being full
+    furi_message_queue_put(instance->message_queue, &button, 0);
+}
+
+static void demo_service_busy_int_callback(void* context) {
+    DemoService* instance = context;
+    const DemoButton button = DemoButtonBusy;
+    // No checking, don't care if event is lost due queue being full
+    furi_message_queue_put(instance->message_queue, &button, 0);
+}
 
 static void demo_service_tick_callback(void* context) {
     DemoService* instance = context;
@@ -36,6 +56,18 @@ static void demo_service_tick_callback(void* context) {
     instance->counter++;
 }
 
+static bool demo_service_message_queue_callback(FuriEventLoopObject* object, void* context) {
+    DemoService* instance = context;
+    furi_check(object == instance->message_queue);
+
+    DemoButton button;
+    furi_check(furi_message_queue_get(instance->message_queue, &button, 0) == FuriStatusOk);
+
+    FURI_LOG_I(TAG, "Button pressed: %d", button);
+
+    return true;
+}
+
 static DemoService* demo_service_alloc(void) {
     DemoService* instance = malloc(sizeof(DemoService));
 
@@ -47,6 +79,16 @@ static DemoService* demo_service_alloc(void) {
 
     instance->event_loop = furi_event_loop_alloc();
     furi_event_loop_tick_set(instance->event_loop, LOG_INTERVAL_MS, demo_service_tick_callback, instance);
+
+    instance->message_queue = furi_message_queue_alloc(16, sizeof(DemoButton));
+    furi_event_loop_subscribe_message_queue(instance->event_loop, instance->message_queue, FuriEventLoopEventIn, demo_service_message_queue_callback, instance);
+
+    furi_hal_gpio_init(&gpio_sw_pomodoro, GpioModeInput, GpioPullUp, GpioSpeedHigh);
+    furi_hal_gpio_add_int_callback(&gpio_sw_pomodoro, GpioConditionFall, demo_service_pomodoro_int_callback, instance);
+
+    UNUSED(demo_service_busy_int_callback);
+    // furi_hal_gpio_init(&gpio_sw_busy, GpioModeInput, GpioPullUp, GpioSpeedHigh);
+    // furi_hal_gpio_add_int_callback(&gpio_sw_busy, GpioConditionFall, demo_service_busy_int_callback, instance);
 
     return instance;
 }

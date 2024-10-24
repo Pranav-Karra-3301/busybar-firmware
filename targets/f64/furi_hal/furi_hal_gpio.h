@@ -19,14 +19,6 @@ extern "C" {
 typedef void (*GpioExtiCallback)(void* ctx);
 
 /**
- * Gpio interrupt type
- */
-typedef struct {
-    GpioExtiCallback callback;
-    void* context;
-} GpioInterrupt;
-
-/**
  * Gpio modes
  */
 typedef enum {
@@ -94,6 +86,12 @@ typedef enum {
    GpioTypeUulp,
 } GpioType;
 
+typedef enum {
+    GpioConditionRise,
+    GpioConditionFall,
+    GpioConditionRiseFall,
+} GpioCondition;
+
 typedef struct {
     GpioType type;
     uint8_t pin;
@@ -139,15 +137,16 @@ void furi_hal_gpio_init_ex(
  * @param ulp_gpio GpioPin (must belong to ULP domain)
  * @param alt_fn GpioAltFn
  */
-void furi_hal_gpio_enable_ulp_on_hp(const GpioPin* ulp_gpio, GpioAltFn alt_fn);
+void furi_hal_gpio_enable_ulp_on_hp(const GpioPin* ulp_gpio, const GpioAltFn alt_fn);
 
 /**
  * Add and enable interrupt
  * @param gpio GpioPin
+ * @param gpio GpioCondition for triggering the interrupt
  * @param cb   GpioExtiCallback
  * @param ctx  context for callback
  */
-void furi_hal_gpio_add_int_callback(const GpioPin* gpio, GpioExtiCallback cb, void* ctx);
+void furi_hal_gpio_add_int_callback(const GpioPin* gpio, const GpioCondition cond, GpioExtiCallback cb, void* ctx);
 
 /**
  * Enable interrupt

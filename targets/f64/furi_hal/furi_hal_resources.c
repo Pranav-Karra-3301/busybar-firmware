@@ -82,5 +82,29 @@ void furi_hal_resources_deinit_early(void) {
 }
 
 void furi_hal_resources_init(void) {
+    NVIC_SetPriority(EGPIO_PIN_0_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_0_IRQn);
 
+    NVIC_SetPriority(EGPIO_PIN_1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_1_IRQn);
+
+    NVIC_SetPriority(EGPIO_PIN_2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_2_IRQn);
+
+    NVIC_SetPriority(EGPIO_PIN_3_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_3_IRQn);
+
+    NVIC_SetPriority(EGPIO_PIN_4_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_4_IRQn);
+
+    NVIC_SetPriority(EGPIO_PIN_5_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_5_IRQn);
+
+    NVIC_SetPriority(EGPIO_PIN_6_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_6_IRQn);
+
+    NVIC_SetPriority(EGPIO_PIN_7_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_EnableIRQ(EGPIO_PIN_7_IRQn);
+
+    FURI_LOG_I(TAG, "Init OK");
 }
