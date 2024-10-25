@@ -370,6 +370,7 @@ class RpsFlasher:
             debug: debug logging level (0 - no logging, 3 - max verbosity)
         """
 
+        self.serial = None
         self.serial = serial.Serial(port_name, 115200)
         self.rps_file = open(filename, "rb")
         self.file_size = os.path.getsize(filename)
@@ -378,7 +379,8 @@ class RpsFlasher:
         self.debug = debug
 
     def __del__(self):
-        self.serial.close()
+        if self.serial:
+            self.serial.close()
 
     def init_device(self):
         """
@@ -559,7 +561,7 @@ def main():
         "-t",
         default="m4",
         metavar="TYPE",
-        help="image type to flash (\"m4\" or \"ta\")",
+        help='image type to flash ("m4" or "ta")',
     )
     parser.add_argument("filename", metavar="FILE", help="full path to *.rps file")
 

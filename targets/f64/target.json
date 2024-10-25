@@ -64,6 +64,7 @@
         "*/*.c"
     ],
     "linker_script_flash": "SiWG917M111_flash.ld",
+    "variables_sconscript": "fbt_conf/si917_vars.scons",
     "platform_desc": "../../scripts/debug/platforms/siw917.json",
     "rtos_flavor": "freertos-cm4",
     "lib_modules": [
@@ -85,6 +86,7 @@
         "link_builddir"
     ],
     "dist_modules": [
+        "sil917_flash",
         "debug",
         "lint",
         "vscode_project",
@@ -92,8 +94,7 @@
     ],
     "extra_target_meta": {
         "debug_tags": [
-            "rtos",
-            "svd"
+            "rtos"
         ]
     }
 }
