@@ -263,54 +263,62 @@ FURI_ALWAYS_INLINE static void furi_hal_gpio_int_call(uint32_t index) {
 
 /* Interrupt handlers */
 
-// 41: GPIO Wakeup Interrupt
-void IRQ041_Handler(void) {
-}
-
 // 50: GPIO Group Interrupt0
-void IRQ050_Handler(void) {
+void GRP_IRQ0_Handler(void) {
 }
 
 // 51: GPIO Group Interrupt1
-void IRQ051_Handler(void) {
+void GRP_IRQ1_Handler(void) {
 }
 
 // 52: GPIO Pin Interrupt0
-void IRQ052_Handler(void) {
+void PIN_IRQ0_Handler(void) {
     furi_hal_gpio_int_call(0);
 }
 
 // 53: GPIO Pin Interrupt1
-void IRQ053_Handler(void) {
+void PIN_IRQ1_Handler(void) {
     furi_hal_gpio_int_call(1);
 }
 
 // 54: GPIO Pin Interrupt2
-void IRQ054_Handler(void) {
+void PIN_IRQ2_Handler(void) {
     furi_hal_gpio_int_call(2);
 }
 
 // 55: GPIO Pin Interrupt3
-void IRQ055_Handler(void) {
+void PIN_IRQ3_Handler(void) {
     furi_hal_gpio_int_call(3);
 }
 
 // 56: GPIO Pin Interrupt4
-void IRQ056_Handler(void) {
+void PIN_IRQ4_Handler(void) {
     furi_hal_gpio_int_call(4);
 }
 
 // 57: GPIO Pin Interrupt5
-void IRQ057_Handler(void) {
+void PIN_IRQ5_Handler(void) {
     furi_hal_gpio_int_call(5);
 }
 
 // 58: GPIO Pin Interrupt6
-void IRQ058_Handler(void) {
+void PIN_IRQ6_Handler(void) {
     furi_hal_gpio_int_call(6);
 }
 
 // 59: GPIO Pin Interrupt7
-void IRQ059_Handler(void) {
+void PIN_IRQ7_Handler(void) {
     furi_hal_gpio_int_call(7);
+}
+
+// 18: ULP Processor Interrupt18
+void ULP_PIN_IRQ_Handler(void) {
+}
+
+// 19: ULP Processor Interrupt19
+void ULP_GROUP_IRQ_Handler(void) {
+}
+
+// 21: UULP Interrupt1
+void UULP_PIN_IRQ_Handler(void) {
 }

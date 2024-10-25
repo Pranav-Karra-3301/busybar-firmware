@@ -320,20 +320,8 @@ void IRQ016_Handler(void) {
 void IRQ017_Handler(void) {
 }
 
-// 18: ULP Processor Interrupt18
-void IRQ018_Handler(void) {
-}
-
-// 19: ULP Processor Interrupt19
-void IRQ019_Handler(void) {
-}
-
 // 20: UULP Interrupt0
 void IRQ020_Handler(void) {
-}
-
-// 21: UULP Interrupt1
-void IRQ021_Handler(void) {
 }
 
 // 22: UULP Interrupt2
@@ -398,6 +386,10 @@ void IRQ038_Handler(void) {
 
 void IRQ039_Handler(void) {
     furi_hal_interrupt_call(FuriHalInterruptIdUART1);
+}
+
+// 41: GPIO Wakeup Interrupt
+void IRQ041_Handler(void) {
 }
 
 // 42: I2C1 Interrupt
