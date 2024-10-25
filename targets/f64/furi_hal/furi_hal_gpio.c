@@ -15,21 +15,30 @@ typedef struct {
     const GpioPin* gpio;
     GpioExtiCallback callback;
     void* context;
+} GpioHpUlpInterrupt;
+
+typedef struct {
+    GpioExtiCallback callback;
+    void* context;
+} GpioUulpInterrupt;
+
+typedef struct {
+    GpioHpUlpInterrupt hp_ulp[HP_ULP_PERIPH_COUNT][HP_ULP_INTERRUPT_COUNT];
+    GpioUulpInterrupt uulp[UULP_INTERRUPT_COUNT];
 } GpioInterrupt;
 
-static EGPIO_Type* const gpio_hp_ulp_peripheral[HP_ULP_PERIPH_COUNT ] = {
+static EGPIO_Type* const gpio_hp_ulp_peripheral[HP_ULP_PERIPH_COUNT] = {
     [GpioTypeHp] = GPIO,
     [GpioTypeUlp] = ULP_GPIO,
 };
 
-static volatile GpioInterrupt gpio_interrupt_hp_ulp[HP_ULP_PERIPH_COUNT][HP_ULP_INTERRUPT_COUNT];
-static volatile GpioInterrupt gpio_interrupt_uulp[UULP_INTERRUPT_COUNT];
+static volatile GpioInterrupt gpio_interrupt;
 
 static uint32_t furi_hal_gpio_get_free_interrupt_index_hp_ulp(const GpioPin* gpio) {
     furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
 
     for(uint32_t i = 0; i < HP_ULP_INTERRUPT_COUNT; ++i) {
-        if(gpio_interrupt_hp_ulp[gpio->type][i].callback == NULL) {
+        if(gpio_interrupt.hp_ulp[gpio->type][i].callback == NULL) {
             return i;
         }
     }
@@ -41,7 +50,7 @@ static uint32_t furi_hal_gpio_get_configured_interrupt_index_hp_ulp(const GpioPi
     furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
 
     for(uint32_t i = 0; i < HP_ULP_INTERRUPT_COUNT; ++i) {
-        if(gpio_interrupt_hp_ulp[gpio->type][i].gpio == gpio) {
+        if(gpio_interrupt.hp_ulp[gpio->type][i].gpio == gpio) {
             return i;
         }
     }
@@ -204,14 +213,14 @@ bool furi_hal_gpio_read(const GpioPin* gpio) {
 }
 
 static void furi_hal_gpio_add_int_callback_hp_ulp(const GpioPin* gpio, GpioCondition cond, GpioExtiCallback cb, void* ctx) {
-    furi_assert(gpio->type < COUNT_OF(gpio_interrupt_hp_ulp));
+    furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
 
     EGPIO_Type* periph = gpio_hp_ulp_peripheral[gpio->type];
     const uint32_t idx = furi_hal_gpio_get_free_interrupt_index_hp_ulp(gpio);
 
-    gpio_interrupt_hp_ulp[gpio->type][idx].gpio = gpio;
-    gpio_interrupt_hp_ulp[gpio->type][idx].callback = cb;
-    gpio_interrupt_hp_ulp[gpio->type][idx].context = ctx;
+    gpio_interrupt.hp_ulp[gpio->type][idx].gpio = gpio;
+    gpio_interrupt.hp_ulp[gpio->type][idx].callback = cb;
+    gpio_interrupt.hp_ulp[gpio->type][idx].context = ctx;
 
     periph->INTR[idx].GPIO_INTR_CTRL_b.PORT_NUMBER = gpio->pin / 16;
     periph->INTR[idx].GPIO_INTR_CTRL_b.PIN_NUMBER = gpio->pin % 16;
@@ -234,9 +243,8 @@ static void furi_hal_gpio_add_int_callback_uulp(const GpioPin* gpio, GpioConditi
     furi_assert(gpio->type == GpioTypeUulp);
     furi_assert(gpio->pin < UULP_INTERRUPT_COUNT);
 
-    gpio_interrupt_uulp[gpio->pin].gpio = gpio;
-    gpio_interrupt_uulp[gpio->pin].callback = cb;
-    gpio_interrupt_uulp[gpio->pin].context = ctx;
+    gpio_interrupt.uulp[gpio->pin].callback = cb;
+    gpio_interrupt.uulp[gpio->pin].context = ctx;
 
     const uint32_t bit = 1UL << gpio->pin;
 
@@ -308,14 +316,14 @@ void furi_hal_gpio_remove_int_callback(const GpioPin* gpio) {
 }
 
 FURI_ALWAYS_INLINE static void furi_hal_gpio_int_call_hp_ulp(const GpioType gpio_type, uint32_t index) {
-    volatile GpioInterrupt* hp_ulp_interrupt = &gpio_interrupt_hp_ulp[gpio_type][index];
+    volatile GpioHpUlpInterrupt* hp_ulp_interrupt = &gpio_interrupt.hp_ulp[gpio_type][index];
     if(hp_ulp_interrupt->callback) {
         hp_ulp_interrupt->callback(hp_ulp_interrupt->context);
     }
 }
 
 FURI_ALWAYS_INLINE static void furi_hal_gpio_int_call_uulp(uint32_t index) {
-    volatile GpioInterrupt* uulp_interrupt = &gpio_interrupt_uulp[index];
+    volatile GpioUulpInterrupt* uulp_interrupt = &gpio_interrupt.uulp[index];
     if(uulp_interrupt->callback) {
         uulp_interrupt->callback(uulp_interrupt->context);
     }
