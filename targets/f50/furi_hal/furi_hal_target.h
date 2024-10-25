@@ -14,3 +14,4 @@
 #include <furi_hal_pssi_dma.h>
 #include <furi_hal_mpu.h>
 #include <furi_hal_button.h>
+#include <furi_hal_nvm.h>
