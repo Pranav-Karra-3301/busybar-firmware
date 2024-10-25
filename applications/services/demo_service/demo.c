@@ -20,6 +20,7 @@ typedef struct {
 typedef enum {
     DemoButtonPomodoro,
     DemoButtonBusy,
+    DemoButtonOff,
 } DemoButton;
 
 static void demo_service_pomodoro_int_callback(void* context) {
@@ -32,6 +33,13 @@ static void demo_service_pomodoro_int_callback(void* context) {
 static void demo_service_busy_int_callback(void* context) {
     DemoService* instance = context;
     const DemoButton button = DemoButtonBusy;
+    // No checking, don't care if event is lost due queue being full
+    furi_message_queue_put(instance->message_queue, &button, 0);
+}
+
+static void demo_service_off_int_callback(void* context) {
+    DemoService* instance = context;
+    const DemoButton button = DemoButtonOff;
     // No checking, don't care if event is lost due queue being full
     furi_message_queue_put(instance->message_queue, &button, 0);
 }
@@ -86,9 +94,11 @@ static DemoService* demo_service_alloc(void) {
     furi_hal_gpio_init(&gpio_sw_pomodoro, GpioModeInput, GpioPullUp, GpioSpeedHigh);
     furi_hal_gpio_add_int_callback(&gpio_sw_pomodoro, GpioConditionFall, demo_service_pomodoro_int_callback, instance);
 
-    // UNUSED(demo_service_busy_int_callback);
     furi_hal_gpio_init(&gpio_sw_busy, GpioModeInput, GpioPullUp, GpioSpeedHigh);
     furi_hal_gpio_add_int_callback(&gpio_sw_busy, GpioConditionFall, demo_service_busy_int_callback, instance);
+
+    furi_hal_gpio_init_simple(&gpio_sw_off, GpioModeInput);
+    furi_hal_gpio_add_int_callback(&gpio_sw_off, GpioConditionFall, demo_service_off_int_callback, instance);
 
     return instance;
 }

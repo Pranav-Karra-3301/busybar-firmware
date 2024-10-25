@@ -5,8 +5,8 @@
 
 #define HP_ULP_PERIPH_COUNT (2UL)
 
-#define HP_ULP_INT_HANDLER_COUNT (8UL)
-#define UULP_INT_HANDLER_COUNT (4UL)
+#define HP_ULP_INTERRUPT_COUNT (8UL)
+#define UULP_INTERRUPT_COUNT (4UL)
 
 #define DRIVE_STRENGTH_12MA (3UL)
 #define GPIO_INTR_STATUS_CLEAR (7UL)
@@ -22,13 +22,13 @@ static EGPIO_Type* const gpio_hp_ulp_peripheral[HP_ULP_PERIPH_COUNT ] = {
     [GpioTypeUlp] = ULP_GPIO,
 };
 
-static volatile GpioInterrupt gpio_interrupt_hp_ulp[HP_ULP_PERIPH_COUNT][HP_ULP_INT_HANDLER_COUNT];
-static volatile GpioInterrupt gpio_interrupt_uulp[UULP_INT_HANDLER_COUNT];
+static volatile GpioInterrupt gpio_interrupt_hp_ulp[HP_ULP_PERIPH_COUNT][HP_ULP_INTERRUPT_COUNT];
+static volatile GpioInterrupt gpio_interrupt_uulp[UULP_INTERRUPT_COUNT];
 
 static uint32_t furi_hal_gpio_get_free_interrupt_index_hp_ulp(const GpioPin* gpio) {
     furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
 
-    for(uint32_t i = 0; i < HP_ULP_INT_HANDLER_COUNT; ++i) {
+    for(uint32_t i = 0; i < HP_ULP_INTERRUPT_COUNT; ++i) {
         if(gpio_interrupt_hp_ulp[gpio->type][i].callback == NULL) {
             return i;
         }
@@ -40,7 +40,7 @@ static uint32_t furi_hal_gpio_get_free_interrupt_index_hp_ulp(const GpioPin* gpi
 static uint32_t furi_hal_gpio_get_configured_interrupt_index_hp_ulp(const GpioPin* gpio) {
     furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
 
-    for(uint32_t i = 0; i < HP_ULP_INT_HANDLER_COUNT; ++i) {
+    for(uint32_t i = 0; i < HP_ULP_INTERRUPT_COUNT; ++i) {
         if(gpio_interrupt_hp_ulp[gpio->type][i].gpio == gpio) {
             return i;
         }
@@ -140,6 +140,8 @@ void furi_hal_gpio_init_ex(
         furi_hal_gpio_init_hp_ulp(gpio, mode, alt_fn);
 
     } else if(gpio->type == GpioTypeUulp) {
+        // No way of setting the pullup/down resistors, crash to avoid false expectations
+        furi_check(pull == GpioPullNo);
         furi_hal_gpio_init_uulp(gpio, mode, alt_fn);
 
     } else {
@@ -221,9 +223,34 @@ static void furi_hal_gpio_add_int_callback_hp_ulp(const GpioPin* gpio, GpioCondi
     } else if(cond == GpioConditionRiseFall) {
         periph->INTR[idx].GPIO_INTR_CTRL_b.RISE_EDGE_ENABLE = 1;
         periph->INTR[idx].GPIO_INTR_CTRL_b.FALL_EDGE_ENABLE = 1;
+    } else {
+        furi_crash();
     }
 
     periph->INTR[idx].GPIO_INTR_STATUS_b.MASK_CLEAR = 1;
+}
+
+static void furi_hal_gpio_add_int_callback_uulp(const GpioPin* gpio, GpioCondition cond, GpioExtiCallback cb, void* ctx) {
+    furi_assert(gpio->type == GpioTypeUulp);
+    furi_assert(gpio->pin < UULP_INTERRUPT_COUNT);
+
+    gpio_interrupt_uulp[gpio->pin].gpio = gpio;
+    gpio_interrupt_uulp[gpio->pin].callback = cb;
+    gpio_interrupt_uulp[gpio->pin].context = ctx;
+
+    const uint32_t bit = 1UL << gpio->pin;
+
+    if(cond == GpioConditionRise) {
+        GPIO_NPSS_GPIO_CONFIG_REG |= bit;
+    } else if(cond == GpioConditionFall) {
+        GPIO_NPSS_GPIO_CONFIG_REG |= bit << 8;
+    } else if(cond == GpioConditionRiseFall) {
+        GPIO_NPSS_GPIO_CONFIG_REG |= bit | (bit << 8);
+    } else {
+        furi_crash();
+    }
+
+    GPIO_NPSS_INTERRUPT_MASK_CLR_REG |= bit << 1;
 }
 
 void furi_hal_gpio_add_int_callback(const GpioPin* gpio, GpioCondition cond, GpioExtiCallback cb, void* ctx) {
@@ -235,8 +262,7 @@ void furi_hal_gpio_add_int_callback(const GpioPin* gpio, GpioCondition cond, Gpi
     if(gpio->type == GpioTypeHp || gpio->type == GpioTypeUlp) {
         furi_hal_gpio_add_int_callback_hp_ulp(gpio, cond, cb, ctx);
     } else if(gpio->type == GpioTypeUulp) {
-        // TODO: UULP GPIO support
-        UNUSED(gpio_interrupt_uulp);
+        furi_hal_gpio_add_int_callback_uulp(gpio, cond, cb, ctx);
     } else {
         furi_crash();
     }
@@ -288,12 +314,27 @@ FURI_ALWAYS_INLINE static void furi_hal_gpio_int_call_hp_ulp(const GpioType gpio
     }
 }
 
+FURI_ALWAYS_INLINE static void furi_hal_gpio_int_call_uulp(uint32_t index) {
+    volatile GpioInterrupt* uulp_interrupt = &gpio_interrupt_uulp[index];
+    if(uulp_interrupt->callback) {
+        uulp_interrupt->callback(uulp_interrupt->context);
+    }
+}
+
 FURI_ALWAYS_INLINE static bool furi_hal_gpio_get_int_flag_hp_ulp(const EGPIO_Type* periph, uint32_t index) {
     return periph->INTR[index].GPIO_INTR_STATUS_b.INTERRUPT_STATUS;
 }
 
 FURI_ALWAYS_INLINE static void furi_hal_gpio_clear_int_flag_hp_ulp(EGPIO_Type* periph, uint32_t index) {
     periph->INTR[index].GPIO_INTR_STATUS = GPIO_INTR_STATUS_CLEAR;
+}
+
+FURI_ALWAYS_INLINE static bool furi_hal_gpio_get_int_flag_uulp(uint32_t flag) {
+    return (GPIO_NPSS_INTERRUPT_STATUS_REG >> 1) & flag;
+}
+
+FURI_ALWAYS_INLINE static void furi_hal_gpio_clear_int_flag_uulp(uint32_t flag) {
+    GPIO_NPSS_INTERRUPT_CLEAR_REG = (flag << 1);
 }
 
 /* Interrupt handlers */
@@ -399,4 +440,23 @@ void ULP_GROUP_IRQ_Handler(void) {
 
 // 21: UULP Interrupt1
 void UULP_PIN_IRQ_Handler(void) {
+    if(furi_hal_gpio_get_int_flag_uulp(UULP_INTR_1)) {
+        furi_hal_gpio_int_call_uulp(0);
+        furi_hal_gpio_clear_int_flag_uulp(UULP_INTR_1);
+    }
+    if(furi_hal_gpio_get_int_flag_uulp(UULP_INTR_2)) {
+        furi_hal_gpio_int_call_uulp(1);
+        furi_hal_gpio_clear_int_flag_uulp(UULP_INTR_2);
+    }
+    if(furi_hal_gpio_get_int_flag_uulp(UULP_INTR_3)) {
+        furi_hal_gpio_int_call_uulp(2);
+        furi_hal_gpio_clear_int_flag_uulp(UULP_INTR_3);
+    }
+    if(furi_hal_gpio_get_int_flag_uulp(UULP_INTR_4)) {
+        furi_hal_gpio_int_call_uulp(3);
+        furi_hal_gpio_clear_int_flag_uulp(UULP_INTR_4);
+    }
+    if(furi_hal_gpio_get_int_flag_uulp(UULP_INTR_5)) {
+        furi_crash("Not present");
+    }
 }
