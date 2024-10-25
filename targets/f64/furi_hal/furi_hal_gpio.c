@@ -3,10 +3,13 @@
 
 #include <sl_si91x_gpio_common.h>
 
-#define HP_INT_HANDLER_COUNT (COUNT_OF(GPIO->INTR))
+#define HP_ULP_PERIPH_COUNT (2UL)
+
+#define HP_ULP_INT_HANDLER_COUNT (8UL)
+#define UULP_INT_HANDLER_COUNT (4UL)
 
 #define DRIVE_STRENGTH_12MA (3UL)
-#define GPIO_INTR_STATUS_CLEAR (1UL)
+#define GPIO_INTR_STATUS_CLEAR (7UL)
 
 typedef struct {
     const GpioPin* gpio;
@@ -14,26 +17,36 @@ typedef struct {
     void* context;
 } GpioInterrupt;
 
-static volatile GpioInterrupt gpio_interrupt[HP_INT_HANDLER_COUNT];
+static EGPIO_Type* const gpio_hp_ulp_peripheral[HP_ULP_PERIPH_COUNT ] = {
+    [GpioTypeHp] = GPIO,
+    [GpioTypeUlp] = ULP_GPIO,
+};
 
-static uint32_t furi_hal_gpio_get_free_interrupt_index(void) {
-    for(uint32_t i = 0; i < HP_INT_HANDLER_COUNT; ++i) {
-        if(gpio_interrupt[i].callback == NULL) {
+static volatile GpioInterrupt gpio_interrupt_hp_ulp[HP_ULP_PERIPH_COUNT][HP_ULP_INT_HANDLER_COUNT];
+static volatile GpioInterrupt gpio_interrupt_uulp[UULP_INT_HANDLER_COUNT];
+
+static uint32_t furi_hal_gpio_get_free_interrupt_index_hp_ulp(const GpioPin* gpio) {
+    furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
+
+    for(uint32_t i = 0; i < HP_ULP_INT_HANDLER_COUNT; ++i) {
+        if(gpio_interrupt_hp_ulp[gpio->type][i].callback == NULL) {
             return i;
         }
     }
 
-    furi_crash("Maximum HP interrupt count exceeded");
+    furi_crash("Maximum HP/ULP interrupt count exceeded");
 }
 
-static uint32_t furi_hal_gpio_get_configured_interrupt_index(const GpioPin* gpio) {
-    for(uint32_t i = 0; i < HP_INT_HANDLER_COUNT; ++i) {
-        if(gpio_interrupt[i].gpio == gpio) {
+static uint32_t furi_hal_gpio_get_configured_interrupt_index_hp_ulp(const GpioPin* gpio) {
+    furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
+
+    for(uint32_t i = 0; i < HP_ULP_INT_HANDLER_COUNT; ++i) {
+        if(gpio_interrupt_hp_ulp[gpio->type][i].gpio == gpio) {
             return i;
         }
     }
 
-    furi_crash("Gpio not configured as interrupt source");
+    furi_crash("HP/ULP Gpio not configured as interrupt source");
 }
 
 void furi_hal_gpio_init_simple(const GpioPin* gpio, const GpioMode mode) {
@@ -48,16 +61,20 @@ void furi_hal_gpio_init(
     furi_hal_gpio_init_ex(gpio, mode, pull, speed, GpioAltFnUnused);
 }
 
-static void furi_hal_gpio_init_ex_hp_ulp(EGPIO_Type* port, const GpioPin* gpio, const GpioMode mode, const GpioAltFn alt_fn) {
-    port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.MODE = alt_fn;
+static void furi_hal_gpio_init_hp_ulp(const GpioPin* gpio, const GpioMode mode, const GpioAltFn alt_fn) {
+    furi_assert(gpio->type < HP_ULP_PERIPH_COUNT);
+
+    EGPIO_Type* periph = gpio_hp_ulp_peripheral[gpio->type];
+
+    periph->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.MODE = alt_fn;
 
     if(mode == GpioModeInput) {
-        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 1;
+        periph->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 1;
     } else if(mode == GpioModeOutputPushPull) {
-        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 0;
+        periph->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 0;
     } else if(mode == GpioModeOutputOpenDrain) {
-        port->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 1;
-        port->PIN_CONFIG[gpio->pin].BIT_LOAD_REG = 0;
+        periph->PIN_CONFIG[gpio->pin].GPIO_CONFIG_REG_b.DIRECTION = 1;
+        periph->PIN_CONFIG[gpio->pin].BIT_LOAD_REG = 0;
     } else {
         furi_crash();
     }
@@ -67,7 +84,6 @@ static void furi_hal_gpio_init_uulp(
     const GpioPin* gpio,
     const GpioMode mode,
     const GpioAltFn alt_fn) {
-    // Enable Pad receiver (mandatory?)
     UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_REN = 1;
     UULP_GPIO->NPSS_GPIO_CNTRL[gpio->pin].NPSS_GPIO_CTRLS_b.NPSS_GPIO_MODE = alt_fn;
 
@@ -96,17 +112,14 @@ void furi_hal_gpio_init_ex(
     FURI_CRITICAL_ENTER();
 
     if(gpio->type == GpioTypeHp) {
-        // Enable Pad receiver (mandatory?)
         PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_REN = 1;
-
         PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_SR = speed;
         PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_P1_P2 = pull;
         PAD_REG(gpio->pin)->GPIO_PAD_CONFIG_REG_b.PADCONFIG_E1_E2 = DRIVE_STRENGTH_12MA;
 
-        furi_hal_gpio_init_ex_hp_ulp(GPIO, gpio, mode, alt_fn);
+        furi_hal_gpio_init_hp_ulp(gpio, mode, alt_fn);
 
     } else if(gpio->type == GpioTypeUlp) {
-        // Enable Pad receiver (mandatory?)
         ULP_PAD_CONFIG2_REG->ULP_PAD_CONFIG_REG2 |= 1UL << gpio->pin;
 
         // NOTE: Speed and Pull-Up settings are co-dependent for pins 0...3, 4...8, 8...11
@@ -124,7 +137,7 @@ void furi_hal_gpio_init_ex(
             ULP_PAD_CONFIG1_REG->ULP_GPIO_PAD_CONFIG_REG_1.PADCONFIG_E1_E2_1 = DRIVE_STRENGTH_12MA;
         }
 
-        furi_hal_gpio_init_ex_hp_ulp(ULP_GPIO, gpio, mode, alt_fn);
+        furi_hal_gpio_init_hp_ulp(gpio, mode, alt_fn);
 
     } else if(gpio->type == GpioTypeUulp) {
         furi_hal_gpio_init_uulp(gpio, mode, alt_fn);
@@ -188,31 +201,45 @@ bool furi_hal_gpio_read(const GpioPin* gpio) {
     }
 }
 
+static void furi_hal_gpio_add_int_callback_hp_ulp(const GpioPin* gpio, GpioCondition cond, GpioExtiCallback cb, void* ctx) {
+    furi_assert(gpio->type < COUNT_OF(gpio_interrupt_hp_ulp));
+
+    EGPIO_Type* periph = gpio_hp_ulp_peripheral[gpio->type];
+    const uint32_t idx = furi_hal_gpio_get_free_interrupt_index_hp_ulp(gpio);
+
+    gpio_interrupt_hp_ulp[gpio->type][idx].gpio = gpio;
+    gpio_interrupt_hp_ulp[gpio->type][idx].callback = cb;
+    gpio_interrupt_hp_ulp[gpio->type][idx].context = ctx;
+
+    periph->INTR[idx].GPIO_INTR_CTRL_b.PORT_NUMBER = gpio->pin / 16;
+    periph->INTR[idx].GPIO_INTR_CTRL_b.PIN_NUMBER = gpio->pin % 16;
+
+    if(cond == GpioConditionRise) {
+        periph->INTR[idx].GPIO_INTR_CTRL_b.RISE_EDGE_ENABLE = 1;
+    } else if(cond == GpioConditionFall) {
+        periph->INTR[idx].GPIO_INTR_CTRL_b.FALL_EDGE_ENABLE = 1;
+    } else if(cond == GpioConditionRiseFall) {
+        periph->INTR[idx].GPIO_INTR_CTRL_b.RISE_EDGE_ENABLE = 1;
+        periph->INTR[idx].GPIO_INTR_CTRL_b.FALL_EDGE_ENABLE = 1;
+    }
+
+    periph->INTR[idx].GPIO_INTR_STATUS_b.MASK_CLEAR = 1;
+}
+
 void furi_hal_gpio_add_int_callback(const GpioPin* gpio, GpioCondition cond, GpioExtiCallback cb, void* ctx) {
     furi_check(gpio);
     furi_check(cb);
 
     FURI_CRITICAL_ENTER();
 
-    const uint32_t idx = furi_hal_gpio_get_free_interrupt_index();
-
-    gpio_interrupt[idx].gpio = gpio;
-    gpio_interrupt[idx].callback = cb;
-    gpio_interrupt[idx].context = ctx;
-
-    GPIO->INTR[idx].GPIO_INTR_CTRL_b.PORT_NUMBER = gpio->pin / 16;
-    GPIO->INTR[idx].GPIO_INTR_CTRL_b.PIN_NUMBER = gpio->pin % 16;
-
-    if(cond == GpioConditionRise) {
-        GPIO->INTR[idx].GPIO_INTR_CTRL_b.RISE_EDGE_ENABLE = 1;
-    } else if(cond == GpioConditionFall) {
-        GPIO->INTR[idx].GPIO_INTR_CTRL_b.FALL_EDGE_ENABLE = 1;
-    } else if(cond == GpioConditionRiseFall) {
-        GPIO->INTR[idx].GPIO_INTR_CTRL_b.RISE_EDGE_ENABLE = 1;
-        GPIO->INTR[idx].GPIO_INTR_CTRL_b.FALL_EDGE_ENABLE = 1;
+    if(gpio->type == GpioTypeHp || gpio->type == GpioTypeUlp) {
+        furi_hal_gpio_add_int_callback_hp_ulp(gpio, cond, cb, ctx);
+    } else if(gpio->type == GpioTypeUulp) {
+        // TODO: UULP GPIO support
+        UNUSED(gpio_interrupt_uulp);
+    } else {
+        furi_crash();
     }
-
-    GPIO->INTR[idx].GPIO_INTR_STATUS_b.MASK_CLEAR = 1;
 
     FURI_CRITICAL_EXIT();
 }
@@ -244,79 +271,130 @@ void furi_hal_gpio_remove_int_callback(const GpioPin* gpio) {
 
     // TODO: remove callback
 
-    const uint32_t idx = furi_hal_gpio_get_configured_interrupt_index(gpio);
-
-    gpio_interrupt[idx].gpio = NULL;
-    gpio_interrupt[idx].callback = NULL;
-    gpio_interrupt[idx].context = NULL;
+    UNUSED(furi_hal_gpio_get_configured_interrupt_index_hp_ulp);
+    // const uint32_t idx = furi_hal_gpio_get_configured_interrupt_index(gpio);
+    //
+    // gpio_interrupt[idx].gpio = NULL;
+    // gpio_interrupt[idx].callback = NULL;
+    // gpio_interrupt[idx].context = NULL;
 
     FURI_CRITICAL_EXIT();
 }
 
-FURI_ALWAYS_INLINE static void furi_hal_gpio_int_call(uint32_t index) {
-    if(gpio_interrupt[index].callback) {
-        gpio_interrupt[index].callback(gpio_interrupt[index].context);
+FURI_ALWAYS_INLINE static void furi_hal_gpio_int_call_hp_ulp(const GpioType gpio_type, uint32_t index) {
+    volatile GpioInterrupt* hp_ulp_interrupt = &gpio_interrupt_hp_ulp[gpio_type][index];
+    if(hp_ulp_interrupt->callback) {
+        hp_ulp_interrupt->callback(hp_ulp_interrupt->context);
     }
+}
 
-    GPIO->INTR[index].GPIO_INTR_STATUS = GPIO_INTR_STATUS_CLEAR;
+FURI_ALWAYS_INLINE static bool furi_hal_gpio_get_int_flag_hp_ulp(const EGPIO_Type* periph, uint32_t index) {
+    return periph->INTR[index].GPIO_INTR_STATUS_b.INTERRUPT_STATUS;
+}
+
+FURI_ALWAYS_INLINE static void furi_hal_gpio_clear_int_flag_hp_ulp(EGPIO_Type* periph, uint32_t index) {
+    periph->INTR[index].GPIO_INTR_STATUS = GPIO_INTR_STATUS_CLEAR;
 }
 
 /* Interrupt handlers */
 
 // 50: GPIO Group Interrupt0
 void GRP_IRQ0_Handler(void) {
+    furi_crash("Not implemented");
 }
 
 // 51: GPIO Group Interrupt1
 void GRP_IRQ1_Handler(void) {
+    furi_crash("Not implemented");
 }
 
 // 52: GPIO Pin Interrupt0
 void PIN_IRQ0_Handler(void) {
-    furi_hal_gpio_int_call(0);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_0);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_0);
 }
 
 // 53: GPIO Pin Interrupt1
 void PIN_IRQ1_Handler(void) {
-    furi_hal_gpio_int_call(1);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_1);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_1);
 }
 
 // 54: GPIO Pin Interrupt2
 void PIN_IRQ2_Handler(void) {
-    furi_hal_gpio_int_call(2);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_2);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_2);
 }
 
 // 55: GPIO Pin Interrupt3
 void PIN_IRQ3_Handler(void) {
-    furi_hal_gpio_int_call(3);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_3);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_3);
 }
 
 // 56: GPIO Pin Interrupt4
 void PIN_IRQ4_Handler(void) {
-    furi_hal_gpio_int_call(4);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_4);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_4);
 }
 
 // 57: GPIO Pin Interrupt5
 void PIN_IRQ5_Handler(void) {
-    furi_hal_gpio_int_call(5);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_5);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_5);
 }
 
 // 58: GPIO Pin Interrupt6
 void PIN_IRQ6_Handler(void) {
-    furi_hal_gpio_int_call(6);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_6);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_6);
 }
 
 // 59: GPIO Pin Interrupt7
 void PIN_IRQ7_Handler(void) {
-    furi_hal_gpio_int_call(7);
+    furi_hal_gpio_int_call_hp_ulp(GpioTypeHp, PIN_INTR_7);
+    furi_hal_gpio_clear_int_flag_hp_ulp(GPIO, PIN_INTR_7);
 }
 
 // 18: ULP Processor Interrupt18
 void ULP_PIN_IRQ_Handler(void) {
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_0)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_0);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_0);
+    }
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_1)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_1);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_1);
+    }
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_2)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_2);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_2);
+    }
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_3)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_3);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_3);
+    }
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_4)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_4);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_4);
+    }
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_5)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_5);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_5);
+    }
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_6)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_6);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_6);
+    }
+    if(furi_hal_gpio_get_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_7)) {
+        furi_hal_gpio_int_call_hp_ulp(GpioTypeUlp, ULP_PIN_INTR_7);
+        furi_hal_gpio_clear_int_flag_hp_ulp(ULP_GPIO, ULP_PIN_INTR_7);
+    }
 }
 
 // 19: ULP Processor Interrupt19
 void ULP_GROUP_IRQ_Handler(void) {
+    furi_crash("Not implemented");
 }
 
 // 21: UULP Interrupt1

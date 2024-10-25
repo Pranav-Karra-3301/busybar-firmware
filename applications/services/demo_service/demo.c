@@ -86,9 +86,9 @@ static DemoService* demo_service_alloc(void) {
     furi_hal_gpio_init(&gpio_sw_pomodoro, GpioModeInput, GpioPullUp, GpioSpeedHigh);
     furi_hal_gpio_add_int_callback(&gpio_sw_pomodoro, GpioConditionFall, demo_service_pomodoro_int_callback, instance);
 
-    UNUSED(demo_service_busy_int_callback);
-    // furi_hal_gpio_init(&gpio_sw_busy, GpioModeInput, GpioPullUp, GpioSpeedHigh);
-    // furi_hal_gpio_add_int_callback(&gpio_sw_busy, GpioConditionFall, demo_service_busy_int_callback, instance);
+    // UNUSED(demo_service_busy_int_callback);
+    furi_hal_gpio_init(&gpio_sw_busy, GpioModeInput, GpioPullUp, GpioSpeedHigh);
+    furi_hal_gpio_add_int_callback(&gpio_sw_busy, GpioConditionFall, demo_service_busy_int_callback, instance);
 
     return instance;
 }
