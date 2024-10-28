@@ -19,21 +19,41 @@
 #define FCR_FIFOE_POS (0)
 #define FCR_FIFOE_SET (1UL << FCR_FIFOE_POS)
 
+#define IIR_IID_MODEM_STATUS (0x0)
+#define IIR_IID_NO_INTERRUPT (0x1)
+#define IIR_IID_THR_EMPTY (0x2)
+#define IIR_IID_RX_AVAILABLE (0x4)
+#define IIR_IID_LINE_STATUS (0x6)
+#define IIR_IID_BUSY_DETECT (0x7)
+#define IIR_IID_CHAR_TIMEOUT (0xC)
+
+typedef struct {
+    FuriHalSerialHandle* handle;
+    FuriHalSerialAsyncRxCallback rx_callback;
+    void* context;
+} FuriHalSerial;
+
 typedef struct {
     USART0_Type* periph;
+    FuriHalInterruptId irq;
 } FuriHalSerialConfig;
 
 static const FuriHalSerialConfig furi_hal_serial_config[FuriHalSerialIdMax] = {
     [FuriHalSerialIdUsart0] = {
         .periph = UART0,
+        .irq = FuriHalInterruptIdUSART0,
     },
     [FuriHalSerialIdUart1] = {
         .periph = UART1,
+        .irq = FuriHalInterruptIdUART1,
     },
     [FuriHalSerialIdUlpuart] = {
         .periph = ULP_UART,
+        .irq = FuriHalInterruptIdULPSS_UART,
     },
 };
+
+static FuriHalSerial furi_hal_serial[FuriHalSerialIdMax];
 
 void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
     furi_check(handle);
@@ -179,6 +199,50 @@ void furi_hal_serial_tx_wait_complete(FuriHalSerialHandle* handle) {
         ;
 }
 
+static void furi_hal_serial_event_init(FuriHalSerialHandle* handle, bool report_errors) {
+    UNUSED(handle);
+    UNUSED(report_errors);
+}
+
+static void furi_hal_serial_rx_irq_callback(void* context) {
+    furi_assert(context);
+
+    FuriHalSerialRxEvent event = 0;
+
+    FuriHalSerialHandle* handle = context;
+    const FuriHalSerial* serial = &furi_hal_serial[handle->id];
+    const FuriHalSerialConfig* config = &furi_hal_serial_config[handle->id];
+
+    if(config->periph->IIR_b.IID == IIR_IID_RX_AVAILABLE) {
+        event |= FuriHalSerialRxEventData;
+    }
+
+    if(serial->rx_callback) {
+        serial->rx_callback(handle, event, serial->context);
+    }
+}
+
+static void furi_hal_serial_async_rx_configure(
+    FuriHalSerialHandle* handle,
+    FuriHalSerialAsyncRxCallback callback,
+    void* context) {
+
+    FuriHalSerial* serial = &furi_hal_serial[handle->id];
+    const FuriHalSerialConfig* config = &furi_hal_serial_config[handle->id];
+
+    serial->handle = handle;
+    serial->rx_callback = callback;
+    serial->context = context;
+
+    if(callback) {
+        furi_hal_interrupt_set_isr(config->irq, furi_hal_serial_rx_irq_callback, handle);
+        config->periph->IER_b.ERBFI = 1;
+    } else {
+        furi_hal_interrupt_set_isr(config->irq, NULL, NULL);
+        config->periph->IER_b.ERBFI = 0;
+    }
+}
+
 void furi_hal_serial_async_rx_start(
     FuriHalSerialHandle* handle,
     FuriHalSerialAsyncRxCallback callback,
@@ -186,8 +250,9 @@ void furi_hal_serial_async_rx_start(
     bool report_errors) {
     furi_check(handle);
     furi_check(callback);
-    UNUSED(context);
-    UNUSED(report_errors);
+
+    furi_hal_serial_event_init(handle, report_errors);
+    furi_hal_serial_async_rx_configure(handle, callback, context);
 }
 
 void furi_hal_serial_async_rx_stop(FuriHalSerialHandle* handle) {
@@ -198,12 +263,12 @@ bool furi_hal_serial_async_rx_available(FuriHalSerialHandle* handle) {
     furi_check(FURI_IS_IRQ_MODE());
     furi_check(handle->id < FuriHalSerialIdMax);
 
-    return false;
+    return furi_hal_serial_config[handle->id].periph->USR_b.RFNE;
 }
 
 uint8_t furi_hal_serial_async_rx(FuriHalSerialHandle* handle) {
     furi_check(FURI_IS_IRQ_MODE());
     furi_check(handle->id < FuriHalSerialIdMax);
 
-    return 0;
+    return furi_hal_serial_config[handle->id].periph->RBR;
 }
