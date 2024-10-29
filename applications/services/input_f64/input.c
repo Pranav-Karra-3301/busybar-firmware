@@ -15,58 +15,49 @@
 #define INPUT_LOG(...)
 #endif
 
-typedef struct
-{
-    const InputPin *pin;
+typedef struct {
+    const InputPin* pin;
     uint16_t debounce_count;
     bool state;
 } InputSrvKeyState;
 
-typedef struct
-{
-    FuriEventLoop *event_loop;
+typedef struct {
+    FuriEventLoop* event_loop;
     // FuriPubSub* event_pubsub;
-    FuriSemaphore *input_semaphore;
-    FuriEventLoopTimer *debounce_timer;
-    InputSrvKeyState *key_state;
+    FuriSemaphore* input_semaphore;
+    FuriEventLoopTimer* debounce_timer;
+    InputSrvKeyState* key_state;
     // InputSrvKeySequence* key_sequence;
     uint32_t sequence_counter;
 } InputSrv;
 
-static void input_isr_key(void *context)
-{
-    InputSrv *instance = context;
+static void input_isr_key(void* context) {
+    InputSrv* instance = context;
     furi_semaphore_release(instance->input_semaphore);
 }
 
-static void input_debounce_timer_callback(void *context)
-{
+static void input_debounce_timer_callback(void* context) {
     furi_assert(context);
-    InputSrv *instance = context;
+    InputSrv* instance = context;
     bool is_changing = false;
-    for (size_t i = 0; i < input_pins_count; i++)
-    {
+    for(size_t i = 0; i < input_pins_count; i++) {
         bool state = GPIO_Read(instance->key_state[i]);
 
-        if (state)
-        {
-            if (instance->key_state[i].debounce_count < INPUT_DEBOUNCE_TICKS)
-            {
+        if(state) {
+            if(instance->key_state[i].debounce_count < INPUT_DEBOUNCE_TICKS) {
                 instance->key_state[i].debounce_count++;
                 is_changing = true;
             }
-        }
-        else if (instance->key_state[i].debounce_count > 0)
-        {
+        } else if(instance->key_state[i].debounce_count > 0) {
             instance->key_state[i].debounce_count--;
             is_changing = true;
         }
 
-        if (!is_changing && instance->key_state[i].state != state)
-        {
+        if(!is_changing && instance->key_state[i].state != state) {
             instance->key_state[i].state = state;
 
-            FURI_LOG_I(TAG, "Key %s %s", instance->key_state[i].pin->name, state ? "pressed" : "released");
+            FURI_LOG_I(
+                TAG, "Key %s %s", instance->key_state[i].pin->name, state ? "pressed" : "released");
 
             // if(state) {
             //     input_key_sequence_run(
@@ -78,17 +69,15 @@ static void input_debounce_timer_callback(void *context)
         }
     }
 
-    if (!is_changing)
-    {
+    if(!is_changing) {
         furi_event_loop_timer_stop(instance->debounce_timer);
     }
 }
 
-int32_t input_srv(void *p)
-{
+int32_t input_srv(void* p) {
     UNUSED(p);
     FURI_LOG_I(TAG, "Starting");
-    InputSrv *instance = malloc(sizeof(InputSrv));
+    InputSrv* instance = malloc(sizeof(InputSrv));
     instance->input_semaphore = furi_semaphore_alloc(1, 0);
     instance->event_loop = furi_event_loop_alloc();
     instance->debounce_timer = furi_event_loop_timer_alloc(
@@ -98,9 +87,9 @@ int32_t input_srv(void *p)
         instance);
 
     instance->key_state = malloc(sizeof(InputSrvKeyState) * input_pins_count);
-    for (size_t i = 0; i < input_pins_count; i++)
-    {
-        furi_hal_gpio_add_int_callback(input_pins[i].gpio, input_pins[i].condition, input_isr_key, instance);
+    for(size_t i = 0; i < input_pins_count; i++) {
+        furi_hal_gpio_add_int_callback(
+            input_pins[i].gpio, input_pins[i].condition, input_isr_key, instance);
         instance->key_state[i].pin = &input_pins[i];
         instance->key_state[i].state = GPIO_Read(instance->key_state[i]);
         instance->sequence_counter = 0;

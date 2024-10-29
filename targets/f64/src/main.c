@@ -4,8 +4,7 @@
 
 #define TAG "Main"
 
-static int32_t init_task(void *context)
-{
+static int32_t init_task(void* context) {
     UNUSED(context);
 
     furi_hal_init();
@@ -16,15 +15,14 @@ static int32_t init_task(void *context)
     return 0;
 }
 
-int main(void)
-{
+int main(void) {
     furi_init();
 
     furi_log_set_level(FuriLogLevelDebug);
 
     furi_hal_init_early();
 
-    FuriThread *main_thread = furi_thread_alloc_ex("Init", 1024, init_task, NULL);
+    FuriThread* main_thread = furi_thread_alloc_ex("Init", 1024, init_task, NULL);
     furi_thread_start(main_thread);
 
     furi_run();
@@ -32,7 +30,6 @@ int main(void)
     furi_crash("Kernel is Dead");
 }
 
-void abort(void)
-{
+void abort(void) {
     furi_crash("AbortHandler");
 }
