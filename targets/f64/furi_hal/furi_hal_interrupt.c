@@ -55,84 +55,154 @@ void furi_hal_interrupt_init(void) {
 const char* furi_hal_interrupt_get_name(uint8_t exception_number) {
     const int32_t id = (int32_t)exception_number - 16;
 
-    switch (id) {
+    switch(id) {
     // Standard Cortex-M interrupts
-    case -14: return "NMI";
-    case -13: return "HardFault";
-    case -12: return "MemMgmt";
-    case -11: return "BusFault";
-    case -10: return "UsageFault";
-    case -5:  return "SVC";
-    case -4:  return "DebugMon";
-    case -2:  return "PendSV";
-    case -1:  return "SysTick";
+    case -14:
+        return "NMI";
+    case -13:
+        return "HardFault";
+    case -12:
+        return "MemMgmt";
+    case -11:
+        return "BusFault";
+    case -10:
+        return "UsageFault";
+    case -5:
+        return "SVC";
+    case -4:
+        return "DebugMon";
+    case -2:
+        return "PendSV";
+    case -1:
+        return "SysTick";
     // Si917-specific interrupts
-    case 2:  return "TIMER0";
-    case 3:  return "TIMER1";
-    case 4:  return "TIMER2";
-    case 5:  return "TIMER3";
-    case 6:  return "CAP_SENSOR";
-    case 7:  return "COMP2";
-    case 8:  return "COMP1";
-    case 10: return "UDMA1";
-    case 11: return "ADC";
-    case 12: return "ULPSS_UART";
-    case 13: return "I2C2";
-    case 14: return "I2S1";
-    case 15: return "IR_DECODER";
-    case 16: return "SSI2";
-    case 17: return "FIM";
-    case 18: return "ULP_EGPIO_PIN";
-    case 19: return "ULP_EGPIO_GROUP";
-    case 20: return "NPSS_TO_MCU_WDT_INTR";
-    case 21: return "NPSS_TO_MCU_GPIO_INTR";
+    case 2:
+        return "TIMER0";
+    case 3:
+        return "TIMER1";
+    case 4:
+        return "TIMER2";
+    case 5:
+        return "TIMER3";
+    case 6:
+        return "CAP_SENSOR";
+    case 7:
+        return "COMP2";
+    case 8:
+        return "COMP1";
+    case 10:
+        return "UDMA1";
+    case 11:
+        return "ADC";
+    case 12:
+        return "ULPSS_UART";
+    case 13:
+        return "I2C2";
+    case 14:
+        return "I2S1";
+    case 15:
+        return "IR_DECODER";
+    case 16:
+        return "SSI2";
+    case 17:
+        return "FIM";
+    case 18:
+        return "ULP_EGPIO_PIN";
+    case 19:
+        return "ULP_EGPIO_GROUP";
+    case 20:
+        return "NPSS_TO_MCU_WDT_INTR";
+    case 21:
+        return "NPSS_TO_MCU_GPIO_INTR";
 #ifdef SLI_SI917B0
-    case 22: return "NPSS_TO_MCU_SYSRTC_INTR";
+    case 22:
+        return "NPSS_TO_MCU_SYSRTC_INTR";
 #else
-    case 22: return "NPSS_TO_MCU_CMP_RF_WKP_INTR";
+    case 22:
+        return "NPSS_TO_MCU_CMP_RF_WKP_INTR";
 #endif
-    case 23: return "NPSS_TO_MCU_BOD_INTR";
-    case 24: return "NPSS_TO_MCU_BUTTON_INTR";
-    case 25: return "NPSS_TO_MCU_SDC_INTR";
-    case 26: return "NPSS_TO_MCU_WIRELESS_INTR";
-    case 27: return "NPSS_MCU_INTR";
-    case 28: return "MCU_CAL_ALARM";
-    case 29: return "MCU_CAL_RTC";
-    case 31: return "GPDMA";
-    case 33: return "UDMA0";
-    case 34: return "CT";
-    case 35: return "HIF0";
-    case 36: return "HIF1";
-    case 37: return "SIO";
-    case 38: return "USART0";
-    case 39: return "UART1";
-    case 41: return "EGPIO_WAKEUP";
-    case 42: return "I2C0";
-    case 44: return "SSISlave";
-    case 46: return "GSPI0";
-    case 47: return "SSI0";
-    case 48: return "MCPWM";
-    case 49: return "QEI";
-    case 50: return "EGPIO_GROUP_0";
-    case 51: return "EGPIO_GROUP_1";
-    case 52: return "EGPIO_PIN_0";
-    case 53: return "EGPIO_PIN_1";
-    case 54: return "EGPIO_PIN_2";
-    case 55: return "EGPIO_PIN_3";
-    case 56: return "EGPIO_PIN_4";
-    case 57: return "EGPIO_PIN_5";
-    case 58: return "EGPIO_PIN_6";
-    case 59: return "EGPIO_PIN_7";
-    case 60: return "QSPI";
-    case 61: return "I2C1";
+    case 23:
+        return "NPSS_TO_MCU_BOD_INTR";
+    case 24:
+        return "NPSS_TO_MCU_BUTTON_INTR";
+    case 25:
+        return "NPSS_TO_MCU_SDC_INTR";
+    case 26:
+        return "NPSS_TO_MCU_WIRELESS_INTR";
+    case 27:
+        return "NPSS_MCU_INTR";
+    case 28:
+        return "MCU_CAL_ALARM";
+    case 29:
+        return "MCU_CAL_RTC";
+    case 31:
+        return "GPDMA";
+    case 33:
+        return "UDMA0";
+    case 34:
+        return "CT";
+    case 35:
+        return "HIF0";
+    case 36:
+        return "HIF1";
+    case 37:
+        return "SIO";
+    case 38:
+        return "USART0";
+    case 39:
+        return "UART1";
+    case 41:
+        return "EGPIO_WAKEUP";
+    case 42:
+        return "I2C0";
+    case 44:
+        return "SSISlave";
+    case 46:
+        return "GSPI0";
+    case 47:
+        return "SSI0";
+    case 48:
+        return "MCPWM";
+    case 49:
+        return "QEI";
+    case 50:
+        return "EGPIO_GROUP_0";
+    case 51:
+        return "EGPIO_GROUP_1";
+    case 52:
+        return "EGPIO_PIN_0";
+    case 53:
+        return "EGPIO_PIN_1";
+    case 54:
+        return "EGPIO_PIN_2";
+    case 55:
+        return "EGPIO_PIN_3";
+    case 56:
+        return "EGPIO_PIN_4";
+    case 57:
+        return "EGPIO_PIN_5";
+    case 58:
+        return "EGPIO_PIN_6";
+    case 59:
+        return "EGPIO_PIN_7";
+    case 60:
+        return "QSPI";
+    case 61:
+        return "I2C1";
 #ifdef SLI_SI917B0
-    case 62: return "MVP";
-    case 63: return "MVP_WAKEUP";
+    case 62:
+        return "MVP";
+    case 63:
+        return "MVP_WAKEUP";
 #endif
-    case 64: return "I2S0";
-    case 69: return "PLL_CLOCK";
-    case 74: return "TASS_P2P";
-    default: return NULL;
+    case 64:
+        return "I2S0";
+    case 69:
+        return "PLL_CLOCK";
+    case 74:
+        return "TASS_P2P";
+    default:
+        return NULL;
     }
 }
 

@@ -6,7 +6,7 @@
 #endif
 
 #include "si91x_device.h"
-#if (SL_SI91X_TICKLESS_MODE == 1)
+#if(SL_SI91X_TICKLESS_MODE == 1)
 #include "sl_si91x_m4_ps.h"
 #endif
 

@@ -9,7 +9,7 @@ Import("env")
 fwenv = env
 
 fwenv.AppendUnique(
-    CPPPATH=[Dir(".").rdir()],
+    CPPPATH=[Dir(".").srcnode()],
 )
 
 

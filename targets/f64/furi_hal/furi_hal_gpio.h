@@ -81,9 +81,9 @@ typedef enum {
 } GpioAltFn;
 
 typedef enum {
-   GpioTypeHp,
-   GpioTypeUlp,
-   GpioTypeUulp,
+    GpioTypeHp,
+    GpioTypeUlp,
+    GpioTypeUulp,
 } GpioType;
 
 typedef enum {
@@ -146,7 +146,11 @@ void furi_hal_gpio_enable_ulp_on_hp(const GpioPin* ulp_gpio, const GpioAltFn alt
  * @param cb   GpioExtiCallback
  * @param ctx  context for callback
  */
-void furi_hal_gpio_add_int_callback(const GpioPin* gpio, const GpioCondition cond, GpioExtiCallback cb, void* ctx);
+void furi_hal_gpio_add_int_callback(
+    const GpioPin* gpio,
+    const GpioCondition cond,
+    GpioExtiCallback cb,
+    void* ctx);
 
 /**
  * Enable interrupt

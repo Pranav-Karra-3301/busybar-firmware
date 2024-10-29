@@ -105,7 +105,7 @@ void furi_hal_resources_init_early(void)
 
 void furi_hal_resources_deinit_early(void)
 {
-    // ToDo No implementation GpioModeAnalog
+    // TODO: No implementation GpioModeAnalog
     // furi_hal_resources_init_input_pins(GpioModeAnalog);
 }
 
@@ -138,7 +138,8 @@ void furi_hal_resources_init(void)
     NVIC_SetPriority(ULP_EGPIO_PIN_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
     NVIC_EnableIRQ(ULP_EGPIO_PIN_IRQn);
 
-    NVIC_SetPriority(NPSS_TO_MCU_GPIO_INTR_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+    NVIC_SetPriority(
+        NPSS_TO_MCU_GPIO_INTR_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
     NVIC_EnableIRQ(NPSS_TO_MCU_GPIO_INTR_IRQn);
 
     FURI_LOG_I(TAG, "Init OK");

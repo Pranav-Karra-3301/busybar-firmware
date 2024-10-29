@@ -7,7 +7,7 @@
 
 #define TAG "FuriHalClock"
 
-#define XTAL_FREQ_HZ 40000000UL
+#define XTAL_FREQ_HZ     40000000UL
 #define CPU_CLOCK_PLL_HZ 180000000UL
 
 #define TICK_INT_PRIORITY 15U
@@ -29,7 +29,8 @@ void furi_hal_clock_init(void) {
 
     SysTick_Config(SystemCoreClock / configTICK_RATE_HZ);
 
-    NVIC_SetPriority(SysTick_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), TICK_INT_PRIORITY, 0));
+    NVIC_SetPriority(
+        SysTick_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), TICK_INT_PRIORITY, 0));
     NVIC_EnableIRQ(SysTick_IRQn);
 
     FURI_LOG_I(TAG, "Init OK");
