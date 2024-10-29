@@ -24,8 +24,16 @@
 
 #define IER_ERBFI_POS (0)
 #define IER_ERBFI_SET (1UL << IER_ERBFI_POS)
-#define IER_ERBFI_CLR (0UL << IER_ERBFI_POS)
+#define IER_ELSI_POS  (2)
+#define IER_ELSI_SET  (1UL << IER_ELSI_POS)
+#define IER_CLEAR_ALL (0UL)
 
+#define LSR_OE_POS (1)
+#define LSR_OE_SET (1UL << LSR_OE_POS)
+#define LSR_FE_POS (3)
+#define LSR_FE_SET (1UL << LSR_FE_POS)
+
+#define IIR_IID_MASK         (0xFUL)
 #define IIR_IID_MODEM_STATUS (0x0)
 #define IIR_IID_NO_INTERRUPT (0x1)
 #define IIR_IID_THR_EMPTY    (0x2)
@@ -178,7 +186,7 @@ void furi_hal_serial_deinit(FuriHalSerialHandle* handle) {
 
 bool furi_hal_serial_is_baud_rate_supported(FuriHalSerialHandle* handle, uint32_t baud) {
     furi_check(handle);
-    return baud >= 9600UL && baud <= 4000000UL;
+    return baud >= 9600UL && baud <= 11250000UL;
 }
 
 void furi_hal_serial_set_br(FuriHalSerialHandle* handle, uint32_t baud) {
@@ -246,39 +254,47 @@ void furi_hal_serial_tx_wait_complete(FuriHalSerialHandle* handle) {
 static void furi_hal_serial_irq_callback(void* context) {
     furi_assert(context);
 
+    FuriHalSerialRxEvent event = 0;
+
     FuriHalSerialHandle* handle = context;
     const FuriHalSerial* serial = &furi_hal_serial[handle->id];
-    const FuriHalSerialConfig* config = &furi_hal_serial_config[handle->id];
+    const USART0_Type* periph = furi_hal_serial_config[handle->id].periph;
 
-    FuriHalSerialRxEvent event;
+    const uint32_t iid_value = periph->IIR & IIR_IID_MASK;
 
-    switch(config->periph->IIR_b.IID) {
-    case IIR_IID_RX_AVAILABLE:
+    if(iid_value == IIR_IID_RX_AVAILABLE) {
         event = FuriHalSerialRxEventData;
-        break;
-    case IIR_IID_CHAR_TIMEOUT:
+    } else if(iid_value == IIR_IID_CHAR_TIMEOUT) {
         event = FuriHalSerialRxEventIdle;
-        break;
-    case IIR_IID_NO_INTERRUPT:
-        return;
-    default:
+    } else if(iid_value == IIR_IID_LINE_STATUS) {
+        // Reading LSR clears status bits, must be done in one go
+        const uint32_t lsr_value = periph->LSR;
+
+        if(lsr_value & LSR_OE_SET) {
+            event |= FuriHalSerialRxEventOverrunError;
+        }
+        if(lsr_value & LSR_FE_SET) {
+            event |= FuriHalSerialRxEventFrameError;
+        }
+
+    } else if(iid_value == IIR_IID_NO_INTERRUPT) {
+        // Do nothing, obviously
+    } else {
         furi_crash();
     }
 
-    if(serial->rx_callback) {
+    if(serial->rx_callback && event) {
         serial->rx_callback(handle, event, serial->context);
     }
-}
-
-static void furi_hal_serial_event_init(FuriHalSerialHandle* handle, bool report_errors) {
-    UNUSED(handle);
-    UNUSED(report_errors);
 }
 
 static void furi_hal_serial_async_rx_configure(
     FuriHalSerialHandle* handle,
     FuriHalSerialAsyncRxCallback callback,
-    void* context) {
+    void* context,
+    bool report_errors) {
+    FURI_CRITICAL_ENTER();
+
     FuriHalSerial* serial = &furi_hal_serial[handle->id];
     const FuriHalSerialConfig* config = &furi_hal_serial_config[handle->id];
 
@@ -288,11 +304,14 @@ static void furi_hal_serial_async_rx_configure(
 
     if(callback) {
         furi_hal_interrupt_set_isr(config->irq, furi_hal_serial_irq_callback, handle);
-        config->periph->IER = IER_ERBFI_SET;
+        config->periph->IER = report_errors ? (IER_ELSI_SET | IER_ERBFI_SET) : IER_ERBFI_SET;
+
     } else {
+        config->periph->IER = IER_CLEAR_ALL;
         furi_hal_interrupt_set_isr(config->irq, NULL, NULL);
-        config->periph->IER = IER_ERBFI_CLR;
     }
+
+    FURI_CRITICAL_EXIT();
 }
 
 void furi_hal_serial_async_rx_start(
@@ -303,19 +322,13 @@ void furi_hal_serial_async_rx_start(
     furi_check(handle);
     furi_check(callback);
 
-    furi_hal_serial_event_init(handle, report_errors);
-    furi_hal_serial_async_rx_configure(handle, callback, context);
-}
-
-static void furi_hal_serial_event_deinit(FuriHalSerialHandle* handle) {
-    UNUSED(handle);
+    furi_hal_serial_async_rx_configure(handle, callback, context, report_errors);
 }
 
 void furi_hal_serial_async_rx_stop(FuriHalSerialHandle* handle) {
     furi_check(handle);
 
-    furi_hal_serial_event_deinit(handle);
-    furi_hal_serial_async_rx_configure(handle, NULL, NULL);
+    furi_hal_serial_async_rx_configure(handle, NULL, NULL, false);
 }
 
 bool furi_hal_serial_async_rx_available(FuriHalSerialHandle* handle) {

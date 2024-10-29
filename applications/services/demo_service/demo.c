@@ -6,7 +6,7 @@
 
 #define TAG "DemoSrv"
 
-#define UART_BAUD_RATE  (4000000UL)
+#define UART_BAUD_RATE  (11250000UL)
 #define LOG_INTERVAL_MS (500UL)
 
 #define MESSAGE_QUEUE_SIZE (16UL)
@@ -97,6 +97,8 @@ static void demo_service_serial_rx_callback(
             furi_check(
                 furi_stream_buffer_send(instance->stream_buffer, &c, sizeof(c), 0) == sizeof(c));
         }
+    } else {
+        furi_crash();
     }
 }
 
@@ -106,7 +108,7 @@ static DemoService* demo_service_alloc(void) {
     instance->usart0 = furi_hal_serial_control_acquire(FuriHalSerialIdUsart0);
     furi_hal_serial_init(instance->usart0, UART_BAUD_RATE);
     furi_hal_serial_async_rx_start(
-        instance->usart0, demo_service_serial_rx_callback, instance, false);
+        instance->usart0, demo_service_serial_rx_callback, instance, true);
 
     instance->uart1 = furi_hal_serial_control_acquire(FuriHalSerialIdUart1);
     furi_hal_serial_init(instance->uart1, UART_BAUD_RATE);
