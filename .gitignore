@@ -52,3 +52,6 @@ PVS-Studio.log
 .gdbinit
 
 /fbt_options_local.py
+
+.clang-format
+.clangd
