@@ -78,15 +78,15 @@ const InputPin input_pins[] = {
 };
 const size_t input_pins_count = COUNT_OF(input_pins);
 
-// static void furi_hal_resources_init_input_pins(GpioMode mode) {
-//     for(size_t i = 0; i < input_pins_count; i++) {
-//         furi_hal_gpio_init(
-//             input_pins[i].gpio,
-//             mode,
-//             (input_pins[i].inverted) ? GpioPullUp : GpioPullDown,
-//             GpioSpeedLow);
-//     }
-// }
+static void furi_hal_resources_init_input_pins(GpioMode mode) {
+    for(size_t i = 0; i < input_pins_count; i++) {
+        furi_hal_gpio_init(
+            input_pins[i].gpio,
+            mode,
+            (input_pins[i].inverted) ? GpioPullUp : GpioPullDown,
+            GpioSpeedLow);
+    }
+}
 
 void furi_hal_resources_init_early(void)
 {
@@ -99,8 +99,8 @@ void furi_hal_resources_init_early(void)
     // Control ULP GPIO pads from M4
     PADSELECTION_1 = PADSELECTION1_ALL_M4;
 
-    // furi_hal_resources_init_input_pins(GpioModeInput);
-    furi_hal_gpio_init(input_pins[0].gpio, GpioModeInput, GpioPullUp, GpioSpeedHigh);
+    furi_hal_resources_init_input_pins(GpioModeInput);
+    //furi_hal_gpio_init(input_pins[0].gpio, GpioModeInput, GpioPullUp, GpioSpeedHigh);
 }
 
 void furi_hal_resources_deinit_early(void)
