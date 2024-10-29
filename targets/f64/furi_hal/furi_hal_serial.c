@@ -7,13 +7,13 @@
 
 #include <si91x_device.h>
 
-#define FRAC_BITS (6UL)
+#define FRAC_BITS       (6UL)
 #define FRAC_MULTIPLIER (1UL << FRAC_BITS)
-#define FRAC_MASK (FRAC_MULTIPLIER - 1UL)
+#define FRAC_MASK       (FRAC_MULTIPLIER - 1UL)
 
 #define LCR_DLAB_POS (7)
 #define LCR_DLAB_SET (1U << LCR_DLAB_POS)
-#define LCR_DLS_POS (0)
+#define LCR_DLS_POS  (0)
 #define LCR_DLS_8BIT (3UL << LCR_DLS_POS)
 
 #define FCR_FIFOE_POS (0)
@@ -21,10 +21,10 @@
 
 #define IIR_IID_MODEM_STATUS (0x0)
 #define IIR_IID_NO_INTERRUPT (0x1)
-#define IIR_IID_THR_EMPTY (0x2)
+#define IIR_IID_THR_EMPTY    (0x2)
 #define IIR_IID_RX_AVAILABLE (0x4)
-#define IIR_IID_LINE_STATUS (0x6)
-#define IIR_IID_BUSY_DETECT (0x7)
+#define IIR_IID_LINE_STATUS  (0x6)
+#define IIR_IID_BUSY_DETECT  (0x7)
 #define IIR_IID_CHAR_TIMEOUT (0xC)
 
 typedef struct {
@@ -39,18 +39,21 @@ typedef struct {
 } FuriHalSerialConfig;
 
 static const FuriHalSerialConfig furi_hal_serial_config[FuriHalSerialIdMax] = {
-    [FuriHalSerialIdUsart0] = {
-        .periph = UART0,
-        .irq = FuriHalInterruptIdUSART0,
-    },
-    [FuriHalSerialIdUart1] = {
-        .periph = UART1,
-        .irq = FuriHalInterruptIdUART1,
-    },
-    [FuriHalSerialIdUlpuart] = {
-        .periph = ULP_UART,
-        .irq = FuriHalInterruptIdULPSS_UART,
-    },
+    [FuriHalSerialIdUsart0] =
+        {
+            .periph = UART0,
+            .irq = FuriHalInterruptIdUSART0,
+        },
+    [FuriHalSerialIdUart1] =
+        {
+            .periph = UART1,
+            .irq = FuriHalInterruptIdUART1,
+        },
+    [FuriHalSerialIdUlpuart] =
+        {
+            .periph = ULP_UART,
+            .irq = FuriHalInterruptIdULPSS_UART,
+        },
 };
 
 static FuriHalSerial furi_hal_serial[FuriHalSerialIdMax];
@@ -66,15 +69,22 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
         // Select SOC PLL clock
         M4CLK->CLK_CONFIG_REG2_b.USART1_SCLK_SEL = 0x01;
         // Wait for the switch to complete
-        while ((M4CLK->PLL_STAT_REG_b.USART1_SCLK_SWITCHED) != 1)
-          ;
+        while((M4CLK->PLL_STAT_REG_b.USART1_SCLK_SWITCHED) != 1)
+            ;
         // No clock division
         M4CLK->CLK_CONFIG_REG2_b.USART1_SCLK_DIV_FAC = 0;
 
         // Init main pins
-        furi_hal_gpio_init_ex(&gpio_usart0_clk, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
-        furi_hal_gpio_init_ex(&gpio_usart0_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
-        furi_hal_gpio_init_ex(&gpio_usart0_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_TX);
+        furi_hal_gpio_init_ex(
+            &gpio_usart0_clk, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
+        furi_hal_gpio_init_ex(
+            &gpio_usart0_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
+        furi_hal_gpio_init_ex(
+            &gpio_usart0_tx,
+            GpioModeOutputPushPull,
+            GpioPullNo,
+            GpioSpeedHigh,
+            GpioAltFn2USART0_TX);
 
     } else if(handle->id == FuriHalSerialIdUart1) {
         furi_hal_bus_enable(FuriHalBusUSART2_PCLK);
@@ -84,17 +94,33 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
         // Select SOC PLL clock
         M4CLK->CLK_CONFIG_REG2_b.USART2_SCLK_SEL = 0x01;
         // Wait for the switch to complete
-        while ((M4CLK->PLL_STAT_REG_b.USART2_SCLK_SWITCHED) != 1)
-          ;
+        while((M4CLK->PLL_STAT_REG_b.USART2_SCLK_SWITCHED) != 1)
+            ;
         // No clock division
         M4CLK->CLK_CONFIG_REG2_b.USART2_SCLK_DIV_FAC = 0;
 
         // Init main pins
-        furi_hal_gpio_init_ex(&gpio_uart1_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn6SOCPERH_ON_ULP_GPIO_8);
-        furi_hal_gpio_init_ex(&gpio_uart1_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn6SOCPERH_ON_ULP_GPIO_11);
+        furi_hal_gpio_init_ex(
+            &gpio_uart1_rx,
+            GpioModeInput,
+            GpioPullNo,
+            GpioSpeedHigh,
+            GpioAltFn6SOCPERH_ON_ULP_GPIO_8);
+        furi_hal_gpio_init_ex(
+            &gpio_uart1_tx,
+            GpioModeOutputPushPull,
+            GpioPullNo,
+            GpioSpeedHigh,
+            GpioAltFn6SOCPERH_ON_ULP_GPIO_11);
         // Init virtual (multiplexed) pins
-        furi_hal_gpio_init_ex(&gpio_i_uart1_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn6UART1_RX);
-        furi_hal_gpio_init_ex(&gpio_i_uart1_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn9UART1_TX);
+        furi_hal_gpio_init_ex(
+            &gpio_i_uart1_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn6UART1_RX);
+        furi_hal_gpio_init_ex(
+            &gpio_i_uart1_tx,
+            GpioModeOutputPushPull,
+            GpioPullNo,
+            GpioSpeedHigh,
+            GpioAltFn9UART1_TX);
 
     } else if(handle->id == FuriHalSerialIdUlpuart) {
         furi_hal_bus_enable(FuriHalBusUlpPCLK_UART);
@@ -111,8 +137,18 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
         M4CLK->CLK_CONFIG_REG4_b.ULPSS_CLK_DIV_FAC = 0;
 
         // Init main pins
-        furi_hal_gpio_init_ex(&gpio_ulp_uart_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn9ULPPERH_ON_SOC_GPIO_2);
-        furi_hal_gpio_init_ex(&gpio_ulp_uart_tx, GpioModeOutputPushPull, GpioPullNo, GpioSpeedHigh, GpioAltFn9ULPPERH_ON_SOC_GPIO_3);
+        furi_hal_gpio_init_ex(
+            &gpio_ulp_uart_rx,
+            GpioModeInput,
+            GpioPullNo,
+            GpioSpeedHigh,
+            GpioAltFn9ULPPERH_ON_SOC_GPIO_2);
+        furi_hal_gpio_init_ex(
+            &gpio_ulp_uart_tx,
+            GpioModeOutputPushPull,
+            GpioPullNo,
+            GpioSpeedHigh,
+            GpioAltFn9ULPPERH_ON_SOC_GPIO_3);
         // Init virtual (multiplexed) pins
         furi_hal_gpio_enable_ulp_on_hp(&gpio_ulp_2, GpioAltFn3ULP_UART_RX);
         furi_hal_gpio_enable_ulp_on_hp(&gpio_ulp_i_3, GpioAltFn3ULP_UART_TX);
@@ -226,7 +262,6 @@ static void furi_hal_serial_async_rx_configure(
     FuriHalSerialHandle* handle,
     FuriHalSerialAsyncRxCallback callback,
     void* context) {
-
     FuriHalSerial* serial = &furi_hal_serial[handle->id];
     const FuriHalSerialConfig* config = &furi_hal_serial_config[handle->id];
 

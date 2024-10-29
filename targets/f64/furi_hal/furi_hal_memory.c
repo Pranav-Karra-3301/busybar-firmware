@@ -4,10 +4,11 @@
 #include <si917_linker.h>
 
 static const FuriHalMemoryRegion memory_regions[] = {
-    [FuriHalMemoryRegionIdHeap] = {
-        .start = (void*)&__heap_start__,
-        .size_bytes = (size_t)&__heap_size__,
-    },
+    [FuriHalMemoryRegionIdHeap] =
+        {
+            .start = (void*)&__heap_start__,
+            .size_bytes = (size_t)&__heap_size__,
+        },
 };
 
 void furi_hal_memory_init(void) {
