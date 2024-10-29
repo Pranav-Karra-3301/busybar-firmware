@@ -572,6 +572,11 @@ def main():
         parser.print_help()
         exit(1)
 
+    if args.p == "auto":
+        print("Please specify the serial port to use\n")
+        parser.print_help()
+        exit(1)
+
     flasher = RpsFlasher(args.p, args.filename, args.t, args.d)
 
     flasher.init_device()
