@@ -6,7 +6,7 @@
 
 #define TAG "DemoSrv"
 
-#define UART_BAUD_RATE  (921600UL)
+#define UART_BAUD_RATE  (4000000UL)
 #define LOG_INTERVAL_MS (500UL)
 
 #define MESSAGE_QUEUE_SIZE (16UL)
@@ -91,7 +91,7 @@ static void demo_service_serial_rx_callback(
     void* context) {
     DemoService* instance = context;
 
-    if(event & FuriHalSerialRxEventData) {
+    if(event & (FuriHalSerialRxEventData | FuriHalSerialRxEventIdle)) {
         while(furi_hal_serial_async_rx_available(handle)) {
             const uint8_t c = furi_hal_serial_async_rx(handle);
             furi_check(
