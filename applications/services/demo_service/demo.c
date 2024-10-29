@@ -13,11 +13,14 @@
 #define STREAM_BUFFER_SIZE (16UL)
 
 typedef struct {
-    FuriEventLoop* event_loop;
+    FuriHalSerialHandle* handle;
     FuriStreamBuffer* stream_buffer;
+} DemoServiceSerialContext;
+
+typedef struct {
+    FuriEventLoop* event_loop;
     FuriMessageQueue* message_queue;
-    FuriHalSerialHandle* usart0;
-    FuriHalSerialHandle* uart1;
+    DemoServiceSerialContext serial_context[2];
     uint32_t counter;
 } DemoService;
 
@@ -68,19 +71,19 @@ static bool demo_service_message_queue_callback(FuriEventLoopObject* object, voi
     return false;
 }
 
-static bool demo_service_stream_buffer_callback(FuriEventLoopObject* object, void* context) {
-    DemoService* instance = context;
-    furi_check(object == instance->stream_buffer);
+static bool demo_service_stream_buffer_callback(FuriEventLoopObject* object, void* ctx) {
+    DemoServiceSerialContext* context = ctx;
+    furi_check(object == context->stream_buffer);
 
     char data[STREAM_BUFFER_SIZE + 1] = {};
 
-    const uint32_t bytes_available = furi_stream_buffer_bytes_available(instance->stream_buffer);
+    const uint32_t bytes_available = furi_stream_buffer_bytes_available(context->stream_buffer);
     furi_check(
-        furi_stream_buffer_receive(instance->stream_buffer, data, bytes_available, 0) ==
+        furi_stream_buffer_receive(context->stream_buffer, data, bytes_available, 0) ==
         bytes_available);
 
-    furi_hal_serial_tx(instance->usart0, (const uint8_t*)data, bytes_available);
-    furi_hal_serial_tx_wait_complete(instance->usart0);
+    furi_hal_serial_tx(context->handle, (const uint8_t*)data, bytes_available);
+    furi_hal_serial_tx_wait_complete(context->handle);
 
     return false;
 }
@@ -88,42 +91,45 @@ static bool demo_service_stream_buffer_callback(FuriEventLoopObject* object, voi
 static void demo_service_serial_rx_callback(
     FuriHalSerialHandle* handle,
     FuriHalSerialRxEvent event,
-    void* context) {
-    DemoService* instance = context;
+    void* ctx) {
+    DemoServiceSerialContext* context = ctx;
 
     if(event & (FuriHalSerialRxEventData | FuriHalSerialRxEventIdle)) {
         while(furi_hal_serial_async_rx_available(handle)) {
             const uint8_t c = furi_hal_serial_async_rx(handle);
             furi_check(
-                furi_stream_buffer_send(instance->stream_buffer, &c, sizeof(c), 0) == sizeof(c));
+                furi_stream_buffer_send(context->stream_buffer, &c, sizeof(c), 0) == sizeof(c));
         }
     } else {
         furi_crash();
     }
 }
 
+static void demo_service_init_serial_context(DemoService* instance, FuriHalSerialId id) {
+    DemoServiceSerialContext* context = &instance->serial_context[id];
+
+    context->stream_buffer = furi_stream_buffer_alloc(STREAM_BUFFER_SIZE, 1);
+    furi_event_loop_subscribe_stream_buffer(
+        instance->event_loop,
+        context->stream_buffer,
+        FuriEventLoopEventIn,
+        demo_service_stream_buffer_callback,
+        context);
+
+    context->handle = furi_hal_serial_control_acquire(id);
+    furi_check(context->handle);
+
+    furi_hal_serial_init(context->handle, UART_BAUD_RATE);
+    furi_hal_serial_async_rx_start(
+        context->handle, demo_service_serial_rx_callback, context, false);
+}
+
 static DemoService* demo_service_alloc(void) {
     DemoService* instance = malloc(sizeof(DemoService));
-
-    instance->usart0 = furi_hal_serial_control_acquire(FuriHalSerialIdUsart0);
-    furi_hal_serial_init(instance->usart0, UART_BAUD_RATE);
-    furi_hal_serial_async_rx_start(
-        instance->usart0, demo_service_serial_rx_callback, instance, true);
-
-    instance->uart1 = furi_hal_serial_control_acquire(FuriHalSerialIdUart1);
-    furi_hal_serial_init(instance->uart1, UART_BAUD_RATE);
 
     instance->event_loop = furi_event_loop_alloc();
     furi_event_loop_tick_set(
         instance->event_loop, LOG_INTERVAL_MS, demo_service_tick_callback, instance);
-
-    instance->stream_buffer = furi_stream_buffer_alloc(STREAM_BUFFER_SIZE, 1);
-    furi_event_loop_subscribe_stream_buffer(
-        instance->event_loop,
-        instance->stream_buffer,
-        FuriEventLoopEventIn,
-        demo_service_stream_buffer_callback,
-        instance);
 
     instance->message_queue = furi_message_queue_alloc(MESSAGE_QUEUE_SIZE, sizeof(DemoButton));
     furi_event_loop_subscribe_message_queue(
@@ -144,6 +150,10 @@ static DemoService* demo_service_alloc(void) {
     furi_hal_gpio_init_simple(&gpio_sw_off, GpioModeInput);
     furi_hal_gpio_add_int_callback(
         &gpio_sw_off, GpioConditionFall, demo_service_off_int_callback, instance);
+
+    demo_service_init_serial_context(instance, FuriHalSerialIdUsart0);
+    // Uncomment for echo on UART1, beware of parasitic signals
+    // demo_service_init_serial_context(instance, FuriHalSerialIdUart1);
 
     return instance;
 }

@@ -93,7 +93,7 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
         furi_hal_gpio_init_ex(
             &gpio_usart0_clk, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_CLK);
         furi_hal_gpio_init_ex(
-            &gpio_usart0_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
+            &gpio_usart0_rx, GpioModeInput, GpioPullUp, GpioSpeedHigh, GpioAltFn2USART0_RX);
         furi_hal_gpio_init_ex(
             &gpio_usart0_tx,
             GpioModeOutputPushPull,
@@ -118,7 +118,7 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
         furi_hal_gpio_init_ex(
             &gpio_uart1_rx,
             GpioModeInput,
-            GpioPullNo,
+            GpioPullUp,
             GpioSpeedHigh,
             GpioAltFn6SOCPERH_ON_ULP_GPIO_8);
         furi_hal_gpio_init_ex(
@@ -155,7 +155,7 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
         furi_hal_gpio_init_ex(
             &gpio_ulp_uart_rx,
             GpioModeInput,
-            GpioPullNo,
+            GpioPullUp,
             GpioSpeedHigh,
             GpioAltFn9ULPPERH_ON_SOC_GPIO_2);
         furi_hal_gpio_init_ex(
