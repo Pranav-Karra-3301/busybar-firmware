@@ -3,7 +3,7 @@
 
 #include <sl_si91x_gpio_common.h>
 
-#define PADSELECTION_ALL_M4  (0x3FFDFEUL) // GPIO 6...15, 46...57
+#define PADSELECTION_ALL_M4 (0x3FFDFEUL)  // GPIO 6...15, 46...57
 #define PADSELECTION1_ALL_M4 (0x000FFFUL) // ULP GPIO 0...11
 
 #define TAG "FuriHalResources"
@@ -66,7 +66,30 @@ const GpioPin gpio_sw_back = {.type = GpioTypeUulp, .pin = 1};
 const GpioPin gpio_sw_start_pause = {.type = GpioTypeUulp, .pin = 2};
 const GpioPin gpio_sw_ok = {.type = GpioTypeUulp, .pin = 3};
 
-void furi_hal_resources_init_early(void) {
+const InputPin input_pins[] = {
+    {.gpio = &gpio_sw_ok, .key = InputKeyOk, .inverted = true, .name = "Ok", .condition = GpioConditionRiseFall},
+    {.gpio = &gpio_sw_back, .key = InputKeyBack, .inverted = true, .name = "Back", .condition = GpioConditionRiseFall},
+    {.gpio = &gpio_sw_start_pause, .key = InputKeyMenu, .inverted = true, .name = "Menu", .condition = GpioConditionRiseFall},
+    {.gpio = &gpio_sw_pomodoro, .key = InputSwitch, .inverted = true, .name = "Switch Pomodoro", .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_busy, .key = InputSwitch, .inverted = true, .name = "Switch Busy", .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_off, .key = InputSwitch, .inverted = true, .name = "Switch Off", .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_apps, .key = InputSwitch, .inverted = true, .name = "Switch Apps", .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_settings, .key = InputSwitch, .inverted = true, .name = "Switch Settings", .condition = GpioConditionFall},
+};
+const size_t input_pins_count = COUNT_OF(input_pins);
+
+// static void furi_hal_resources_init_input_pins(GpioMode mode) {
+//     for(size_t i = 0; i < input_pins_count; i++) {
+//         furi_hal_gpio_init(
+//             input_pins[i].gpio,
+//             mode,
+//             (input_pins[i].inverted) ? GpioPullUp : GpioPullDown,
+//             GpioSpeedLow);
+//     }
+// }
+
+void furi_hal_resources_init_early(void)
+{
     // Enable GPIO clock
     furi_hal_bus_enable(FuriHalBusEGPIO_CLK);
     // Enable ULP GPIO clock
@@ -75,13 +98,19 @@ void furi_hal_resources_init_early(void) {
     PADSELECTION = PADSELECTION_ALL_M4;
     // Control ULP GPIO pads from M4
     PADSELECTION_1 = PADSELECTION1_ALL_M4;
+
+    // furi_hal_resources_init_input_pins(GpioModeInput);
+    furi_hal_gpio_init(input_pins[0].gpio, GpioModeInput, GpioPullUp, GpioSpeedHigh);
 }
 
-void furi_hal_resources_deinit_early(void) {
-
+void furi_hal_resources_deinit_early(void)
+{
+    // ToDo No implementation GpioModeAnalog
+    // furi_hal_resources_init_input_pins(GpioModeAnalog);
 }
 
-void furi_hal_resources_init(void) {
+void furi_hal_resources_init(void)
+{
     NVIC_SetPriority(EGPIO_PIN_0_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
     NVIC_EnableIRQ(EGPIO_PIN_0_IRQn);
 
