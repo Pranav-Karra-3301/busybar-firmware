@@ -19,7 +19,7 @@ extern "C" {
 typedef enum {
     InputKeyOk,
     InputKeyBack,
-    InputKeyMenu,
+    InputKeyStartPause,
     InputEncoder,
     InputSwitch,
     // InputSwitchPositionPomodoro,
@@ -30,12 +30,21 @@ typedef enum {
     InputKeyMAX, /**< Special value, don't use it */
 } InputKey;
 
+typedef enum {
+    InputSwitchPositionPomodoro,
+    InputSwitchPositionBusy,
+    InputSwitchPositionOff,
+    InputSwitchPositionApps,
+    InputSwitchPositionSettings,
+} InputSwitchPosition;
+
 typedef struct {
     const GpioPin* gpio;
     const InputKey key;
     const bool inverted;
     const char* name;
     const GpioCondition condition;
+    const InputSwitchPosition switch_position;
 } InputPin;
 
 /* HP GPIO pins */

@@ -16,14 +16,6 @@ extern "C" {
 #define INPUT_SEQUENCE_SOURCE_HARDWARE (0u)
 #define INPUT_SEQUENCE_SOURCE_SOFTWARE (1u)
 
-typedef enum {
-    InputSwitchPositionPomodoro,
-    InputSwitchPositionBusy,
-    InputSwitchPositionOff,
-    InputSwitchPositionApps,
-    InputSwitchPositionSettings,
-} InputSwitchPosition;
-
 /** Input Types
  * Some of them are physical events and some logical
  */

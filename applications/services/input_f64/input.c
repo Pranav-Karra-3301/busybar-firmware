@@ -51,12 +51,33 @@ static bool input_semaphore_callback(FuriEventLoopObject* object, void* context)
     return true;
 }
 
+static void input_key_sequence_run(
+    const InputPin* pin,
+    InputType input_type,
+    uint32_t sequence_counter) {
+    InputEvent event;
+    
+    event.key = pin->key;
+    event.sequence = sequence_counter;
+
+    if((pin->key == InputSwitch)) {
+        if(input_type == InputTypePress){
+            event.type = InputTypeSwitch;
+            event.switch_position = pin->switch_position;
+            // furi_pubsub_publish(instance->event_pubsub, RECORD_INPUT_EVENTS, &event);
+            FURI_LOG_I(TAG, "Switch %s %d, event %s", pin->name, pin->switch_position, input_type == InputTypePress ? "press" : "release");
+        }
+    }   else {
+        event.type = input_type;
+        FURI_LOG_I(TAG, "Key %s, event %s", pin->name, input_type == InputTypePress ? "press" : "release" );
+    } 
+    UNUSED(event);
+}
+
 static void input_debounce_timer_callback(void* context) {
     furi_assert(context);
     InputSrv* instance = context;
     bool is_changing = false;
-    //__BKPT();
-    FURI_LOG_I(TAG, "Debounce");
     for(size_t i = 0; i < input_pins_count; i++) {
         bool state = GPIO_Read(instance->key_state[i]);
 
@@ -73,16 +94,13 @@ static void input_debounce_timer_callback(void* context) {
         if(!is_changing && instance->key_state[i].state != state) {
             instance->key_state[i].state = state;
 
-            FURI_LOG_I(
-                TAG, "Key %s %s", instance->key_state[i].pin->name, state ? "pressed" : "released");
-
-            // if(state) {
-            //     input_key_sequence_run(
-            //         &instance->key_sequence[i], InputTypePress, ++instance->sequence_counter);
-            // } else {
-            //     input_key_sequence_run(
-            //         &instance->key_sequence[i], InputTypeRelease, instance->sequence_counter);
-            // }
+            if(state) {
+                input_key_sequence_run(
+                    instance->key_state[i].pin, InputTypePress, ++instance->sequence_counter);
+            } else {
+                input_key_sequence_run(
+                   instance->key_state[i].pin, InputTypeRelease, instance->sequence_counter);
+            }
         }
     }
 
@@ -90,6 +108,8 @@ static void input_debounce_timer_callback(void* context) {
         furi_event_loop_timer_stop(instance->debounce_timer);
     }
 }
+
+
 
 int32_t input_srv(void* p) {
     UNUSED(p);
