@@ -9,6 +9,8 @@
 
 #define GPIO_Read(input_pin) (furi_hal_gpio_read(input_pin.pin->gpio) ^ (input_pin.pin->inverted))
 
+#define INPUT_SRV_DEBOUNCE_TIMER_TICKS 1 //ms
+
 #ifdef INPUT_DEBUG
 #define INPUT_LOG(...) FURI_LOG_D(TAG, __VA_ARGS__)
 #else
@@ -36,10 +38,25 @@ static void input_isr_key(void* context) {
     furi_semaphore_release(instance->input_semaphore);
 }
 
+static bool input_semaphore_callback(FuriEventLoopObject* object, void* context) {
+    furi_assert(context);
+    InputSrv* instance = context;
+    furi_assert(object == instance->input_semaphore);
+
+    furi_check(furi_semaphore_acquire(instance->input_semaphore, 0) == FuriStatusOk);
+
+    if(!furi_event_loop_timer_is_running(instance->debounce_timer)) {
+        furi_event_loop_timer_start(instance->debounce_timer, INPUT_SRV_DEBOUNCE_TIMER_TICKS);
+    }
+    return true;
+}
+
 static void input_debounce_timer_callback(void* context) {
     furi_assert(context);
     InputSrv* instance = context;
     bool is_changing = false;
+    //__BKPT();
+    FURI_LOG_I(TAG, "Debounce");
     for(size_t i = 0; i < input_pins_count; i++) {
         bool state = GPIO_Read(instance->key_state[i]);
 
@@ -95,12 +112,12 @@ int32_t input_srv(void* p) {
         instance->sequence_counter = 0;
     }
 
-    // furi_event_loop_subscribe_semaphore(
-    //     instance->event_loop,
-    //     instance->input_semaphore,
-    //     FuriEventLoopEventIn,
-    //     input_semaphore_callback,
-    //     instance);
+    furi_event_loop_subscribe_semaphore(
+        instance->event_loop,
+        instance->input_semaphore,
+        FuriEventLoopEventIn,
+        input_semaphore_callback,
+        instance);
 
     // Start Input Service
     furi_event_loop_run(instance->event_loop);

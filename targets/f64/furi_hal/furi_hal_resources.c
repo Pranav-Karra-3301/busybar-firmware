@@ -115,7 +115,7 @@ static void furi_hal_resources_init_input_pins(GpioMode mode) {
         furi_hal_gpio_init(
             input_pins[i].gpio,
             mode,
-            (input_pins[i].inverted) ? GpioPullUp : GpioPullDown,
+            (input_pins[i].gpio->type == GpioTypeUulp) ? GpioPullNo : (input_pins[i].inverted) ? GpioPullUp : GpioPullDown,
             GpioSpeedLow);
     }
 }
@@ -131,7 +131,6 @@ void furi_hal_resources_init_early(void) {
     PADSELECTION_1 = PADSELECTION1_ALL_M4;
 
     furi_hal_resources_init_input_pins(GpioModeInput);
-    //furi_hal_gpio_init(input_pins[0].gpio, GpioModeInput, GpioPullUp, GpioSpeedHigh);
 }
 
 void furi_hal_resources_deinit_early(void) {
