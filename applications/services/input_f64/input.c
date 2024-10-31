@@ -148,7 +148,7 @@ int32_t input_srv(void* p) {
     INPUT_LOG("Starting");
     InputSrv* instance = malloc(sizeof(InputSrv));
     instance->input_key_semaphore = furi_semaphore_alloc(1, 0);
-    instance->input_queue = furi_message_queue_alloc(sizeof(InputEvent), INPUT_QUEUE_SIZE);
+    instance->input_queue = furi_message_queue_alloc(INPUT_QUEUE_SIZE, sizeof(InputEvent));
     instance->event_loop = furi_event_loop_alloc();
     instance->debounce_timer = furi_event_loop_timer_alloc(
         instance->event_loop,
