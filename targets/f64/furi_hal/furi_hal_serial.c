@@ -19,6 +19,13 @@
 #define FCR_FIFOE_POS (0)
 #define FCR_FIFOE_SET (1UL << FCR_FIFOE_POS)
 
+#define FCR_RT_POS       (6)
+#define FCR_RT_HALF_FULL (2UL << FCR_RT_POS)
+
+#define IER_ERBFI_POS (0)
+#define IER_ERBFI_SET (1UL << IER_ERBFI_POS)
+#define IER_ERBFI_CLR (0UL << IER_ERBFI_POS)
+
 #define IIR_IID_MODEM_STATUS (0x0)
 #define IIR_IID_NO_INTERRUPT (0x1)
 #define IIR_IID_THR_EMPTY    (0x2)
@@ -76,7 +83,7 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
 
         // Init main pins
         furi_hal_gpio_init_ex(
-            &gpio_usart0_clk, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
+            &gpio_usart0_clk, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_CLK);
         furi_hal_gpio_init_ex(
             &gpio_usart0_rx, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_RX);
         furi_hal_gpio_init_ex(
@@ -158,8 +165,9 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
     }
 
     USART0_Type* periph = furi_hal_serial_config[handle->id].periph;
-    // Enable FIFO
-    periph->FCR = FCR_FIFOE_SET;
+
+    // Enable FIFO and set trigger level to half full
+    periph->FCR = FCR_RT_HALF_FULL | FCR_FIFOE_SET;
 
     furi_hal_serial_set_br(handle, baud);
 }
@@ -170,7 +178,7 @@ void furi_hal_serial_deinit(FuriHalSerialHandle* handle) {
 
 bool furi_hal_serial_is_baud_rate_supported(FuriHalSerialHandle* handle, uint32_t baud) {
     furi_check(handle);
-    return baud >= 9600UL && baud <= 7372800UL;
+    return baud >= 9600UL && baud <= 4000000UL;
 }
 
 void furi_hal_serial_set_br(FuriHalSerialHandle* handle, uint32_t baud) {
@@ -235,27 +243,36 @@ void furi_hal_serial_tx_wait_complete(FuriHalSerialHandle* handle) {
         ;
 }
 
-static void furi_hal_serial_event_init(FuriHalSerialHandle* handle, bool report_errors) {
-    UNUSED(handle);
-    UNUSED(report_errors);
-}
-
-static void furi_hal_serial_rx_irq_callback(void* context) {
+static void furi_hal_serial_irq_callback(void* context) {
     furi_assert(context);
-
-    FuriHalSerialRxEvent event = 0;
 
     FuriHalSerialHandle* handle = context;
     const FuriHalSerial* serial = &furi_hal_serial[handle->id];
     const FuriHalSerialConfig* config = &furi_hal_serial_config[handle->id];
 
-    if(config->periph->IIR_b.IID == IIR_IID_RX_AVAILABLE) {
-        event |= FuriHalSerialRxEventData;
+    FuriHalSerialRxEvent event;
+
+    switch(config->periph->IIR_b.IID) {
+    case IIR_IID_RX_AVAILABLE:
+        event = FuriHalSerialRxEventData;
+        break;
+    case IIR_IID_CHAR_TIMEOUT:
+        event = FuriHalSerialRxEventIdle;
+        break;
+    case IIR_IID_NO_INTERRUPT:
+        return;
+    default:
+        furi_crash();
     }
 
     if(serial->rx_callback) {
         serial->rx_callback(handle, event, serial->context);
     }
+}
+
+static void furi_hal_serial_event_init(FuriHalSerialHandle* handle, bool report_errors) {
+    UNUSED(handle);
+    UNUSED(report_errors);
 }
 
 static void furi_hal_serial_async_rx_configure(
@@ -270,11 +287,11 @@ static void furi_hal_serial_async_rx_configure(
     serial->context = context;
 
     if(callback) {
-        furi_hal_interrupt_set_isr(config->irq, furi_hal_serial_rx_irq_callback, handle);
-        config->periph->IER_b.ERBFI = 1;
+        furi_hal_interrupt_set_isr(config->irq, furi_hal_serial_irq_callback, handle);
+        config->periph->IER = IER_ERBFI_SET;
     } else {
         furi_hal_interrupt_set_isr(config->irq, NULL, NULL);
-        config->periph->IER_b.ERBFI = 0;
+        config->periph->IER = IER_ERBFI_CLR;
     }
 }
 
@@ -290,8 +307,15 @@ void furi_hal_serial_async_rx_start(
     furi_hal_serial_async_rx_configure(handle, callback, context);
 }
 
+static void furi_hal_serial_event_deinit(FuriHalSerialHandle* handle) {
+    UNUSED(handle);
+}
+
 void furi_hal_serial_async_rx_stop(FuriHalSerialHandle* handle) {
     furi_check(handle);
+
+    furi_hal_serial_event_deinit(handle);
+    furi_hal_serial_async_rx_configure(handle, NULL, NULL);
 }
 
 bool furi_hal_serial_async_rx_available(FuriHalSerialHandle* handle) {
