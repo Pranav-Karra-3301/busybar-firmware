@@ -87,6 +87,7 @@ to exclude the API function. */
 #define INCLUDE_xTaskGetCurrentTaskHandle   1
 #define INCLUDE_xTaskGetSchedulerState      1
 #define INCLUDE_xTimerPendFunctionCall      1
+#define INCLUDE_xTaskGetIdleTaskHandle      1
 
 /* Workaround for various notification issues:
  * - First one used by system primitives
@@ -132,16 +133,6 @@ See http://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html. */
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY \
     (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS))
 
-/* Normal assert() semantics without relying on the provision of an assert.h
-header file. */
-#ifdef DEBUG
-#include <core/check.h>
-#define configASSERT(x)                \
-    if((x) == 0) {                     \
-        furi_crash("FreeRTOS Assert"); \
-    }
-#endif
-
 /* Definitions that map the FreeRTOS port interrupt handlers to their CMSIS
 standard names. */
 #define vPortSVCHandler    SVC_Handler
@@ -155,6 +146,14 @@ standard names. */
     extern void furi_hal_mpu_set_stack_protection(uint32_t* stack); \
     furi_hal_mpu_set_stack_protection((uint32_t*)pxCurrentTCB->pxStack)
 
-#define portCLEAN_UP_TCB(pxTCB)                                   \
-    extern void furi_thread_cleanup_tcb_event(TaskHandle_t task); \
-    furi_thread_cleanup_tcb_event(pxTCB)
+/* Normal assert() semantics without relying on the provision of an assert.h
+header file. */
+#ifdef DEBUG
+#define configASSERT(x)                \
+    if((x) == 0) {                     \
+        furi_crash("FreeRTOS Assert"); \
+    }
+#endif
+
+// Must be last line of config because of recursion
+#include <core/check.h>

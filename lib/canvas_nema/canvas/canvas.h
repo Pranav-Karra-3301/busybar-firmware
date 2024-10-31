@@ -19,7 +19,7 @@ extern "C" {
 typedef enum {
     ColorWhite = 0x00,
     ColorBlack = 0x01,
-    // ColorXOR = 0x02,
+    ColorXOR = 0x02,
 } Color;
 
 /** Fonts enumeration */
