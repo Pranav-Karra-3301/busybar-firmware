@@ -44,8 +44,8 @@ const GpioPin gpio_i_69 = {.type = GpioTypeHp, .pin = 69};
 const GpioPin gpio_i_70 = {.type = GpioTypeHp, .pin = 70};
 const GpioPin gpio_i_71 = {.type = GpioTypeHp, .pin = 71};
 const GpioPin gpio_i_uart1_rx = {.type = GpioTypeHp, .pin = 72};
-const GpioPin gpio_i_73 = {.type = GpioTypeHp, .pin = 73};
-const GpioPin gpio_i_74 = {.type = GpioTypeHp, .pin = 74};
+const GpioPin gpio_i_encoder_a = {.type = GpioTypeHp, .pin = 73};
+const GpioPin gpio_i_encoder_b = {.type = GpioTypeHp, .pin = 74};
 const GpioPin gpio_i_uart1_tx = {.type = GpioTypeHp, .pin = 75};
 
 const GpioPin gpio_ulp_0 = {.type = GpioTypeUlp, .pin = 0};
@@ -120,7 +120,9 @@ static void furi_hal_resources_init_input_pins(GpioMode mode) {
         furi_hal_gpio_init(
             input_pins[i].gpio,
             mode,
-            (input_pins[i].gpio->type == GpioTypeUulp) ? GpioPullNo : (input_pins[i].inverted) ? GpioPullUp : GpioPullDown,
+            (input_pins[i].gpio->type == GpioTypeUulp) ? GpioPullNo :
+            (input_pins[i].inverted)                   ? GpioPullUp :
+                                                         GpioPullDown,
             GpioSpeedLow);
     }
 }

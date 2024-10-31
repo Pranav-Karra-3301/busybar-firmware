@@ -57,12 +57,17 @@ typedef enum {
 
     GpioAltFn3ULP_UART_RX = 3, /**< ULP_UART_RX on ULP_GPIO_2 */
     GpioAltFn3ULP_UART_TX = 3, /**< ULP_UART_TX on ULP_GPIO_3 (via mux only) */
+    GpioAltFn3QEI_PHA = 3, /**< QEI via SOCPERH_ON_ULP_GPIO_9 */
+    GpioAltFn3QEI_PHB = 3, /**< QEI via SOCPERH_ON_ULP_GPIO_10 */
 
     GpioAltFn4 = 4,
     GpioAltFn5 = 5,
 
     GpioAltFn6SOCPERH_ON_ULP_GPIO_8 = 6, /**< Multiplexed HP Peripheral on ULP_GPIO_8 */
+    GpioAltFn6SOCPERH_ON_ULP_GPIO_9 = 6, /**< Multiplexed HP Peripheral on ULP_GPIO_9 */
+    GpioAltFn6SOCPERH_ON_ULP_GPIO_10 = 6, /**< Multiplexed HP Peripheral on ULP_GPIO_10 */
     GpioAltFn6SOCPERH_ON_ULP_GPIO_11 = 6, /**< Multiplexed HP Peripheral on ULP_GPIO_11 */
+
     GpioAltFn6UART1_RX = 6, /**< UART1_RX via SOCPERH_ON_ULP_GPIO_8 */
 
     GpioAltFn7 = 7,

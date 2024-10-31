@@ -4,13 +4,16 @@
 #include <furi_hal_serial.h>
 #include <furi_hal_resources.h>
 #include <furi_hal_serial_control.h>
+#include <furi_hal_qei.h>
 
 #define TAG "Input"
 
 #define GPIO_Read(input_pin) (furi_hal_gpio_read(input_pin.pin->gpio) ^ (input_pin.pin->inverted))
 
-#define INPUT_SRV_DEBOUNCE_TIMER_TICKS 1 //ms
+#define INPUT_DEBOUNCE_TIMER_TICKS 1 //ms
+#define INPUT_QUEUE_SIZE           15
 
+#define INPUT_DEBUG
 #ifdef INPUT_DEBUG
 #define INPUT_LOG(...) FURI_LOG_D(TAG, __VA_ARGS__)
 #else
@@ -25,57 +28,56 @@ typedef struct {
 
 typedef struct {
     FuriEventLoop* event_loop;
-    // FuriPubSub* event_pubsub;
-    FuriSemaphore* input_semaphore;
+    FuriSemaphore* input_key_semaphore;
+    FuriMessageQueue* input_queue;
     FuriEventLoopTimer* debounce_timer;
     InputSrvKeyState* key_state;
     // InputSrvKeySequence* key_sequence;
-    uint32_t sequence_counter;
 } InputSrv;
 
 static void input_isr_key(void* context) {
     InputSrv* instance = context;
-    furi_semaphore_release(instance->input_semaphore);
+    furi_semaphore_release(instance->input_key_semaphore);
 }
 
-static bool input_semaphore_callback(FuriEventLoopObject* object, void* context) {
+static bool input_key_semaphore_callback(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
     InputSrv* instance = context;
-    furi_assert(object == instance->input_semaphore);
+    furi_assert(object == instance->input_key_semaphore);
 
-    furi_check(furi_semaphore_acquire(instance->input_semaphore, 0) == FuriStatusOk);
+    furi_check(furi_semaphore_acquire(instance->input_key_semaphore, 0) == FuriStatusOk);
 
     if(!furi_event_loop_timer_is_running(instance->debounce_timer)) {
-        furi_event_loop_timer_start(instance->debounce_timer, INPUT_SRV_DEBOUNCE_TIMER_TICKS);
+        furi_event_loop_timer_start(instance->debounce_timer, INPUT_DEBOUNCE_TIMER_TICKS);
     }
     return true;
 }
 
-static void
-    input_key_sequence_run(const InputPin* pin, InputType input_type, uint32_t sequence_counter) {
+static void input_send(InputSrv* instance, uint32_t num_pin, InputType input_type) {
     InputEvent event;
 
-    event.key = pin->key;
-    event.sequence = sequence_counter;
+    event.key = instance->key_state[num_pin].pin->key;
 
-    if((pin->key == InputSwitch)) {
+    if((instance->key_state[num_pin].pin->key == InputSwitch)) {
         if(input_type == InputTypePress) {
             event.type = InputTypeSwitch;
-            event.switch_position = pin->switch_position;
+            event.switch_position = instance->key_state[num_pin].pin->switch_position;
             // furi_pubsub_publish(instance->event_pubsub, RECORD_INPUT_EVENTS, &event);
-            FURI_LOG_I(
-                TAG,
+            INPUT_LOG(
                 "Switch %s %d, event %s",
-                pin->name,
-                pin->switch_position,
+                instance->key_state[num_pin].pin->name,
+                instance->key_state[num_pin].pin->switch_position,
                 input_type == InputTypePress ? "press" : "release");
         }
     } else {
         event.type = input_type;
-        FURI_LOG_I(
-            TAG, "Key %s, event %s", pin->name, input_type == InputTypePress ? "press" : "release");
+        INPUT_LOG(
+            "Key %s, event %s",
+            instance->key_state[num_pin].pin->name,
+            input_type == InputTypePress ? "press" : "release");
     }
     UNUSED(event);
+    furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
 }
 
 static void input_debounce_timer_callback(void* context) {
@@ -99,11 +101,9 @@ static void input_debounce_timer_callback(void* context) {
             instance->key_state[i].state = state;
 
             if(state) {
-                input_key_sequence_run(
-                    instance->key_state[i].pin, InputTypePress, ++instance->sequence_counter);
+                input_send(instance, i, InputTypePress);
             } else {
-                input_key_sequence_run(
-                    instance->key_state[i].pin, InputTypeRelease, instance->sequence_counter);
+                input_send(instance, i, InputTypeRelease);
             }
         }
     }
@@ -113,12 +113,42 @@ static void input_debounce_timer_callback(void* context) {
     }
 }
 
+static void input_qei_callback(int16_t delta_pos, void* context) {
+    InputSrv* instance = context;
+    InputEvent event = {
+        .key = InputEncoder,
+        .type = InputTypeEncoderTurn,
+        .click_count = delta_pos,
+    };
+    furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
+}
+
+static bool input_queue_callback(FuriEventLoopObject* object, void* context) {
+    furi_assert(context);
+    InputSrv* instance = context;
+    furi_assert(object == instance->input_queue);
+
+    InputEvent event;
+    furi_check(furi_message_queue_get(instance->input_queue, &event, 0) == FuriStatusOk);
+
+    // if(event.type == InputTypeEncoderTurn) {
+    //     input_key_sequence_run(NULL, event.type, event.click_count);
+    // } else {
+    //     input_key_sequence_run(event.key, event.type, 0);
+    // }
+
+    INPUT_LOG("Key %d, event %s", event.key, event.type == InputTypePress ? "press" : "release");
+
+    return true;
+}
+
 int32_t input_srv(void* p) {
     UNUSED(p);
-    __BKPT();
-    FURI_LOG_I(TAG, "Starting");
+    //__BKPT();
+    INPUT_LOG("Starting");
     InputSrv* instance = malloc(sizeof(InputSrv));
-    instance->input_semaphore = furi_semaphore_alloc(1, 0);
+    instance->input_key_semaphore = furi_semaphore_alloc(1, 0);
+    instance->input_queue = furi_message_queue_alloc(sizeof(InputEvent), INPUT_QUEUE_SIZE);
     instance->event_loop = furi_event_loop_alloc();
     instance->debounce_timer = furi_event_loop_timer_alloc(
         instance->event_loop,
@@ -132,15 +162,23 @@ int32_t input_srv(void* p) {
             input_pins[i].gpio, input_pins[i].condition, input_isr_key, instance);
         instance->key_state[i].pin = &input_pins[i];
         instance->key_state[i].state = GPIO_Read(instance->key_state[i]);
-        instance->sequence_counter = 0;
     }
 
     furi_event_loop_subscribe_semaphore(
         instance->event_loop,
-        instance->input_semaphore,
+        instance->input_key_semaphore,
         FuriEventLoopEventIn,
-        input_semaphore_callback,
+        input_key_semaphore_callback,
         instance);
+    furi_event_loop_subscribe_message_queue(
+        instance->event_loop,
+        instance->input_queue,
+        FuriEventLoopEventIn,
+        input_queue_callback,
+        instance);
+
+    furi_hal_qei_init();
+    furi_hal_qei_set_delta_pos_callback(input_qei_callback, instance);
 
     // Start Input Service
     furi_event_loop_run(instance->event_loop);
