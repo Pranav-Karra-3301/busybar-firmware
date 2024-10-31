@@ -104,7 +104,6 @@
         "flipper_format",
         "flipper_application",
         "nanopb",
-        "update_util",
         "heatshrink",
         "bit_lib",
         "datetime",
