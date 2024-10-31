@@ -51,26 +51,30 @@ static bool input_semaphore_callback(FuriEventLoopObject* object, void* context)
     return true;
 }
 
-static void input_key_sequence_run(
-    const InputPin* pin,
-    InputType input_type,
-    uint32_t sequence_counter) {
+static void
+    input_key_sequence_run(const InputPin* pin, InputType input_type, uint32_t sequence_counter) {
     InputEvent event;
-    
+
     event.key = pin->key;
     event.sequence = sequence_counter;
 
     if((pin->key == InputSwitch)) {
-        if(input_type == InputTypePress){
+        if(input_type == InputTypePress) {
             event.type = InputTypeSwitch;
             event.switch_position = pin->switch_position;
             // furi_pubsub_publish(instance->event_pubsub, RECORD_INPUT_EVENTS, &event);
-            FURI_LOG_I(TAG, "Switch %s %d, event %s", pin->name, pin->switch_position, input_type == InputTypePress ? "press" : "release");
+            FURI_LOG_I(
+                TAG,
+                "Switch %s %d, event %s",
+                pin->name,
+                pin->switch_position,
+                input_type == InputTypePress ? "press" : "release");
         }
-    }   else {
+    } else {
         event.type = input_type;
-        FURI_LOG_I(TAG, "Key %s, event %s", pin->name, input_type == InputTypePress ? "press" : "release" );
-    } 
+        FURI_LOG_I(
+            TAG, "Key %s, event %s", pin->name, input_type == InputTypePress ? "press" : "release");
+    }
     UNUSED(event);
 }
 
@@ -99,7 +103,7 @@ static void input_debounce_timer_callback(void* context) {
                     instance->key_state[i].pin, InputTypePress, ++instance->sequence_counter);
             } else {
                 input_key_sequence_run(
-                   instance->key_state[i].pin, InputTypeRelease, instance->sequence_counter);
+                    instance->key_state[i].pin, InputTypeRelease, instance->sequence_counter);
             }
         }
     }
@@ -109,10 +113,9 @@ static void input_debounce_timer_callback(void* context) {
     }
 }
 
-
-
 int32_t input_srv(void* p) {
     UNUSED(p);
+    __BKPT();
     FURI_LOG_I(TAG, "Starting");
     InputSrv* instance = malloc(sizeof(InputSrv));
     instance->input_semaphore = furi_semaphore_alloc(1, 0);

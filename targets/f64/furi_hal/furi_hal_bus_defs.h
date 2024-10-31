@@ -48,7 +48,7 @@ typedef enum {
     FuriHalBusI2SM_SCLK,
     FuriHalBusI2SM_INTF_SCLK,
     FuriHalBusI2SM_PCLK,
-    FuriHalBusQE_PCLK,
+    FuriHalBusQEI_PCLK,
     FuriHalBusMCPWM_PCLK,
     FuriHalBusSGPIO_PCLK,
     FuriHalBusEGPIO_PCLK,

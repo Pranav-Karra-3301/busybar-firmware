@@ -22,11 +22,6 @@ typedef enum {
     InputKeyStartPause,
     InputEncoder,
     InputSwitch,
-    // InputSwitchPositionPomodoro,
-    // InputSwitchPositionBusy,
-    // InputSwitchPositionOff,
-    // InputSwitchPositionApps,
-    // InputSwitchPositionSettings,
     InputKeyMAX, /**< Special value, don't use it */
 } InputKey;
 
