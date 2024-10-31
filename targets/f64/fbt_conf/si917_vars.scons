@@ -6,6 +6,6 @@ VARS.AddVariables(
     (
         "SI917_PORT",
         "Serial port for communication with the device's bootloader",
-        "",  # Must match lib/stm32wb_copro version
+        "auto",
     ),
 )
