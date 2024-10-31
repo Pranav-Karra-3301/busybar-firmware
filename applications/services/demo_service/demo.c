@@ -59,7 +59,7 @@ static void demo_service_tick_callback(void* context) {
     instance->counter++;
 }
 
-static bool demo_service_message_queue_callback(FuriEventLoopObject* object, void* context) {
+static void demo_service_message_queue_callback(FuriEventLoopObject* object, void* context) {
     DemoService* instance = context;
     furi_check(object == instance->message_queue);
 
@@ -67,11 +67,9 @@ static bool demo_service_message_queue_callback(FuriEventLoopObject* object, voi
     furi_check(furi_message_queue_get(instance->message_queue, &button, 0) == FuriStatusOk);
 
     FURI_LOG_I(TAG, "Button pressed: %d", button);
-
-    return false;
 }
 
-static bool demo_service_stream_buffer_callback(FuriEventLoopObject* object, void* ctx) {
+static void demo_service_stream_buffer_callback(FuriEventLoopObject* object, void* ctx) {
     DemoServiceSerialContext* context = ctx;
     furi_check(object == context->stream_buffer);
 
@@ -84,8 +82,6 @@ static bool demo_service_stream_buffer_callback(FuriEventLoopObject* object, voi
 
     furi_hal_serial_tx(context->handle, (const uint8_t*)data, bytes_available);
     furi_hal_serial_tx_wait_complete(context->handle);
-
-    return false;
 }
 
 static void demo_service_serial_rx_callback(
