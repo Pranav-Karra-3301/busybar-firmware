@@ -91,7 +91,6 @@ static void demo_service_serial_rx_callback(
     DemoServiceSerialContext* context = ctx;
 
     if(event & (FuriHalSerialRxEventData | FuriHalSerialRxEventIdle)) {
-    if(event & (FuriHalSerialRxEventData | FuriHalSerialRxEventIdle)) {
         while(furi_hal_serial_async_rx_available(handle)) {
             const uint8_t c = furi_hal_serial_async_rx(handle);
             furi_check(
