@@ -13,7 +13,6 @@
 #define INPUT_DEBOUNCE_TIMER_TICKS 1 //ms
 #define INPUT_QUEUE_SIZE           15
 
-#define INPUT_DEBUG
 #ifdef INPUT_DEBUG
 #define INPUT_LOG(...) FURI_LOG_D(TAG, __VA_ARGS__)
 #else
@@ -62,22 +61,12 @@ static void input_send(InputSrv* instance, uint32_t num_pin, InputType input_typ
         if(input_type == InputTypePress) {
             event.type = InputTypeSwitch;
             event.switch_position = instance->key_state[num_pin].pin->switch_position;
-            // furi_pubsub_publish(instance->event_pubsub, RECORD_INPUT_EVENTS, &event);
-            INPUT_LOG(
-                "Switch %s %d, event %s",
-                instance->key_state[num_pin].pin->name,
-                instance->key_state[num_pin].pin->switch_position,
-                input_type == InputTypePress ? "press" : "release");
+            furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
         }
     } else {
         event.type = input_type;
-        INPUT_LOG(
-            "Key %s, event %s",
-            instance->key_state[num_pin].pin->name,
-            input_type == InputTypePress ? "press" : "release");
+        furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
     }
-    UNUSED(event);
-    furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
 }
 
 static void input_debounce_timer_callback(void* context) {
@@ -131,20 +120,27 @@ static bool input_queue_callback(FuriEventLoopObject* object, void* context) {
     InputEvent event;
     furi_check(furi_message_queue_get(instance->input_queue, &event, 0) == FuriStatusOk);
 
-    // if(event.type == InputTypeEncoderTurn) {
-    //     input_key_sequence_run(NULL, event.type, event.click_count);
-    // } else {
-    //     input_key_sequence_run(event.key, event.type, 0);
-    // }
+    //Todo Add sending input event to U5
 
-    INPUT_LOG("Key %d, event %s", event.key, event.type == InputTypePress ? "press" : "release");
-
+    if(event.type == InputTypeEncoderTurn) {
+        INPUT_LOG("Encoder turn %d", event.click_count);
+    } else if(event.type == InputTypeSwitch) {
+        INPUT_LOG(
+            "Switch %s %d, event %s",
+            input_pins[event.switch_position + InputSwitch].name,
+            event.switch_position,
+            "press");
+    } else {
+        INPUT_LOG(
+            "Key %s, event %s",
+            input_pins[event.key].name,
+            event.type == InputTypePress ? "press" : "release");
+    }
     return true;
 }
 
 int32_t input_srv(void* p) {
     UNUSED(p);
-    //__BKPT();
     INPUT_LOG("Starting");
     InputSrv* instance = malloc(sizeof(InputSrv));
     instance->input_key_semaphore = furi_semaphore_alloc(1, 0);

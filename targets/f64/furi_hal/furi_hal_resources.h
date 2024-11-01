@@ -20,8 +20,8 @@ typedef enum {
     InputKeyOk,
     InputKeyBack,
     InputKeyStartPause,
-    InputEncoder,
     InputSwitch,
+    InputEncoder,
     InputKeyMAX, /**< Special value, don't use it */
 } InputKey;
 
@@ -80,8 +80,6 @@ extern const GpioPin gpio_i_69; /**< Not available on the package, internal use 
 extern const GpioPin gpio_i_70; /**< Not available on the package, internal use only */
 extern const GpioPin gpio_i_71; /**< Not available on the package, internal use only */
 extern const GpioPin gpio_i_uart1_rx; /**< Not available on the package, internal use only */
-//extern const GpioPin gpio_i_73; /**< Not available on the package, internal use only */
-//extern const GpioPin gpio_i_74; /**< Not available on the package, internal use only */
 extern const GpioPin gpio_i_encoder_a;
 extern const GpioPin gpio_i_encoder_b;
 extern const GpioPin gpio_i_uart1_tx; /**< Not available on the package, internal use only */
