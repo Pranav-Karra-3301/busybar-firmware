@@ -39,7 +39,7 @@ static void input_isr_key(void* context) {
     furi_semaphore_release(instance->input_key_semaphore);
 }
 
-static bool input_key_semaphore_callback(FuriEventLoopObject* object, void* context) {
+static void input_key_semaphore_callback(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
     InputSrv* instance = context;
     furi_assert(object == instance->input_key_semaphore);
@@ -49,7 +49,6 @@ static bool input_key_semaphore_callback(FuriEventLoopObject* object, void* cont
     if(!furi_event_loop_timer_is_running(instance->debounce_timer)) {
         furi_event_loop_timer_start(instance->debounce_timer, INPUT_DEBOUNCE_TIMER_TICKS);
     }
-    return true;
 }
 
 static void input_send(InputSrv* instance, uint32_t num_pin, InputType input_type) {
@@ -112,7 +111,7 @@ static void input_qei_callback(int16_t delta_pos, void* context) {
     furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
 }
 
-static bool input_queue_callback(FuriEventLoopObject* object, void* context) {
+static void input_queue_callback(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
     InputSrv* instance = context;
     furi_assert(object == instance->input_queue);
@@ -136,7 +135,6 @@ static bool input_queue_callback(FuriEventLoopObject* object, void* context) {
             input_pins[event.key].name,
             event.type == InputTypePress ? "press" : "release");
     }
-    return true;
 }
 
 int32_t input_srv(void* p) {
