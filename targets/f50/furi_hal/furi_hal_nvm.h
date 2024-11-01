@@ -5,6 +5,7 @@ typedef enum {
     FuriHalRtcFlagDebug,
     FuriHalRtcFlagDetailedFilename,
     FuriHalRtcFlagStorageFormatInternal,
+    FuriHalRtcFlagHandOrient,
 } FuriHalRtcFlag;
 
 typedef enum {
