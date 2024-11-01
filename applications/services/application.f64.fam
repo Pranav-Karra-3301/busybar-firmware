@@ -3,7 +3,7 @@ App(
     name="Basic services",
     apptype=FlipperAppType.METAPACKAGE,
     provides=[
-        # "demo_service",
+        "demo_service",
         "input_f64",
     ],
     targets=["f64"],

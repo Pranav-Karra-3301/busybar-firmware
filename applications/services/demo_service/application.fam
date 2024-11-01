@@ -1,6 +1,6 @@
 App(
     appid="demo_service",
-    name="Demo Service",
+    name="DemoSrv",
     apptype=FlipperAppType.SERVICE,
     entry_point="demo_srv",
     cdefines=["SRV_DEMO"],
