@@ -8,6 +8,9 @@
 
 #define TAG "QEI"
 
+#define FURI_HAL_QEI_VELOCITY_FREQ_CALCULATION_POS      512 * 1000000 // 512Hz max frequency * 1000000us
+#define FURI_HAL_QEI_VELOCITY_DELTA_TIME_CALCULATION_US 10000
+
 typedef enum {
     HalQeiStateIDLE,
     HalQeiStateStart,
@@ -113,7 +116,10 @@ void furi_hal_qei_init(void) {
     furi_hal_bus_enable(FuriHalBusQEI_PCLK);
 
     RSI_QEI_SetMode(QEI, QEI_ENCODING_MODE_2X);
-    RSI_QEI_ConfigureDeltaTimeAndFreq(QEI, 512000000, 10000);
+    RSI_QEI_ConfigureDeltaTimeAndFreq(
+        QEI,
+        FURI_HAL_QEI_VELOCITY_FREQ_CALCULATION_POS,
+        FURI_HAL_QEI_VELOCITY_DELTA_TIME_CALCULATION_US);
     //Set comparison with 1 at the beginning of the smart
     RSI_QEI_SetPosMatch(QEI, 1);
     // Set the minimum rotation speed
