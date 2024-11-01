@@ -13,6 +13,35 @@
 extern "C" {
 #endif
 
+/* Input Related Constants */
+#define INPUT_DEBOUNCE_TICKS 4
+/* Input Keys */
+typedef enum {
+    InputKeyOk,
+    InputKeyBack,
+    InputKeyStartPause,
+    InputSwitch,
+    InputEncoder,
+    InputKeyMAX, /**< Special value, don't use it */
+} InputKey;
+
+typedef enum {
+    InputSwitchPositionPomodoro,
+    InputSwitchPositionBusy,
+    InputSwitchPositionOff,
+    InputSwitchPositionApps,
+    InputSwitchPositionSettings,
+} InputSwitchPosition;
+
+typedef struct {
+    const GpioPin* gpio;
+    const InputKey key;
+    const bool inverted;
+    const char* name;
+    const GpioCondition condition;
+    const InputSwitchPosition switch_position;
+} InputPin;
+
 /* HP GPIO pins */
 extern const GpioPin gpio_6;
 extern const GpioPin gpio_pwm_red;
@@ -51,8 +80,8 @@ extern const GpioPin gpio_i_69; /**< Not available on the package, internal use 
 extern const GpioPin gpio_i_70; /**< Not available on the package, internal use only */
 extern const GpioPin gpio_i_71; /**< Not available on the package, internal use only */
 extern const GpioPin gpio_i_uart1_rx; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_i_73; /**< Not available on the package, internal use only */
-extern const GpioPin gpio_i_74; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_encoder_a; /**< Not available on the package, internal use only */
+extern const GpioPin gpio_i_encoder_b; /**< Not available on the package, internal use only */
 extern const GpioPin gpio_i_uart1_tx; /**< Not available on the package, internal use only */
 
 /* ULP GPIO pins */
@@ -74,6 +103,9 @@ extern const GpioPin gpio_sw_off;
 extern const GpioPin gpio_sw_back;
 extern const GpioPin gpio_sw_start_pause;
 extern const GpioPin gpio_sw_ok;
+
+extern const InputPin input_pins[];
+extern const size_t input_pins_count;
 
 void furi_hal_resources_init_early(void);
 

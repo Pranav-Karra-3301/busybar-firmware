@@ -43,6 +43,7 @@ const IRQn_Type furi_hal_interrupt_irqn[FuriHalInterruptIdMax] = {
     [FuriHalInterruptIdUDMA0] = UDMA0_IRQn,
     [FuriHalInterruptIdUSART0] = USART0_IRQn,
     [FuriHalInterruptIdUART1] = UART1_IRQn,
+    [FuriHalInterruptIdQEI] = QEI_IRQn,
 };
 
 void furi_hal_interrupt_init(void) {
@@ -480,6 +481,7 @@ void IRQ048_Handler(void) {
 
 // 49: QEI Interrupt
 void IRQ049_Handler(void) {
+    furi_hal_interrupt_call(FuriHalInterruptIdQEI);
 }
 
 // 60: QSPI Interrupt

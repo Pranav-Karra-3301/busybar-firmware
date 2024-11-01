@@ -44,8 +44,8 @@ const GpioPin gpio_i_69 = {.type = GpioTypeHp, .pin = 69};
 const GpioPin gpio_i_70 = {.type = GpioTypeHp, .pin = 70};
 const GpioPin gpio_i_71 = {.type = GpioTypeHp, .pin = 71};
 const GpioPin gpio_i_uart1_rx = {.type = GpioTypeHp, .pin = 72};
-const GpioPin gpio_i_73 = {.type = GpioTypeHp, .pin = 73};
-const GpioPin gpio_i_74 = {.type = GpioTypeHp, .pin = 74};
+const GpioPin gpio_i_encoder_a = {.type = GpioTypeHp, .pin = 73};
+const GpioPin gpio_i_encoder_b = {.type = GpioTypeHp, .pin = 74};
 const GpioPin gpio_i_uart1_tx = {.type = GpioTypeHp, .pin = 75};
 
 const GpioPin gpio_ulp_0 = {.type = GpioTypeUlp, .pin = 0};
@@ -66,6 +66,67 @@ const GpioPin gpio_sw_back = {.type = GpioTypeUulp, .pin = 1};
 const GpioPin gpio_sw_start_pause = {.type = GpioTypeUulp, .pin = 2};
 const GpioPin gpio_sw_ok = {.type = GpioTypeUulp, .pin = 3};
 
+const InputPin input_pins[] = {
+    {.gpio = &gpio_sw_ok,
+     .key = InputKeyOk,
+     .inverted = true,
+     .name = "Ok",
+     .condition = GpioConditionRiseFall},
+    {.gpio = &gpio_sw_back,
+     .key = InputKeyBack,
+     .inverted = true,
+     .name = "Back",
+     .condition = GpioConditionRiseFall},
+    {.gpio = &gpio_sw_start_pause,
+     .key = InputKeyStartPause,
+     .inverted = true,
+     .name = "Start/Pause",
+     .condition = GpioConditionRiseFall},
+    {.gpio = &gpio_sw_pomodoro,
+     .key = InputSwitch,
+     .inverted = true,
+     .name = "Switch Pomodoro",
+     .switch_position = InputSwitchPositionPomodoro,
+     .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_busy,
+     .key = InputSwitch,
+     .inverted = true,
+     .name = "Switch Busy",
+     .switch_position = InputSwitchPositionBusy,
+     .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_off,
+     .key = InputSwitch,
+     .inverted = true,
+     .name = "Switch Off",
+     .switch_position = InputSwitchPositionOff,
+     .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_apps,
+     .key = InputSwitch,
+     .inverted = true,
+     .name = "Switch Apps",
+     .switch_position = InputSwitchPositionApps,
+     .condition = GpioConditionFall},
+    {.gpio = &gpio_sw_settings,
+     .key = InputSwitch,
+     .inverted = true,
+     .name = "Switch Settings",
+     .switch_position = InputSwitchPositionSettings,
+     .condition = GpioConditionFall},
+};
+const size_t input_pins_count = COUNT_OF(input_pins);
+
+static void furi_hal_resources_init_input_pins(GpioMode mode) {
+    for(size_t i = 0; i < input_pins_count; i++) {
+        furi_hal_gpio_init(
+            input_pins[i].gpio,
+            mode,
+            (input_pins[i].gpio->type == GpioTypeUulp) ? GpioPullNo :
+            (input_pins[i].inverted)                   ? GpioPullUp :
+                                                         GpioPullDown,
+            GpioSpeedLow);
+    }
+}
+
 void furi_hal_resources_init_early(void) {
     // Enable GPIO clock
     furi_hal_bus_enable(FuriHalBusEGPIO_CLK);
@@ -75,9 +136,13 @@ void furi_hal_resources_init_early(void) {
     PADSELECTION = PADSELECTION_ALL_M4;
     // Control ULP GPIO pads from M4
     PADSELECTION_1 = PADSELECTION1_ALL_M4;
+
+    furi_hal_resources_init_input_pins(GpioModeInput);
 }
 
 void furi_hal_resources_deinit_early(void) {
+    // TODO: No implementation GpioModeAnalog
+    // furi_hal_resources_init_input_pins(GpioModeAnalog);
 }
 
 void furi_hal_resources_init(void) {

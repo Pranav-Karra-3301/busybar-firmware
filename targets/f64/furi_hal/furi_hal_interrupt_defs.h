@@ -46,7 +46,7 @@ typedef enum {
     //     FuriHalInterruptIdGSPI0,
     //     FuriHalInterruptIdSSI0,
     //     FuriHalInterruptIdMCPWM,
-    //     FuriHalInterruptIdQEI,
+    FuriHalInterruptIdQEI,
     //     FuriHalInterruptIdEGPIO_GROUP_0,
     //     FuriHalInterruptIdEGPIO_GROUP_1,
     //     FuriHalInterruptIdEGPIO_PIN_0,
