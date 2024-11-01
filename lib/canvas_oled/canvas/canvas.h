@@ -36,7 +36,7 @@ typedef enum {
     ColorWhite13 = 0x0D,
     ColorWhite14 = 0x0E,
     ColorWhiteMax = 0x0F,
-    // ColorXOR = 0x02,
+    ColorXOR = 0x10,
 } Color;
 
 /** Fonts enumeration */
