@@ -1,0 +1,11 @@
+App(
+    appid="demo_notification_f64",
+    name="NotificationSrv",
+    apptype=FlipperAppType.SERVICE,
+    entry_point="notification_srv",
+    cdefines=["SRV_NOTIFICATION"],
+    stack_size=1 * 1024,
+    order=100,
+    targets=["f64"],
+    #sdk_headers=["notification.h", "notification_messages.h"],
+)

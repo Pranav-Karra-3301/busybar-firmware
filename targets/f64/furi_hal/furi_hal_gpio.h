@@ -78,6 +78,9 @@ typedef enum {
     GpioAltFn9UART1_TX = 9, /**< UART1_TX via SOCPERH_ON_ULP_GPIO_11 */
 
     GpioAltFn10 = 10,
+    GpioAltFn10PWM_0H = 10, /**< PWM_0H on GPIO_7 */
+    GpioAltFn10PWM_2H = 10, /**< PWM_2H on GPIO_11 */
+    GpioAltFn10PWM_3H = 10, /**< PWM_3H on GPIO_15 */
     GpioAltFn11 = 11,
     GpioAltFn12 = 12,
     GpioAltFn13 = 13,

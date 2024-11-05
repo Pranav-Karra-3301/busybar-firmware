@@ -4,6 +4,7 @@ App(
     apptype=FlipperAppType.METAPACKAGE,
     provides=[
         "demo_service",
+        "demo_notification_f64",
         "input_f64",
     ],
     targets=["f64"],

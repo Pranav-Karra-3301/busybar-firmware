@@ -155,7 +155,9 @@ void furi_hal_qei_deinit(void) {
     furi_hal_qei.pos = 0;
     furi_hal_qei.state = HalQeiStateIDLE;
 
-    //Todo deinit GPIO
+    //Todo: Deinit GPIO
+    furi_hal_gpio_init_simple(&gpio_encoder_a, GpioModeInput);
+    furi_hal_gpio_init_simple(&gpio_i_encoder_a, GpioModeInput);
 }
 
 void furi_hal_qei_set_delta_pos_callback(FuriHalQeiDeltaPosCallback callback, void* context) {
