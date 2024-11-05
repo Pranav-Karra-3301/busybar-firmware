@@ -34,7 +34,7 @@ static void storage_cli_info(Cli* cli, FuriString* path, FuriString* args) {
         } else {
             printf(
                 "Label: %s\r\nType: Virtual\r\n%luKiB total\r\n%luKiB free\r\n",
-                "Unknown",
+                "Unknown", // TODO: name???
                 (uint32_t)(total_space / 1024),
                 (uint32_t)(free_space / 1024));
         }
