@@ -1,0 +1,9 @@
+App(
+    appid="bsb_services_common",
+    name="BSB Common Services",
+    apptype=FlipperAppType.METAPACKAGE,
+    provides=[
+        "intercom",
+    ],
+    targets=["f64"],
+)
