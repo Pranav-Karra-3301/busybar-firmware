@@ -1,0 +1,9 @@
+App(
+    appid="httpd_test",
+    name="HttpSrv",
+    apptype=FlipperAppType.SERVICE,
+    entry_point="httpd_start",
+    stack_size=4096,
+    order=70,
+    targets=["f20"],
+)

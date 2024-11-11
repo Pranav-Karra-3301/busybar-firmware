@@ -1,0 +1,139 @@
+#pragma once
+
+#include <furi.h>
+#include <furi_hal_gpio.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    InputKeyUp,
+    InputKeyDown,
+    InputKeyRight,
+    InputKeyLeft,
+    InputKeyOk,
+    InputKeyBack,
+    // InputKeyMenu, 
+    // InputEncoder,
+    // InputSwitch,
+    InputKeyMAX, /**< Special value, don't use it */
+} InputKey;  
+
+typedef struct {
+    const GpioPin* pin;
+    const char* name;
+    //const FuriHalAdcChannel channel;
+    const uint8_t number;
+    const bool debug;
+} GpioPinRecord;
+
+extern const GpioPin gpio_mco;
+extern const GpioPin gpio_swdio;
+extern const GpioPin gpio_swclk;
+extern const GpioPin gpio_led;
+
+extern const GpioPin gpio_log_usart_tx;
+extern const GpioPin gpio_log_usart_rx;
+
+extern const GpioPin gpio_usart1_rx;
+extern const GpioPin gpio_usart1_tx;
+
+extern const GpioPin gpio_half_lpuart_tx_rx;
+extern const GpioPin gpio_button_trig;
+
+extern const GpioPin gpio_usb_dm;
+extern const GpioPin gpio_usb_dp;
+
+extern const GpioPin gpio_uart5_tx;
+extern const GpioPin gpio_uart5_rx;
+
+extern const GpioPin gpio_octospi1_psram_io0;
+extern const GpioPin gpio_octospi1_psram_io1;
+extern const GpioPin gpio_octospi1_psram_io2;
+extern const GpioPin gpio_octospi1_psram_io3;
+extern const GpioPin gpio_octospi1_psram_io4;
+extern const GpioPin gpio_octospi1_psram_io5;
+extern const GpioPin gpio_octospi1_psram_io6;
+extern const GpioPin gpio_octospi1_psram_io7;
+extern const GpioPin gpio_octospi1_psram_clk;
+extern const GpioPin gpio_octospi1_psram_ncs;
+extern const GpioPin gpio_octospi1_psram_dqs;
+
+extern const GpioPin gpio_sd_card_power_switch;
+extern const GpioPin gpio_sd_card_detect;
+
+extern const GpioPin gpio_sd_card_d0;
+extern const GpioPin gpio_sd_card_d1;
+extern const GpioPin gpio_sd_card_d2;
+extern const GpioPin gpio_sd_card_d3;
+extern const GpioPin gpio_sd_card_ck;
+extern const GpioPin gpio_sd_card_cmd;
+
+extern const GpioPin gpio_pssi_pdck;
+extern const GpioPin gpio_pssi_rdy;
+extern const GpioPin gpio_pssi_de;
+extern const GpioPin gpio_pssi_d0;
+extern const GpioPin gpio_pssi_d1;
+extern const GpioPin gpio_pssi_d2;
+extern const GpioPin gpio_pssi_d3;
+extern const GpioPin gpio_pssi_d4;
+extern const GpioPin gpio_pssi_d5;
+extern const GpioPin gpio_pssi_d6;
+extern const GpioPin gpio_pssi_d7;
+extern const GpioPin gpio_pssi_d8;
+extern const GpioPin gpio_pssi_d9;
+extern const GpioPin gpio_pssi_d10;
+extern const GpioPin gpio_pssi_d11;
+extern const GpioPin gpio_pssi_d12;
+extern const GpioPin gpio_pssi_d13;
+extern const GpioPin gpio_pssi_d14;
+extern const GpioPin gpio_pssi_d15;
+
+extern const GpioPin gpio_oled_spi_sdin;
+extern const GpioPin gpio_oled_spi_sclk;
+extern const GpioPin gpio_oled_cs;
+extern const GpioPin gpio_oled_dc;
+extern const GpioPin gpio_oled_rst;
+
+extern const GpioPin gpio_i2c_scl;
+extern const GpioPin gpio_i2c_sda;
+
+extern const GpioPin gpio_encoder_a;
+extern const GpioPin gpio_encoder_b;
+extern const GpioPin gpio_button_ok;
+extern const GpioPin gpio_button_back;
+extern const GpioPin gpio_button_menu;
+extern const GpioPin gpio_switch_0;
+extern const GpioPin gpio_switch_1;
+extern const GpioPin gpio_switch_2;
+extern const GpioPin gpio_switch_3;
+extern const GpioPin gpio_switch_4;
+
+extern const GpioPin gpio_top_led_r;
+extern const GpioPin gpio_top_led_g;
+extern const GpioPin gpio_top_led_b;
+
+extern const GpioPin gpio_led_gclk;
+extern const GpioPin gpio_led_595_sdi;
+extern const GpioPin gpio_led_595_clk;
+extern const GpioPin gpio_led_595_latch;
+extern const GpioPin gpio_led_sdi_ospi_d0;
+extern const GpioPin gpio_led_le_ospi_d1;
+extern const GpioPin gpio_led_dclk_ospi_clk;
+
+extern const GpioPin gpio_dac;
+extern const GpioPin gpio_dac_enable;
+
+extern const GpioPinRecord gpio_pins[];
+extern const size_t gpio_pins_count;
+
+void furi_hal_resources_init_early(void);
+
+void furi_hal_resources_deinit_early(void);
+
+void furi_hal_resources_init(void);
+
+#ifdef __cplusplus
+}
+#endif
