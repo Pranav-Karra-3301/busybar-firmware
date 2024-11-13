@@ -523,7 +523,3 @@ void IRQ072_Handler(void) {
 //   73: USB INTR
 void IRQ073_Handler(void) {
 }
-
-//   74: TASS_P2P_INTR
-void IRQ074_Handler(void) {
-}

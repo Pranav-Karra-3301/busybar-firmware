@@ -65,6 +65,5 @@ typedef enum {
     // #endif
     //     FuriHalInterrupIdI2S0,
     //     FuriHalInterrupIdPLL_CLOCK,
-    //     FuriHalInterrupIdTASS_P2P,
     FuriHalInterruptIdMax,
 } FuriHalInterruptId;

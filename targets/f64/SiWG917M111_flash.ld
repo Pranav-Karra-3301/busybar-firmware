@@ -33,8 +33,9 @@ _stack_size = 0x200; /* Required amount of stack */
 
 MEMORY {
     FLASH (rx) : ORIGIN = 0x8202000, LENGTH = 0x1fe000
-    RAM (rwx)  : ORIGIN = 0x000000c, LENGTH = 0x4fff4
+    RAM (rwx)  : ORIGIN = 0x000000c, LENGTH = 0x3fbf4 /*255k and 1k reserved for udma0*/
 }
+
 
 SECTIONS {
     .text : {
@@ -140,4 +141,5 @@ SECTIONS {
         __StackTop = .;
         PROVIDE(_stack_end = __StackTop);
     } > RAM
+
 }

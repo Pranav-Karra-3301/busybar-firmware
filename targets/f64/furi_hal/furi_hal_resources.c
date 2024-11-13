@@ -4,7 +4,7 @@
 #include <sl_si91x_gpio_common.h>
 
 #define PADSELECTION_ALL_M4  (0x3FFDFEUL) // GPIO 6...15, 46...57
-#define PADSELECTION1_ALL_M4 (0x000FFFUL) // ULP GPIO 0...11
+#define PADSELECTION1_ALL_M4 (0x000FCEUL) // ULP GPIO 1..3, 6...11
 
 #define TAG "FuriHalResources"
 

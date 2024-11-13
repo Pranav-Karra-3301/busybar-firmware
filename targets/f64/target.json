@@ -51,7 +51,8 @@
     ],
     "include_paths": [
         "config",
-        "furi_hal"
+        "furi_hal",
+        "inc"
     ],
     "env_setup_scripts": [
         "#/f64_env_init.scons"
@@ -71,6 +72,7 @@
         "lib_base",
         "mlib",
         "cmsis",
+        "sl_glue",
         "simplicity_sdk",
         "wiseconnect",
         "freertos",

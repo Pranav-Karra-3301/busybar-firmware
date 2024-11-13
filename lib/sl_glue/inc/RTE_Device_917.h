@@ -1662,7 +1662,7 @@
 #define DMA_PERI_ACK0       0
 #define BURST_REQ0_EN       1
 #define UDMA0_CHNL_PRIO_LVL 1
-#define UDMA0_SRAM_BASE     0x1FC00
+#define UDMA0_SRAM_BASE     0x3FC00
 
 #define RTE_UDMA1           1
 #define UDMA1_IRQHandler    IRQ010_Handler

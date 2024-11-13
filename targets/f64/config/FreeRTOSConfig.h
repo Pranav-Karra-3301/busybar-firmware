@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Wredundant-decls"
 #endif
 
+//Todo need???
 #include "si91x_device.h"
 #if(SL_SI91X_TICKLESS_MODE == 1)
 #include "sl_si91x_m4_ps.h"
@@ -21,10 +22,10 @@
 #define configUSE_TICK_HOOK              0
 #define configCPU_CLOCK_HZ               (SystemCoreClock)
 #define configTICK_RATE_HZ_RAW           1000
-#define configTICK_RATE_HZ               ((TickType_t)configTICK_RATE_HZ_RAW)
+#define configTICK_RATE_HZ               ((uint32_t)configTICK_RATE_HZ_RAW)
 #define configUSE_16_BIT_TICKS           0
 #define configMAX_PRIORITIES             (32)
-#define configMINIMAL_STACK_SIZE         ((uint16_t)128)
+#define configMINIMAL_STACK_SIZE         ((uint16_t)256)
 
 /* Heap size determined automatically by linker */
 // #define configTOTAL_HEAP_SIZE                    ((size_t)0)
@@ -54,7 +55,11 @@
 /* Defaults to size_t for backward compatibility, but can be changed
    if lengths will always be less than the number of bytes in a size_t. */
 #define configMESSAGE_BUFFER_LENGTH_TYPE        size_t
-#define configNUM_THREAD_LOCAL_STORAGE_POINTERS 1
+/* Local storage pointer usage:
+ * 0,1 .... WiseConnect
+ * 2 ...... FuriThread
+ */
+#define configNUM_THREAD_LOCAL_STORAGE_POINTERS (configNUM_SDK_THREAD_LOCAL_STORAGE_POINTERS + 1)
 #define configEXPECTED_IDLE_TIME_BEFORE_SLEEP   4
 
 /* Co-routine definitions. */
@@ -62,13 +67,13 @@
 
 /* Software timer definitions. */
 #define configUSE_TIMERS              1
-#define configTIMER_TASK_PRIORITY     (2)
+#define configTIMER_TASK_PRIORITY     (30)
 #define configTIMER_QUEUE_LENGTH      32
-#define configTIMER_TASK_STACK_DEPTH  256
+#define configTIMER_TASK_STACK_DEPTH  (configMINIMAL_STACK_SIZE * 2)
 #define configTIMER_SERVICE_TASK_NAME "TimersSrv"
 
 #define configIDLE_TASK_NAME        "(-_-)"
-#define configIDLE_TASK_STACK_DEPTH 128
+#define configIDLE_TASK_STACK_DEPTH (configMINIMAL_STACK_SIZE * 2)
 
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */

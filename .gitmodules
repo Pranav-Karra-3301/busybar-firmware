@@ -3,4 +3,4 @@
 	url = https://github.com/SiliconLabs/simplicity_sdk.git
 [submodule "lib/wiseconnect"]
 	path = lib/wiseconnect
-	url = https://github.com/SiliconLabs/wiseconnect.git
+	url = https://github.com/flipperdevices/wiseconnect.git
