@@ -5,13 +5,22 @@
 
 #define TAG "DemoSrv"
 
-#define UART_BAUD_RATE (11250000UL)
+#ifndef ENABLE_USART0
+#define ENABLE_USART0 (1)
+#endif
 
-#define STREAM_BUFFER_SIZE (16UL)
+#ifndef ENABLE_DMA
+#define ENABLE_DMA (1)
+#endif
+
+#define BUFFER_SIZE    (1024UL)
+#define UART_BAUD_RATE (5625000UL)
 
 typedef struct {
     FuriHalSerialHandle* handle;
-    FuriStreamBuffer* stream_buffer;
+    FuriSemaphore* semaphore;
+    uint8_t buffer[BUFFER_SIZE];
+    size_t data_len;
 } DemoServiceSerialContext;
 
 typedef struct {
@@ -19,55 +28,83 @@ typedef struct {
     DemoServiceSerialContext serial_context[2];
 } DemoService;
 
-static void demo_service_stream_buffer_callback(FuriEventLoopObject* object, void* ctx) {
+static void demo_service_semaphore_callback(FuriEventLoopObject* object, void* ctx) {
     DemoServiceSerialContext* context = ctx;
-    furi_check(object == context->stream_buffer);
+    furi_check(object == context->semaphore);
 
-    char data[STREAM_BUFFER_SIZE + 1] = {};
+    furi_check(furi_semaphore_acquire(context->semaphore, 0) == FuriStatusOk);
 
-    const uint32_t bytes_available = furi_stream_buffer_bytes_available(context->stream_buffer);
-    furi_check(
-        furi_stream_buffer_receive(context->stream_buffer, data, bytes_available, 0) ==
-        bytes_available);
-
-    furi_hal_serial_tx(context->handle, (const uint8_t*)data, bytes_available);
-    furi_hal_serial_tx_wait_complete(context->handle);
+#if ENABLE_DMA
+    furi_hal_serial_dma_tx(context->handle, context->buffer, BUFFER_SIZE);
+#else
+    if(context->data_len) {
+        furi_hal_serial_tx(context->handle, context->buffer, context->data_len);
+        furi_hal_serial_tx_wait_complete(context->handle);
+    }
+#endif
 }
 
+#if ENABLE_DMA
 static void demo_service_serial_rx_callback(
     FuriHalSerialHandle* handle,
     FuriHalSerialRxEvent event,
     void* ctx) {
     DemoServiceSerialContext* context = ctx;
 
-    if(event & (FuriHalSerialRxEventData | FuriHalSerialRxEventIdle)) {
-        while(furi_hal_serial_async_rx_available(handle)) {
-            const uint8_t c = furi_hal_serial_async_rx(handle);
-            furi_check(
-                furi_stream_buffer_send(context->stream_buffer, &c, sizeof(c), 0) == sizeof(c));
-        }
+    if(event & FuriHalSerialRxEventData) {
+        furi_hal_serial_dma_rx_start(handle, context->buffer, BUFFER_SIZE);
+        furi_semaphore_release(context->semaphore);
+
     } else {
         furi_crash();
     }
 }
+#else
+static void demo_service_serial_rx_callback(
+    FuriHalSerialHandle* handle,
+    FuriHalSerialRxEvent event,
+    void* ctx) {
+    DemoServiceSerialContext* context = ctx;
+
+    if(event & FuriHalSerialRxEventData || event & FuriHalSerialRxEventIdle) {
+        context->data_len = furi_hal_serial_async_rx(handle, context->buffer, BUFFER_SIZE);
+    }
+    if(event & FuriHalSerialRxEventBreak) {
+        furi_crash("Break Condition");
+    }
+    if(event & FuriHalSerialRxEventOverrunError) {
+        furi_crash("Overrun Error");
+    }
+    if(event & FuriHalSerialRxEventFrameError) {
+        furi_crash("Framing Error");
+    }
+
+    furi_semaphore_release(context->semaphore);
+}
+#endif
 
 static void demo_service_init_serial_context(DemoService* instance, FuriHalSerialId id) {
     DemoServiceSerialContext* context = &instance->serial_context[id];
+    context->semaphore = furi_semaphore_alloc(1, 0);
 
-    context->stream_buffer = furi_stream_buffer_alloc(STREAM_BUFFER_SIZE, 1);
-    furi_event_loop_subscribe_stream_buffer(
+    furi_event_loop_subscribe_semaphore(
         instance->event_loop,
-        context->stream_buffer,
+        context->semaphore,
         FuriEventLoopEventIn,
-        demo_service_stream_buffer_callback,
+        demo_service_semaphore_callback,
         context);
 
     context->handle = furi_hal_serial_control_acquire(id);
     furi_check(context->handle);
 
     furi_hal_serial_init(context->handle, UART_BAUD_RATE);
-    furi_hal_serial_async_rx_start(
-        context->handle, demo_service_serial_rx_callback, context, false);
+    furi_hal_serial_set_callback(context->handle, NULL, demo_service_serial_rx_callback, context);
+
+#if ENABLE_DMA
+    furi_hal_serial_dma_rx_start(context->handle, context->buffer, BUFFER_SIZE);
+#else
+    furi_hal_serial_async_rx_start(context->handle, true);
+#endif
 }
 
 static DemoService* demo_service_alloc(void) {
@@ -75,9 +112,12 @@ static DemoService* demo_service_alloc(void) {
 
     instance->event_loop = furi_event_loop_alloc();
 
+#if ENABLE_USART0
     demo_service_init_serial_context(instance, FuriHalSerialIdUsart0);
-    // Uncomment for echo on UART1, beware of parasitic signals
-    // demo_service_init_serial_context(instance, FuriHalSerialIdUart1);
+#endif
+#if ENABLE_UART1
+    demo_service_init_serial_context(instance, FuriHalSerialIdUart1);
+#endif
 
     return instance;
 }

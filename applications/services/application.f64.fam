@@ -5,9 +5,9 @@ App(
     provides=[
         "demo_service",
         "demo_notification_f64",
-        "input_f64",
+        #"input_f64",
         #"demo_wifi_test_f64",
-        "demo_wifi_test_ap_f64",
+        #"demo_wifi_test_ap_f64",
     ],
     targets=["f64"],
 )

@@ -37,12 +37,6 @@ const IRQn_Type furi_hal_interrupt_irqn[FuriHalInterruptIdMax] = {
     [FuriHalInterruptIdTimer1] = TIMER1_IRQn,
     [FuriHalInterruptIdTimer2] = TIMER2_IRQn,
     [FuriHalInterruptIdTimer3] = TIMER3_IRQn,
-    [FuriHalInterruptIdUDMA1] = UDMA1_IRQn,
-    [FuriHalInterruptIdULPSS_UART] = ULPSS_UART_IRQn,
-    [FuriHalInterruptIdGPDMA] = GPDMA_IRQn,
-    [FuriHalInterruptIdUDMA0] = UDMA0_IRQn,
-    [FuriHalInterruptIdUSART0] = USART0_IRQn,
-    [FuriHalInterruptIdUART1] = UART1_IRQn,
     [FuriHalInterruptIdQEI] = QEI_IRQn,
 };
 
@@ -359,16 +353,8 @@ void IRQ008_Handler(void) {
 void IRQ009_Handler(void) {
 }
 
-void IRQ010_Handler(void) {
-    furi_hal_interrupt_call(FuriHalInterruptIdUDMA1);
-}
-
 // 11: ULP Processor Interrupt11
 void IRQ011_Handler(void) {
-}
-
-// 12: ULP Processor Interrupt12
-void IRQ012_Handler(void) {
 }
 
 // 13: ULP Processor Interrupt13
@@ -427,14 +413,6 @@ void IRQ028_Handler(void) {
 void IRQ029_Handler(void) {
 }
 
-void IRQ031_Handler(void) {
-    furi_hal_interrupt_call(FuriHalInterruptIdGPDMA);
-}
-
-void IRQ033_Handler(void) {
-    furi_hal_interrupt_call(FuriHalInterruptIdUDMA0);
-}
-
 // 34: SCT interrupt
 void IRQ034_Handler(void) {
 }
@@ -449,14 +427,6 @@ void HIF2_IRQHandler(void) {
 
 // 37: SIO Interrupt
 void IRQ037_Handler(void) {
-}
-
-void IRQ038_Handler(void) {
-    furi_hal_interrupt_call(FuriHalInterruptIdUSART0);
-}
-
-void IRQ039_Handler(void) {
-    furi_hal_interrupt_call(FuriHalInterruptIdUART1);
 }
 
 // 41: GPIO Wakeup Interrupt

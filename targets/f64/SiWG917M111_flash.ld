@@ -32,8 +32,9 @@ ENTRY(Reset_Handler)
 _stack_size = 0x200; /* Required amount of stack */
 
 MEMORY {
-    FLASH (rx) : ORIGIN = 0x8202000, LENGTH = 0x1fe000
-    RAM (rwx)  : ORIGIN = 0x000000c, LENGTH = 0x3fbf4 /*255k and 1k reserved for udma0*/
+    FLASH (rx)  : ORIGIN = 0x8202000, LENGTH = 0x1fe000
+    RAM   (rwx) : ORIGIN = 0x000000c, LENGTH = 0x3fbf4
+    UDMA0 (rwx) : ORIGIN = 0x004fc00, LENGTH = 0x400
 }
 
 
@@ -59,7 +60,7 @@ SECTIONS {
         *(.dtors)
         *(.rodata*)
 
-        KEEP(*(.eh_fram e*))
+        KEEP(*(.eh_frame*))
     } > FLASH
 
     .ARM.extab : {
@@ -142,4 +143,9 @@ SECTIONS {
         PROVIDE(_stack_end = __StackTop);
     } > RAM
 
+    /* Special section for UDMA0 descriptors */
+    .udma_addr0 : {
+        . = ALIGN(512);
+        *(.udma_addr0*)
+    } > UDMA0 AT> FLASH
 }
