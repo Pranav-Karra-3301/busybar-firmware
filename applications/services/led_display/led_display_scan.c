@@ -125,7 +125,7 @@ static void scan_tim_init(void) {
     NVIC_EnableIRQ(TIM5_IRQn);
 
     furi_hal_gpio_init_ex(
-        &gpio_led_595_latch,
+        &gpio_led_scan_latch,
         GpioModeAltFunctionPushPull,
         GpioPullNo,
         GpioSpeedVeryHigh,
@@ -240,13 +240,13 @@ static void spi_595_init(void) {
     LL_SPI_StartMasterTransfer(SPI2);
 
     furi_hal_gpio_init_ex(
-        &gpio_led_595_clk,
+        &gpio_led_scan_clk,
         GpioModeAltFunctionPushPull,
         GpioPullNo,
         GpioSpeedVeryHigh,
         GpioAltFn5SPI2);
     furi_hal_gpio_init_ex(
-        &gpio_led_595_sdi,
+        &gpio_led_scan_sdi,
         GpioModeAltFunctionPushPull,
         GpioPullNo,
         GpioSpeedVeryHigh,

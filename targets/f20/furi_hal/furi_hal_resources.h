@@ -94,36 +94,22 @@ extern const GpioPin gpio_oled_spi_sdin;
 extern const GpioPin gpio_oled_spi_sclk;
 extern const GpioPin gpio_oled_cs;
 extern const GpioPin gpio_oled_dc;
-extern const GpioPin gpio_oled_rst;
+extern const GpioPin gpio_oled_vcc_en;
 
 extern const GpioPin gpio_i2c_scl;
 extern const GpioPin gpio_i2c_sda;
 
-extern const GpioPin gpio_encoder_a;
-extern const GpioPin gpio_encoder_b;
-extern const GpioPin gpio_button_ok;
-extern const GpioPin gpio_button_back;
-extern const GpioPin gpio_button_menu;
-extern const GpioPin gpio_switch_0;
-extern const GpioPin gpio_switch_1;
-extern const GpioPin gpio_switch_2;
-extern const GpioPin gpio_switch_3;
-extern const GpioPin gpio_switch_4;
-
-extern const GpioPin gpio_top_led_r;
-extern const GpioPin gpio_top_led_g;
-extern const GpioPin gpio_top_led_b;
-
+extern const GpioPin gpio_led_power_en;
 extern const GpioPin gpio_led_gclk;
-extern const GpioPin gpio_led_595_sdi;
-extern const GpioPin gpio_led_595_clk;
-extern const GpioPin gpio_led_595_latch;
+extern const GpioPin gpio_led_scan_sdi;
+extern const GpioPin gpio_led_scan_clk;
+extern const GpioPin gpio_led_scan_latch;
 extern const GpioPin gpio_led_sdi_ospi_d0;
 extern const GpioPin gpio_led_le_ospi_d1;
 extern const GpioPin gpio_led_dclk_ospi_clk;
 
 extern const GpioPin gpio_dac;
-extern const GpioPin gpio_dac_enable;
+extern const GpioPin gpio_amp_en;
 
 extern const GpioPinRecord gpio_pins[];
 extern const size_t gpio_pins_count;

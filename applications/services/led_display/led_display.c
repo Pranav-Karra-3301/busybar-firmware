@@ -230,6 +230,9 @@ int32_t led_display_init(void* p) {
 
     FURI_LOG_I(TAG, "Started");
 
+    furi_hal_gpio_init_simple(&gpio_led_power_en, GpioModeOutputPushPull);
+    furi_hal_gpio_write(&gpio_led_power_en, true);
+
     led_display_scan_init();
     LedDisplayDriver* led_driver = led_display_driver_init();
     furi_delay_ms(1);

@@ -4,15 +4,14 @@
 
 const GpioPin gpio_swdio = {.port = GPIOA, .pin = LL_GPIO_PIN_13};
 const GpioPin gpio_swclk = {.port = GPIOA, .pin = LL_GPIO_PIN_14};
-const GpioPin gpio_led = {.port = GPIOC, .pin = LL_GPIO_PIN_13};
 const GpioPin gpio_log_usart_tx = {.port = GPIOC, .pin = LL_GPIO_PIN_3};
 const GpioPin gpio_log_usart_rx = {.port = GPIOC, .pin = LL_GPIO_PIN_2};
 
 const GpioPin gpio_usart1_rx = {.port = GPIOA, .pin = LL_GPIO_PIN_10};
 const GpioPin gpio_usart1_tx = {.port = GPIOA, .pin = LL_GPIO_PIN_9};
+const GpioPin gpio_usart1_ck = {.port = GPIOA, .pin = LL_GPIO_PIN_8};
 
-// const GpioPin gpio_sd_card_power_switch = {.port = GPIOC, .pin = LL_GPIO_PIN_7}; // Always on
-// const GpioPin gpio_sd_card_detect = {.port = GPIOC, .pin = LL_GPIO_PIN_7};
+const GpioPin gpio_sd_card_nrst = {.port = GPIOB, .pin = LL_GPIO_PIN_3};
 const GpioPin gpio_sd_card_d0 = {.port = GPIOC, .pin = LL_GPIO_PIN_8};
 const GpioPin gpio_sd_card_d1 = {.port = GPIOC, .pin = LL_GPIO_PIN_9};
 const GpioPin gpio_sd_card_d2 = {.port = GPIOC, .pin = LL_GPIO_PIN_10};
@@ -27,38 +26,23 @@ const GpioPin gpio_oled_spi_sdin = {.port = GPIOA, .pin = LL_GPIO_PIN_7};
 const GpioPin gpio_oled_spi_sclk = {.port = GPIOA, .pin = LL_GPIO_PIN_5};
 const GpioPin gpio_oled_cs = {.port = GPIOA, .pin = LL_GPIO_PIN_6};
 const GpioPin gpio_oled_dc = {.port = GPIOC, .pin = LL_GPIO_PIN_4};
-// const GpioPin gpio_oled_rst = {.port = GPIOC, .pin = LL_GPIO_PIN_5}; // Connected to NRST
+const GpioPin gpio_oled_fr = {.port = GPIOC, .pin = LL_GPIO_PIN_5};
+const GpioPin gpio_oled_vcc_en = {.port = GPIOA, .pin = LL_GPIO_PIN_0};
 
 const GpioPin gpio_i2c_scl = {.port = GPIOB, .pin = LL_GPIO_PIN_8};
 const GpioPin gpio_i2c_sda = {.port = GPIOB, .pin = LL_GPIO_PIN_9};
 
-const GpioPin gpio_encoder_a = {.port = GPIOC, .pin = LL_GPIO_PIN_0};
-const GpioPin gpio_encoder_b = {.port = GPIOC, .pin = LL_GPIO_PIN_2};
-
-const GpioPin gpio_button_ok = {.port = GPIOA, .pin = LL_GPIO_PIN_0};
-const GpioPin gpio_button_back = {.port = GPIOC, .pin = LL_GPIO_PIN_1};
-const GpioPin gpio_button_menu = {.port = GPIOA, .pin = LL_GPIO_PIN_2};
-
-const GpioPin gpio_switch_0 = {.port = GPIOC, .pin = LL_GPIO_PIN_6};
-const GpioPin gpio_switch_1 = {.port = GPIOB, .pin = LL_GPIO_PIN_12};
-const GpioPin gpio_switch_2 = {.port = GPIOA, .pin = LL_GPIO_PIN_8};
-const GpioPin gpio_switch_3 = {.port = GPIOA, .pin = LL_GPIO_PIN_9};
-const GpioPin gpio_switch_4 = {.port = GPIOA, .pin = LL_GPIO_PIN_10};
-
-const GpioPin gpio_top_led_r = {.port = GPIOB, .pin = LL_GPIO_PIN_4};
-const GpioPin gpio_top_led_g = {.port = GPIOB, .pin = LL_GPIO_PIN_6};
-const GpioPin gpio_top_led_b = {.port = GPIOB, .pin = LL_GPIO_PIN_7};
-
+const GpioPin gpio_led_power_en = {.port = GPIOB, .pin = LL_GPIO_PIN_12};
+const GpioPin gpio_led_scan_sdi = {.port = GPIOC, .pin = LL_GPIO_PIN_1};
+const GpioPin gpio_led_scan_clk = {.port = GPIOB, .pin = LL_GPIO_PIN_13};
+const GpioPin gpio_led_scan_latch = {.port = GPIOA, .pin = LL_GPIO_PIN_1};
 const GpioPin gpio_led_gclk = {.port = GPIOB, .pin = LL_GPIO_PIN_2};
-const GpioPin gpio_led_595_sdi = {.port = GPIOC, .pin = LL_GPIO_PIN_1}; //changed
-const GpioPin gpio_led_595_clk = {.port = GPIOB, .pin = LL_GPIO_PIN_13}; //changed
-const GpioPin gpio_led_595_latch = {.port = GPIOA, .pin = LL_GPIO_PIN_1};
 const GpioPin gpio_led_sdi_ospi_d0 = {.port = GPIOB, .pin = LL_GPIO_PIN_1};
 const GpioPin gpio_led_le_ospi_d1 = {.port = GPIOB, .pin = LL_GPIO_PIN_0};
 const GpioPin gpio_led_dclk_ospi_clk = {.port = GPIOB, .pin = LL_GPIO_PIN_10};
 
 const GpioPin gpio_dac = {.port = GPIOA, .pin = LL_GPIO_PIN_4};
-const GpioPin gpio_dac_enable = {.port = GPIOC, .pin = LL_GPIO_PIN_5}; // Connected to NRST
+const GpioPin gpio_amp_en = {.port = GPIOB, .pin = LL_GPIO_PIN_4};
 
 const GpioPinRecord gpio_pins[] = {};
 
