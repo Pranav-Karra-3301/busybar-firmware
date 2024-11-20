@@ -21,7 +21,7 @@ const GpioPin gpio_917_irq = {.port = GPIOB, .pin = LL_GPIO_PIN_6};
 const GpioPin gpio_bq25798_qon = {.port = GPIOC, .pin = LL_GPIO_PIN_13};
 const GpioPin gpio_bq25798_irq = {.port = GPIOB, .pin = LL_GPIO_PIN_7};
 
-const GpioPin gpio_sd_card_nrst = {.port = GPIOB, .pin = LL_GPIO_PIN_3};
+const GpioPin gpio_sd_card_rst = {.port = GPIOB, .pin = LL_GPIO_PIN_3};
 const GpioPin gpio_sd_card_d0 = {.port = GPIOC, .pin = LL_GPIO_PIN_8};
 const GpioPin gpio_sd_card_d1 = {.port = GPIOC, .pin = LL_GPIO_PIN_9};
 const GpioPin gpio_sd_card_d2 = {.port = GPIOC, .pin = LL_GPIO_PIN_10};

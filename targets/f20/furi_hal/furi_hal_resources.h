@@ -47,7 +47,7 @@ extern const GpioPin gpio_917_irq;
 extern const GpioPin gpio_bq25798_qon;
 extern const GpioPin gpio_bq25798_irq;
 
-extern const GpioPin gpio_sd_card_nrst;
+extern const GpioPin gpio_sd_card_rst;
 extern const GpioPin gpio_sd_card_d0;
 extern const GpioPin gpio_sd_card_d1;
 extern const GpioPin gpio_sd_card_d2;
