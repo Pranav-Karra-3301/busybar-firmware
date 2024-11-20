@@ -28,41 +28,26 @@ typedef struct {
     const bool debug;
 } GpioPinRecord;
 
-extern const GpioPin gpio_mco;
 extern const GpioPin gpio_swdio;
 extern const GpioPin gpio_swclk;
-extern const GpioPin gpio_led;
-
 extern const GpioPin gpio_log_usart_tx;
 extern const GpioPin gpio_log_usart_rx;
 
-extern const GpioPin gpio_usart1_rx;
+extern const GpioPin gpio_usart1_ck;
 extern const GpioPin gpio_usart1_tx;
+extern const GpioPin gpio_usart1_rx;
+extern const GpioPin gpio_lpuart1_tx;
+extern const GpioPin gpio_lpuart1_rx;
 
-extern const GpioPin gpio_half_lpuart_tx_rx;
-extern const GpioPin gpio_button_trig;
+extern const GpioPin gpio_917_pwr_en;
+extern const GpioPin gpio_917_rst;
+extern const GpioPin gpio_917_swo;
+extern const GpioPin gpio_917_irq;
 
-extern const GpioPin gpio_usb_dm;
-extern const GpioPin gpio_usb_dp;
+extern const GpioPin gpio_bq25798_qon;
+extern const GpioPin gpio_bq25798_irq;
 
-extern const GpioPin gpio_uart5_tx;
-extern const GpioPin gpio_uart5_rx;
-
-extern const GpioPin gpio_octospi1_psram_io0;
-extern const GpioPin gpio_octospi1_psram_io1;
-extern const GpioPin gpio_octospi1_psram_io2;
-extern const GpioPin gpio_octospi1_psram_io3;
-extern const GpioPin gpio_octospi1_psram_io4;
-extern const GpioPin gpio_octospi1_psram_io5;
-extern const GpioPin gpio_octospi1_psram_io6;
-extern const GpioPin gpio_octospi1_psram_io7;
-extern const GpioPin gpio_octospi1_psram_clk;
-extern const GpioPin gpio_octospi1_psram_ncs;
-extern const GpioPin gpio_octospi1_psram_dqs;
-
-extern const GpioPin gpio_sd_card_power_switch;
-extern const GpioPin gpio_sd_card_detect;
-
+extern const GpioPin gpio_sd_card_nrst;
 extern const GpioPin gpio_sd_card_d0;
 extern const GpioPin gpio_sd_card_d1;
 extern const GpioPin gpio_sd_card_d2;
@@ -70,46 +55,33 @@ extern const GpioPin gpio_sd_card_d3;
 extern const GpioPin gpio_sd_card_ck;
 extern const GpioPin gpio_sd_card_cmd;
 
-extern const GpioPin gpio_pssi_pdck;
-extern const GpioPin gpio_pssi_rdy;
-extern const GpioPin gpio_pssi_de;
-extern const GpioPin gpio_pssi_d0;
-extern const GpioPin gpio_pssi_d1;
-extern const GpioPin gpio_pssi_d2;
-extern const GpioPin gpio_pssi_d3;
-extern const GpioPin gpio_pssi_d4;
-extern const GpioPin gpio_pssi_d5;
-extern const GpioPin gpio_pssi_d6;
-extern const GpioPin gpio_pssi_d7;
-extern const GpioPin gpio_pssi_d8;
-extern const GpioPin gpio_pssi_d9;
-extern const GpioPin gpio_pssi_d10;
-extern const GpioPin gpio_pssi_d11;
-extern const GpioPin gpio_pssi_d12;
-extern const GpioPin gpio_pssi_d13;
-extern const GpioPin gpio_pssi_d14;
-extern const GpioPin gpio_pssi_d15;
+extern const GpioPin gpio_usb_dm;
+extern const GpioPin gpio_usb_dp;
+
+extern const GpioPin gpio_ucpd_cc1;
+extern const GpioPin gpio_ucpd_cc2;
 
 extern const GpioPin gpio_oled_spi_sdin;
 extern const GpioPin gpio_oled_spi_sclk;
 extern const GpioPin gpio_oled_cs;
 extern const GpioPin gpio_oled_dc;
+extern const GpioPin gpio_oled_fr;
 extern const GpioPin gpio_oled_vcc_en;
 
 extern const GpioPin gpio_i2c_scl;
 extern const GpioPin gpio_i2c_sda;
 
 extern const GpioPin gpio_led_power_en;
-extern const GpioPin gpio_led_gclk;
 extern const GpioPin gpio_led_scan_sdi;
 extern const GpioPin gpio_led_scan_clk;
 extern const GpioPin gpio_led_scan_latch;
+extern const GpioPin gpio_led_gclk;
 extern const GpioPin gpio_led_sdi_ospi_d0;
 extern const GpioPin gpio_led_le_ospi_d1;
 extern const GpioPin gpio_led_dclk_ospi_clk;
 
-extern const GpioPin gpio_dac;
-extern const GpioPin gpio_amp_en;
+extern const GpioPin gpio_audio_dac;
+extern const GpioPin gpio_audio_amp_en;
 
 extern const GpioPinRecord gpio_pins[];
 extern const size_t gpio_pins_count;

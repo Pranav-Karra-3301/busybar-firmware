@@ -158,18 +158,18 @@ static void furi_hal_dac_setup_timer() {
 }
 
 void furi_hal_dac_init(void) {
-    furi_hal_gpio_init(&gpio_dac, GpioModeAnalog, GpioPullNo, GpioSpeedLow);
-    furi_hal_gpio_write(&gpio_amp_en, 0);
-    furi_hal_gpio_init(&gpio_amp_en, GpioModeOutputPushPull, GpioPullNo, GpioSpeedLow);
+    furi_hal_gpio_init(&gpio_audio_dac, GpioModeAnalog, GpioPullNo, GpioSpeedLow);
+    furi_hal_gpio_write(&gpio_audio_amp_en, 0);
+    furi_hal_gpio_init(&gpio_audio_amp_en, GpioModeOutputPushPull, GpioPullNo, GpioSpeedLow);
 }
 
 void furi_hal_dac_pa_enable(void) {
-    furi_hal_gpio_write(&gpio_amp_en, 1);
+    furi_hal_gpio_write(&gpio_audio_amp_en, 1);
     furi_delay_ms(10);
 }
 
 void furi_hal_dac_pa_disable(void) {
-    furi_hal_gpio_write(&gpio_amp_en, 0);
+    furi_hal_gpio_write(&gpio_audio_amp_en, 0);
 }
 
 void furi_hal_dac_start(FuriHalDacCallback callback, void* callback_context, uint32_t samplerate) {
