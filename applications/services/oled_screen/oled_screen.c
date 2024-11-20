@@ -11,7 +11,7 @@
 #define CMD_LEN_MAX 16
 
 #define CMD_DELAY 0xFE
-#define CMD_END 0xFF
+#define CMD_END   0xFF
 
 static const uint8_t oled_init_table_ssd1320[] = {
     /* clang-format off */
@@ -143,6 +143,17 @@ int32_t oled_screen(void* p) {
 
     Gui* gui = furi_record_open(RECORD_GUI);
     gui_add_framebuffer_callback(gui, oled_commit, &frame_count);
+
+    // for(uint8_t i = 0; i < 4; i++) {
+    //     furi_delay_ms(100);
+    //     input_key_press(InputKeyDown);
+    //     furi_delay_ms(100);
+    //     input_key_release(InputKeyDown);
+    // }
+    // furi_delay_ms(100);
+    // input_key_press(InputKeyOk);
+    // furi_delay_ms(100);
+    // input_key_release(InputKeyOk);
 
     while(true) {
         // gui_update(gui);

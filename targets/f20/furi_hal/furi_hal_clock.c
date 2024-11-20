@@ -10,7 +10,7 @@
 #define TAG "FuriHalClock"
 
 #define CPU_CLOCK_EARLY_HZ 4000000U
-#define TICK_INT_PRIORITY 15U
+#define TICK_INT_PRIORITY  15U
 
 // Common PLL1 settings
 #define FURI_CLOCK_PLL1_M 1
@@ -36,12 +36,8 @@ void furi_hal_clock_init(void) {
     furi_hal_bus_enable(FuriHalBusPWR);
     furi_hal_bus_enable(FuriHalBusSYSCFG);
 
-    {
-        // Todo move to furi_hal_bus? furi_hal_cortex?
-        LL_PWR_EnableVddIO2();
-
-        LL_PWR_DisableUCPDDeadBattery(); // TODO: Move to USB_PD
-    }
+    // Todo move to furi_hal_bus? furi_hal_cortex?
+    LL_PWR_EnableVddIO2();
 
     LL_FLASH_SetLatency(LL_FLASH_LATENCY_4);
     while(LL_FLASH_GetLatency() != LL_FLASH_LATENCY_4) {
@@ -81,7 +77,8 @@ void furi_hal_clock_init(void) {
     }
 
     /* Insure 1us transition state at intermediate medium speed clock*/
-    for(__IO uint32_t i = (160 >> 1); i != 0; i--);
+    for(__IO uint32_t i = (160 >> 1); i != 0; i--)
+        ;
 
     LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
     LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
@@ -97,9 +94,9 @@ void furi_hal_clock_init(void) {
     while(LL_PWR_IsEnabledBkUpAccess() == 0U) {
     }
 
-    LL_RCC_LSI_Enable();
-    while(LL_RCC_LSI_IsReady() != 1) {
-    }
+    // LL_RCC_LSI_Enable();
+    // while(LL_RCC_LSI_IsReady() != 1) {
+    // }
 
     LL_RCC_MSI_EnableRangeSelection();
     LL_RCC_MSI_SetCalibTrimming(16, LL_RCC_MSI_OSCILLATOR_0);

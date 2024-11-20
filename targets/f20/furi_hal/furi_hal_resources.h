@@ -5,7 +5,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif 
 
 typedef enum {
     InputKeyUp,

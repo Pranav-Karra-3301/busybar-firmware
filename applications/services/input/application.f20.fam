@@ -8,5 +8,5 @@ App(
     order=80,
     targets=["f20"],
     sources=["input_simple.c"],
-    # sdk_headers=["input.h"],
+    sdk_headers=["input.h"],
 )
