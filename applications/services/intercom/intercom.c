@@ -5,94 +5,65 @@
 #include <furi_hal_serial.h>
 #include <furi_hal_serial_control.h>
 
-#include "intercom_decoder.h"
-#include "intercom_encoder.h"
+#include "intercom_frame.h"
 
 #define TAG "IntercomSrv"
 
 #ifndef INTERCOM_BAUD_RATE
-#define INTERCOM_BAUD_RATE (921600UL)
-#endif
-
-#ifndef INTERCOM_BUFFER_SIZE
-#define INTERCOM_BUFFER_SIZE (INTERCOM_FRAME_MAX_SIZE)
+#define INTERCOM_BAUD_RATE (115200UL)
 #endif
 
 // TODO: Reduce timeout to absolute minimum
-#define INTERCOM_CONFIRM_TIMEOUT_MS (1000U)
+#define INTERCOM_RESPONSE_TIMEOUT_MS (250U)
+
+typedef enum {
+    IntercomStateIdle,
+    IntercomStateWaitingForResponse,
+} IntercomState;
+
+typedef enum {
+    IntercomEventData = 1UL << 0,
+    IntercomEventFrameSent = 1UL << 1,
+    IntercomEventFrameReceived = 1UL << 2,
+} IntercomEvent;
 
 struct Intercom {
     FuriEventLoop* event_loop;
-    FuriEventLoopTimer* rx_timer;
-    FuriEventLoopTimer* tx_timer;
-    FuriStreamBuffer* rx_buffer;
-    FuriStreamBuffer* tx_buffer;
+    FuriSemaphore* tx_semaphore;
+    FuriEventLoopTimer* response_timer;
     FuriHalSerialHandle* serial;
-    IntercomDecoder* decoder;
-    IntercomEncoder* encoder;
     IntercomRxCallback rx_callback;
-    void* rx_callback_context;
+    void* callback_context;
+    IntercomFrame tx_frame;
+    IntercomFrame rx_frame;
+    IntercomState state;
 };
 
+// Called in ISR context
+static void intercom_serial_tx_callback(
+    FuriHalSerialHandle* handle,
+    FuriHalSerialTxEvent event,
+    void* context) {
+    UNUSED(handle);
+
+    Intercom* instance = context;
+
+    if(event & FuriHalSerialTxEventComplete) {
+        furi_event_loop_set_custom_event(instance->event_loop, IntercomEventFrameSent);
+    }
+}
+
+// Called in interrupt context
 static void intercom_serial_rx_callback(
     FuriHalSerialHandle* handle,
     FuriHalSerialRxEvent event,
     void* context) {
+    UNUSED(handle);
+
     Intercom* instance = context;
 
-    if(event & FuriHalSerialRxEventData || event & FuriHalSerialRxEventIdle) {
-        while(furi_hal_serial_async_rx_available(handle)) {
-            const uint8_t byte = furi_hal_serial_async_rx(handle);
-            furi_check(furi_stream_buffer_send(instance->rx_buffer, &byte, 1, 0) == 1);
-        }
-
-    // TODO: Handle Serial errors
-    } else if(event & FuriHalSerialRxEventFrameError) {
-        FURI_LOG_E(TAG, "Frame Error");
-    } else if(event & FuriHalSerialRxEventNoiseError) {
-        FURI_LOG_E(TAG, "Noise Error");
-    } else if(event & FuriHalSerialRxEventOverrunError) {
-        FURI_LOG_E(TAG, "Overrun Error");
-    }
-}
-
-static void intercom_rx_buffer_callback(FuriEventLoopObject* object, void* context) {
-    Intercom* instance = context;
-    furi_assert(object == instance->rx_buffer);
-
-    while(furi_stream_buffer_bytes_available(instance->rx_buffer)) {
-        uint8_t byte;
-        furi_check(furi_stream_buffer_receive(instance->rx_buffer, &byte, 1, 0) == 1);
-
-        const IntercomDecoderResult status = intercom_decoder_feed(instance->decoder, byte);
-
-        if(status == IntercomDecoderResultDone) {
-            const IntercomFrameHeader* header = intercom_decoder_get_header(instance->decoder);
-
-            if(header->flags & IntercomFrameFlagData) {
-                // Schedule confirmation of receipt - either with an outgoing frame or on its own
-                furi_event_loop_timer_start(instance->rx_timer, INTERCOM_CONFIRM_TIMEOUT_MS / 2);
-
-                const IntercomFramePayload* payload =
-                    intercom_decoder_get_payload(instance->decoder);
-                instance->rx_callback(payload->data, payload->size, instance->rx_callback_context);
-            }
-            if(header->flags & IntercomFrameFlagConfirm) {
-                furi_event_loop_timer_stop(instance->rx_timer);
-            }
-            if(header->flags & IntercomFrameFlagError) {
-                FURI_LOG_E(TAG, "Receive Error");
-                // TODO: Resend previous frame
-                furi_event_loop_timer_stop(instance->rx_timer);
-            }
-
-            intercom_decoder_reset(instance->decoder);
-
-        } else if(status == IntercomDecoderResultError) {
-            FURI_LOG_E(TAG, "Decode Error");
-            // TODO: Send error frame right away
-            intercom_decoder_reset(instance->decoder);
-        }
+    if(event & FuriHalSerialRxEventData) {
+        furi_event_loop_set_custom_event(instance->event_loop, IntercomEventFrameReceived);
     }
 }
 
@@ -101,109 +72,117 @@ void intercom_set_rx_callback(Intercom* instance, IntercomRxCallback callback, v
     furi_check(callback);
     furi_check(instance->rx_callback == NULL);
 
-    instance->rx_callback_context = context;
+    instance->callback_context = context;
     instance->rx_callback = callback;
 }
 
-// One outgoing frame per callback invocation
-static void intercom_tx_buffer_callback(FuriEventLoopObject* object, void* context) {
-    Intercom* instance = context;
-    furi_assert(object == instance->tx_buffer);
+static inline void intercom_send_data_frame(Intercom* instance) {
+    IntercomFrame* tx_frame = &instance->tx_frame;
 
-    uint16_t frame_flags = IntercomFrameFlagData;
+    tx_frame->header.id = 0;
+    tx_frame->header.flags = IntercomFrameFlagData;
+    tx_frame->d.trailer.check = intercom_frame_calculate_checksum(tx_frame);
 
-    // Integrate the confirmation of receipt to this frame
-    if(furi_event_loop_timer_is_running(instance->rx_timer)) {
-        furi_event_loop_timer_stop(instance->rx_timer);
-        frame_flags |= IntercomFrameFlagConfirm;
+    // Send request
+    furi_hal_serial_dma_tx(instance->serial, (uint8_t*)tx_frame, INTERCOM_D_FRAME_SIZE);
+}
+
+static inline void intercom_send_service_frame(Intercom* instance) {
+    IntercomFrame* tx_frame = &instance->tx_frame;
+
+    tx_frame->header.id = 0;
+    tx_frame->header.flags = IntercomFrameFlagService;
+    tx_frame->s.trailer.check = intercom_frame_calculate_checksum(tx_frame);
+
+    // Send confirmation
+    furi_hal_serial_dma_tx(instance->serial, (uint8_t*)tx_frame, INTERCOM_S_FRAME_SIZE);
+}
+
+static inline void intercom_process_rx_frame(Intercom* instance) {
+    if(instance->state == IntercomStateIdle) {
+        if(instance->rx_frame.header.flags & IntercomFrameFlagData) {
+            if(instance->rx_callback) {
+                instance->rx_callback(
+                    instance->rx_frame.d.payload.data,
+                    instance->rx_frame.d.payload.size,
+                    instance->callback_context);
+            }
+
+            intercom_send_service_frame(instance);
+
+        } else {
+            // Unexpected frame
+            furi_crash();
+        }
+
+    } else if(instance->state == IntercomStateWaitingForResponse) {
+        furi_event_loop_timer_stop(instance->response_timer);
+
+        if(instance->rx_frame.header.flags & IntercomFrameFlagService) {
+            instance->state = IntercomStateIdle;
+            furi_hal_serial_dma_rx_start(
+                instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
+            furi_semaphore_release(instance->tx_semaphore);
+
+        } else {
+            // Unexpected frame
+            furi_crash();
+        }
     }
-
-    intercom_encoder_begin_frame(instance->encoder, 0, frame_flags);
-
-    const size_t bytes_available =
-        MIN(furi_stream_buffer_bytes_available(instance->tx_buffer), INTERCOM_FRAME_MAX_SIZE);
-    IntercomFramePayload* payload =
-        intercom_encoder_allocate_payload(instance->encoder, bytes_available);
-
-    furi_check(
-        furi_stream_buffer_receive(instance->tx_buffer, payload->data, payload->size, 0) ==
-        bytes_available);
-    intercom_encoder_finalize_frame(instance->encoder);
-
-    size_t frame_size;
-    const uint8_t* frame_data = intercom_encoder_get_frame_data(instance->encoder, &frame_size);
-
-    furi_hal_serial_tx(instance->serial, frame_data, frame_size);
-    furi_hal_serial_tx_wait_complete(instance->serial);
-
-    // Start waiting for confirmation from the receiving side
-    furi_event_loop_timer_start(instance->tx_timer, INTERCOM_CONFIRM_TIMEOUT_MS);
 }
 
-// Called if it was not possible to integrate the confirmation into an outgoing frame
-static void intercom_rx_timer_callback(void* context) {
-    Intercom* instance = context;
-
-    // Send confirmation frame with no other data
-    intercom_encoder_begin_frame(instance->encoder, 0, IntercomFrameFlagConfirm);
-    intercom_encoder_finalize_frame(instance->encoder);
-
-    size_t frame_size;
-    const uint8_t* frame_data = intercom_encoder_get_frame_data(instance->encoder, &frame_size);
-
-    furi_hal_serial_tx(instance->serial, frame_data, frame_size);
-    furi_hal_serial_tx_wait_complete(instance->serial);
+static inline void intercom_process_tx_frame(Intercom* instance) {
+    // Start waiting for the response
+    furi_hal_serial_dma_rx_start(
+        instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_S_FRAME_SIZE);
+    furi_event_loop_timer_start(instance->response_timer, INTERCOM_RESPONSE_TIMEOUT_MS);
 }
 
-// Called upon outgoing frame confirmation timeout
-static void intercom_tx_timer_callback(void* context) {
+static void intercom_custom_event_callback(uint32_t events, void* context) {
+    Intercom* instance = context;
+    if(events & IntercomEventData) {
+        intercom_send_data_frame(instance);
+    }
+    if(events & IntercomEventFrameReceived) {
+        intercom_process_rx_frame(instance);
+    }
+    if(events & IntercomEventFrameSent) {
+        intercom_process_tx_frame(instance);
+    }
+}
+
+static void intercom_response_timer_callback(void* context) {
     Intercom* instance = context;
 
-    // Send error frame with no other data
-    intercom_encoder_begin_frame(instance->encoder, 0, IntercomFrameFlagConfirm);
-    intercom_encoder_finalize_frame(instance->encoder);
-
-    size_t frame_size;
-    const uint8_t* frame_data = intercom_encoder_get_frame_data(instance->encoder, &frame_size);
-
-    furi_hal_serial_tx(instance->serial, frame_data, frame_size);
-    furi_hal_serial_tx_wait_complete(instance->serial);
+    FURI_LOG_E(TAG, "Response timeout");
+    // Resend the frame
+    intercom_send_data_frame(instance);
 }
 
 static Intercom* intercom_alloc(void) {
     Intercom* instance = malloc(sizeof(Intercom));
 
     instance->event_loop = furi_event_loop_alloc();
-    instance->rx_timer = furi_event_loop_timer_alloc(
-        instance->event_loop, intercom_rx_timer_callback, FuriEventLoopTimerTypeOnce, instance);
-    instance->tx_timer = furi_event_loop_timer_alloc(
-        instance->event_loop, intercom_tx_timer_callback, FuriEventLoopTimerTypeOnce, instance);
-    instance->rx_buffer = furi_stream_buffer_alloc(INTERCOM_BUFFER_SIZE, 1);
-    instance->tx_buffer = furi_stream_buffer_alloc(INTERCOM_BUFFER_SIZE, 1);
 
-    furi_event_loop_subscribe_stream_buffer(
+    instance->tx_semaphore = furi_semaphore_alloc(1, 1);
+    instance->response_timer = furi_event_loop_timer_alloc(
         instance->event_loop,
-        instance->rx_buffer,
-        FuriEventLoopEventIn,
-        intercom_rx_buffer_callback,
+        intercom_response_timer_callback,
+        FuriEventLoopTimerTypeOnce,
         instance);
-
-    furi_event_loop_subscribe_stream_buffer(
-        instance->event_loop,
-        instance->rx_buffer,
-        FuriEventLoopEventIn,
-        intercom_tx_buffer_callback,
-        instance);
-
-    instance->decoder = intercom_decoder_alloc();
-    instance->encoder = intercom_encoder_alloc();
 
     instance->serial = furi_hal_serial_control_acquire(FuriHalSerialIdUsart0);
-    furi_hal_serial_set_br(instance->serial, INTERCOM_BAUD_RATE);
-    furi_hal_serial_async_rx_start(instance->serial, intercom_serial_rx_callback, instance, true);
+    furi_hal_serial_init(instance->serial, INTERCOM_BAUD_RATE);
+    furi_hal_serial_set_callback(
+        instance->serial, intercom_serial_tx_callback, intercom_serial_rx_callback, instance);
+    // Start listening for D-frames right away
+    furi_hal_serial_dma_rx_start(
+        instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
+
+    furi_event_loop_set_custom_event_callback(
+        instance->event_loop, intercom_custom_event_callback, instance);
 
     furi_record_create(RECORD_INTERCOM, instance);
-
     return instance;
 }
 
@@ -217,22 +196,22 @@ size_t intercom_tx(Intercom* instance, const void* data, size_t data_size, uint3
     const uint32_t start_time = furi_get_tick();
     uint32_t remaining_time = timeout;
 
-    do {
-        const size_t chunk_size = MIN(data_size - sent_data_size, INTERCOM_BUFFER_SIZE);
-        const size_t sent_chunk_size = furi_stream_buffer_send(
-            instance->tx_buffer, data + sent_data_size, chunk_size, remaining_time);
+    while(furi_semaphore_acquire(instance->tx_semaphore, remaining_time) == FuriStatusOk) {
+        const size_t payload_size = MIN(data_size - sent_data_size, INTERCOM_D_FRAME_DATA_SIZE);
 
-        sent_data_size += sent_chunk_size;
+        memcpy(instance->tx_frame.d.payload.data, data + sent_data_size, payload_size);
+        instance->tx_frame.d.payload.size = payload_size;
+
+        furi_event_loop_set_custom_event(instance->event_loop, IntercomEventData);
+
+        sent_data_size += payload_size;
+        if(sent_data_size == data_size) break;
 
         const uint32_t elapsed_time = furi_get_tick() - start_time;
+        if(elapsed_time >= remaining_time) break;
 
-        if(elapsed_time > remaining_time) {
-            remaining_time = 0;
-        } else {
-            remaining_time -= elapsed_time;
-        }
-
-    } while(remaining_time > 0 && sent_data_size < data_size);
+        remaining_time -= elapsed_time;
+    }
 
     return sent_data_size;
 }
