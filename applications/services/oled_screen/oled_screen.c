@@ -11,7 +11,7 @@
 #define CMD_LEN_MAX 16
 
 #define CMD_DELAY 0xFE
-#define CMD_END 0xFF
+#define CMD_END   0xFF
 
 static const uint8_t oled_init_table_ssd1320[] = {
     /* clang-format off */
@@ -103,22 +103,20 @@ static void oled_sleep_mode(bool sleep) {
 }
 
 static void oled_init(void) {
-    // TODO: disable OLED_VCC here
-    // furi_hal_gpio_write(&gpio_oled_rst, false);
-    // furi_hal_gpio_init(&gpio_oled_rst, GpioModeOutputPushPull, GpioPullUp, GpioSpeedVeryHigh);
+    furi_hal_gpio_init_simple(&gpio_oled_vcc_en, GpioModeOutputPushPull);
+    furi_hal_gpio_write(&gpio_oled_vcc_en, false);
+
     furi_hal_gpio_write(&gpio_oled_dc, true);
     furi_hal_gpio_init(&gpio_oled_dc, GpioModeOutputPushPull, GpioPullUp, GpioSpeedVeryHigh);
 
-    furi_delay_ms(1);
-    // furi_hal_gpio_write(&gpio_oled_rst, true);
     furi_delay_ms(1);
 
     oled_send_init_sequence(oled_init_table_ssd1320, sizeof(oled_init_table_ssd1320));
 
     oled_clear();
 
-    // TODO: enable OLED_VCC here
-    // TODO: furi_delay_ms()
+    furi_hal_gpio_write(&gpio_oled_vcc_en, true);
+    furi_delay_ms(10);
     oled_sleep_mode(false);
     furi_delay_ms(100);
 }
@@ -145,6 +143,17 @@ int32_t oled_screen(void* p) {
 
     Gui* gui = furi_record_open(RECORD_GUI);
     gui_add_framebuffer_callback(gui, oled_commit, &frame_count);
+
+    // for(uint8_t i = 0; i < 4; i++) {
+    //     furi_delay_ms(100);
+    //     input_key_press(InputKeyDown);
+    //     furi_delay_ms(100);
+    //     input_key_release(InputKeyDown);
+    // }
+    // furi_delay_ms(100);
+    // input_key_press(InputKeyOk);
+    // furi_delay_ms(100);
+    // input_key_release(InputKeyOk);
 
     while(true) {
         // gui_update(gui);

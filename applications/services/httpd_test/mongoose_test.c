@@ -13,7 +13,7 @@ typedef struct {
     bool led_state;
 } WebServerState;
 
-const GpioPin* led_pin = &gpio_led;
+const GpioPin* led_pin = NULL;
 
 static void
     httpd_handle_led(struct mg_connection* c, struct mg_http_message* hm, WebServerState* state) {
@@ -39,7 +39,9 @@ static void
                 } else {
                     break;
                 }
-                furi_hal_gpio_write(led_pin, state->led_state);
+                if(led_pin) {
+                    furi_hal_gpio_write(led_pin, state->led_state);
+                }
                 success = true;
             } while(0);
         }
@@ -57,7 +59,9 @@ static void
             } else {
                 break;
             }
-            furi_hal_gpio_write(led_pin, state->led_state);
+            if(led_pin) {
+                furi_hal_gpio_write(led_pin, state->led_state);
+            }
             success = true;
         } while(0);
     }
@@ -125,8 +129,10 @@ static void httpd_handler(struct mg_connection* c, int ev, void* ev_data) {
 int32_t httpd_start(void* p) {
     UNUSED(p);
 
-    furi_hal_gpio_init_simple(led_pin, GpioModeOutputPushPull);
-    furi_hal_gpio_write(led_pin, 0);
+    if(led_pin) {
+        furi_hal_gpio_init_simple(led_pin, GpioModeOutputPushPull);
+        furi_hal_gpio_write(led_pin, 0);
+    }
 
     // mg_log_set(MG_LL_VERBOSE);
     mg_log_set(MG_LL_INFO);

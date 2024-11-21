@@ -10,6 +10,8 @@ typedef enum {
 typedef enum {
     FuriHalSdTypeSC, /*!< SD Standard Capacity <2G */
     FuriHalSdTypeHCXC, /*!< SD High Capacity <32G, SD Extended Capacity <2T */
+    FuriHalSdTypeMMCLowCapacity, /*!< MMC Low Capacity */
+    FuriHalSdTypeMMCHighCapacity, /*!< MMC High Capacity */
 } FuriHalSdType;
 
 typedef enum {

@@ -56,6 +56,14 @@ static bool sd_mount_card_internal(StorageData* storage) {
                 if(status == FR_OK) {
                     storage->status = StorageStatusOK;
                 } else if(status == FR_NO_FILESYSTEM) {
+                    FURI_LOG_I(TAG, "no filesystem, formatting");
+                    FS_Error err = sd_format_card(storage);
+                    if(err == FSE_OK) {
+                        FURI_LOG_I(TAG, "formatting done");
+                        continue;
+                    } else {
+                        FURI_LOG_E(TAG, "formatting failed");
+                    }
                     storage->status = StorageStatusNoFS;
                 } else {
                     storage->status = StorageStatusNotAccessible;
