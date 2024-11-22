@@ -1,0 +1,10 @@
+App(
+    appid="serial_test",
+    name="SerialTestSrv",
+    apptype=FlipperAppType.SERVICE,
+    entry_point="serial_test_srv",
+    cdefines=["SRV_SERIAL_TEST"],
+    stack_size=1 * 1024,
+    order=100,
+    targets=["f20", "f64"],
+)

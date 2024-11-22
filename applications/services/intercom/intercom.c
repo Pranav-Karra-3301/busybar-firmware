@@ -16,6 +16,12 @@
 // TODO: Reduce timeout to absolute minimum
 #define INTERCOM_RESPONSE_TIMEOUT_MS (250U)
 
+#ifdef STM32U595xx
+#define INTERCOM_SERIAL FuriHalSerialIdUsart1
+#else
+#define INTERCOM_SERIAL FuriHalSerialIdUsart0
+#endif
+
 typedef enum {
     IntercomStateIdle,
     IntercomStateWaitingForResponse,
@@ -171,7 +177,7 @@ static Intercom* intercom_alloc(void) {
         FuriEventLoopTimerTypeOnce,
         instance);
 
-    instance->serial = furi_hal_serial_control_acquire(FuriHalSerialIdUsart0);
+    instance->serial = furi_hal_serial_control_acquire(INTERCOM_SERIAL);
     furi_hal_serial_init(instance->serial, INTERCOM_BAUD_RATE);
     furi_hal_serial_set_callback(
         instance->serial, intercom_serial_tx_callback, intercom_serial_rx_callback, instance);
