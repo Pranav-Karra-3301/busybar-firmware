@@ -87,8 +87,7 @@ int serial_test_srv(void* arg) {
 #endif
 
     for(;;) {
-        const uint32_t flags =
-            furi_thread_flags_wait(SERIAL_TEST_FLAG_ALL, FuriFlagWaitAny, 500);
+        const uint32_t flags = furi_thread_flags_wait(SERIAL_TEST_FLAG_ALL, FuriFlagWaitAny, 500);
 
         if(flags & FuriFlagError) {
             if(flags == FuriFlagErrorTimeout) {
