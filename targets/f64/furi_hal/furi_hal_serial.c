@@ -314,18 +314,18 @@ void furi_hal_serial_async_rx_stop(FuriHalSerialHandle* handle) {
     NVIC_DisableIRQ(resources->irqn);
 }
 
-size_t furi_hal_serial_async_rx(FuriHalSerialHandle* handle, uint8_t* buffer, size_t buffer_size) {
+bool furi_hal_serial_async_rx_available(FuriHalSerialHandle* handle) {
     furi_check(FURI_IS_IRQ_MODE());
-    furi_check(buffer);
+    furi_check(handle->id < FuriHalSerialIdMax);
 
-    const USART0_Type* periph = furi_hal_serial_resources[handle->id].periph;
+    return furi_hal_serial_resources[handle->id].periph->USR_b.RFNE;
+}
 
-    size_t data_len;
-    for(data_len = 0; data_len < buffer_size && periph->USR_b.RFNE; ++data_len) {
-        buffer[data_len] = periph->RBR;
-    }
+uint8_t furi_hal_serial_async_rx(FuriHalSerialHandle* handle) {
+    furi_check(FURI_IS_IRQ_MODE());
+    furi_check(handle->id < FuriHalSerialIdMax);
 
-    return data_len;
+    return furi_hal_serial_resources[handle->id].periph->RBR;
 }
 
 static void furi_hal_serial_dma_tx_irq_callback(void* context) {

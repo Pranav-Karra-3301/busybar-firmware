@@ -79,6 +79,7 @@
         "print",
         "targets",
         "furi",
+        "si917_toolbox",
         "si917_applications"
     ],
     "fw_modules": [
@@ -96,7 +97,8 @@
     ],
     "extra_target_meta": {
         "debug_tags": [
-            "rtos"
+            "rtos",
+            "svd"
         ]
     }
 }

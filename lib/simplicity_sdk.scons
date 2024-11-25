@@ -43,6 +43,7 @@ libenv.ApplyLibFlags()
 sources = [
     f"{SDK_DIR}/platform/common/src/sli_cmsis_os2_ext_task_register.c",
     f"{SDK_DIR}/platform/common/src/sl_core_cortexm.c",
+    f"{SDK_DIR}/platform/common/src/sl_string.c",
     f"{SDK_DIR}/platform/service/mem_pool/src/sl_mem_pool.c",
 ]
 

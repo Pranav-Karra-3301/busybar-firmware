@@ -457,9 +457,13 @@ static FURI_ALWAYS_INLINE const char* osThreadGetName(osThreadId_t thread_id) {
 // /// \return current priority value of the specified thread.
 // osPriority_t osThreadGetPriority (osThreadId_t thread_id);
 
-// /// Pass control to next thread that is in state \b READY.
-// /// \return status code that indicates the execution status of the function.
+/// Pass control to next thread that is in state \b READY.
+/// \return status code that indicates the execution status of the function.
 // osStatus_t osThreadYield (void);
+static FURI_ALWAYS_INLINE osStatus_t osThreadYield(void) {
+    furi_thread_yield();
+    return osOK;
+}
 
 // /// Suspend execution of a thread.
 // /// \param[in]     thread_id     thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
@@ -490,6 +494,7 @@ static FURI_ALWAYS_INLINE const char* osThreadGetName(osThreadId_t thread_id) {
 //osStatus_t osThreadTerminate (osThreadId_t thread_id);
 static FURI_ALWAYS_INLINE osStatus_t osThreadTerminate(osThreadId_t thread_id) {
     FuriThreadAdapter* adapter = (FuriThreadAdapter*)thread_id;
+    furi_thread_join(adapter->thread);
     furi_thread_free(adapter->thread);
     free(adapter);
     return osOK;

@@ -1,4 +1,4 @@
-/***************************************************************************//**
+/*******************************************************************************
  * GCC Linker script for Silicon Labs devices
  *******************************************************************************
  * # License
@@ -37,13 +37,49 @@ MEMORY {
     UDMA0 (rwx) : ORIGIN = 0x004fc00, LENGTH = 0x400
 }
 
-
 SECTIONS {
     .text : {
         KEEP(*(.isr_vector))
-          *(EXCLUDE_FILE(*UDMA.o).text*)
-             KEEP(*(.init))
-             KEEP(*(.fini))
+        KEEP(*(.reset_handler))
+        /* Object files excluded from flash */
+        *(EXCLUDE_FILE(
+            /* FreeRTOS */
+            *croutine.o
+            *event_groups.o
+            *heap_*.o
+            *list.o
+            *port.o
+            *queue.o
+            *stream_buffer.o
+            *tasks.o
+            *timers.o
+            /* Furi layer */
+            *check.o
+            *critical.o
+            *event_flag.o
+            *event_loop*.o
+            *memmgr*.o
+            *message_queue.o
+            *mutex.o
+            *semaphore.o
+            *string.o
+            *thread*.o
+            *timer.o
+            /* Wiseconnect */
+            *rsi_hal_mcu_m4_ram.o
+            *rsi_hal_mcu_m4_rom.o
+            *sl_si91x_driver.o
+            *sl_si91x_bus.o
+            *sl_sleeptimer.o
+            *sl_sleeptimer_hal_si91x_sysrtc.o
+            *rsi_sysrtc.o
+            *sl_si91x_low_power_tickless_mode.o
+            *sli_si91x_multithreaded.o
+            *rsi_deepsleep_soc.o
+            *freertos_umm_malloc_host.o
+            *malloc_buffers.o
+            *sl_rsi_utility.o)
+        .text*)
 
         /* .ctors */
         *crtbegin.o(.ctors)
@@ -79,10 +115,49 @@ SECTIONS {
 
     .data : {
         __data_start__ = .;
-
         /* _sdata is used in startup code */
         _sdata = __data_start__;
+        KEEP(*(.ramVector))
+        KEEP(*(.init))
+        KEEP(*(.fini))
         *(.data*)
+        /* Object files placed in RAM */
+        /* FreeRTOS */
+        *croutine.o(.text*)
+        *event_groups.o(.text*)
+        *heap_*.o(.text*)
+        *list.o(.text*)
+        *port.o(.text*)
+        *queue.o(.text*)
+        *stream_buffer.o(.text*)
+        *tasks.o(.text*)
+        *timers.o(.text*)
+        /* Furi layer */
+        *check.o(.text*)
+        *critical.o(.text*)
+        *event_flag.o(.text*)
+        *event_loop*.o(.text*)
+        *memmgr*.o(.text*)
+        *message_queue.o(.text*)
+        *mutex.o(.text*)
+        *semaphore.o(.text*)
+        *string.o(.text*)
+        *thread*.o(.text*)
+        *timer.o(.text*)
+        /* Wiseconnect */
+        *rsi_hal_mcu_m4_ram.o(.text*)
+        *rsi_hal_mcu_m4_rom.o(.text*)
+        *sl_si91x_driver.o(.text*)
+        *sl_si91x_bus.o(.text*)
+        *sl_sleeptimer.o(.text*)
+        *sl_sleeptimer_hal_si91x_sysrtc.o(.text*)
+        *rsi_sysrtc.o(.text*)
+        *sl_si91x_low_power_tickless_mode.o(.text*)
+        *sli_si91x_multithreaded.o(.text*)
+        *rsi_deepsleep_soc.o(.text*)
+        *freertos_umm_malloc_host.o(.text*)
+        *malloc_buffers.o(.text*)
+        *sl_rsi_utility.o(.text*)
 
         . = ALIGN(4);
         /* preinit data */

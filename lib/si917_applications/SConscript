@@ -26,9 +26,6 @@ if fw_build_configuration == "firmware":
     fwenv.AppendUnique(
         APPS=fwenv["FIRMWARE_APPS"].get(fwenv.subst("$FIRMWARE_APP_SET"))
     )
-elif fw_build_configuration == "updater":
-    # Inject updater service into the build
-    fwenv.AppendUnique(APPS=["updater"])
 else:
     raise ValueError(f"Unknown firmware type: {fw_build_configuration}")
 

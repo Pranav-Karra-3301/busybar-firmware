@@ -1,11 +1,11 @@
 #include <furi.h>
 
-#include "sl_status.h"
-#include "sl_net.h"
-#include "sl_si91x_driver.h"
-#include "sl_net_wifi_types.h"
+#include <sl_si91x_driver.h>
 
-#include "sl_wifi_callback_framework.h"
+#include <sl_net.h>
+#include <sl_net_wifi_types.h>
+
+#include <sl_wifi_callback_framework.h>
 
 #define TAG "DemoWifiTestAp"
 
@@ -46,24 +46,29 @@ static sl_net_wifi_ap_profile_t wifi_ap_profile = {
             .beacon_stop = 0,
             .is_11n_enabled = 0,
         },
-    .ip = {
-        .mode = SL_IP_MANAGEMENT_STATIC_IP,
-        .type = SL_IPV4,
-        .host_name = NULL,
-        .ip =
-            {.v4.ip_address.value = DEFAULT_WIFI_MODULE_IP_ADDRESS,
-             .v4.gateway.value = DEFAULT_WIFI_GATEWAY_ADDRESS,
-             .v4.netmask.value = DEFAULT_WIFI_SN_MASK_ADDRESS},
-    }};
+
+    .ip =
+        {
+            .mode = SL_IP_MANAGEMENT_STATIC_IP,
+            .type = SL_IPV4,
+            .host_name = NULL,
+            .ip =
+                {
+                    .v4.ip_address.value = DEFAULT_WIFI_MODULE_IP_ADDRESS,
+                    .v4.gateway.value = DEFAULT_WIFI_GATEWAY_ADDRESS,
+                    .v4.netmask.value = DEFAULT_WIFI_SN_MASK_ADDRESS,
+                },
+        },
+};
 
 sl_net_wifi_psk_credential_entry_t wifi_ap_credential = {
     .type = SL_NET_WIFI_PSK,
     .data_length = sizeof(WIFI_AP_CREDENTIAL) - 1,
-    .data = WIFI_AP_CREDENTIAL};
+    .data = WIFI_AP_CREDENTIAL,
+};
 
 typedef struct {
     FuriEventLoop* event_loop;
-    FuriEventLoopTimer* timer;
 } DemoWifiTest;
 
 static sl_status_t
@@ -102,11 +107,6 @@ void demo_wifi_test_ap(void* p) {
 
     DemoWifiTest* instance = malloc(sizeof(DemoWifiTest));
     instance->event_loop = furi_event_loop_alloc();
-    // instance->timer = furi_event_loop_timer_alloc(
-    //     instance->event_loop,
-    //     notification_timer_callback,
-    //     FuriEventLoopTimerTypePeriodic,
-    //     instance);
 
     sl_status_t status;
     do {

@@ -4,6 +4,7 @@ for libname in [
     "sl_glue",
     "simplicity_sdk",
     "wiseconnect",
+    "si917_toolbox",
     "si917_applications",
 ]:
     # print(f"In {env.Real(Dir('.'))}, registering {libname}")

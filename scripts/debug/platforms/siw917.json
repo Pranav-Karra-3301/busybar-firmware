@@ -1,8 +1,8 @@
 {
     "name": "siw917",
     "flash_address": "0x08202000",
-    "ram_address": "0x20000000",
-    "svd_file": "siw917/SiWG917_CM4.svd",
+    "ram_address": "0xC",
+    "svd_file": "siw917/SiWx917.svd",
     "openocd": {
         "chip_config": "siw917/siw917.cfg",
         "init_commands": [

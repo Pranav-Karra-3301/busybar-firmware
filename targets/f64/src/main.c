@@ -11,7 +11,7 @@ static int32_t init_task(void* context) {
     furi_hal_serial_control_set_logging_config(FuriHalSerialIdUlpuart, 230400);
     flipper_init_services();
 
-    // Known BUG: Thread exits causing a memory leak
+    furi_background();
     return 0;
 }
 
