@@ -7,7 +7,6 @@ void furi_hal_init_early(void) {
     furi_hal_dma_init_early();
     furi_hal_resources_init_early();
     furi_hal_os_init();
-    furi_hal_pwm_init();
     // furi_hal_spi_config_init_early();
     // furi_hal_i2c_init_early();
     // furi_hal_light_init();
@@ -44,6 +43,7 @@ void furi_hal_init(void) {
     // furi_hal_i2c_init();
     // furi_hal_power_init();
     // furi_hal_light_init();
+    furi_hal_pwm_init();
 
 #ifndef FURI_RAM_EXEC
 #endif

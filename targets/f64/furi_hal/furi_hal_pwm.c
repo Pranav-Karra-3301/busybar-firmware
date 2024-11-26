@@ -110,8 +110,8 @@ typedef enum {
 
 #define FURI_HAL_PWM_FREQ                             (3000U)
 #define FURI_HAL_PWM_RATE                             (SystemCoreClock / FURI_HAL_PWM_FREQ)
-#define FURI_HAL_PWM_POLARITY_LOW                     FuriHalPwmPolarityLow
-#define FURI_HAL_PWM_POLARITY_HIGH                    FuriHalPwmPolarityLow
+#define FURI_HAL_PWM_POLARITY_LOW                     FuriHalPwmPolarityHigh
+#define FURI_HAL_PWM_POLARITY_HIGH                    FuriHalPwmPolarityHigh
 #define FURI_HAL_PWM_MODE                             FuriHalPwmModeIndependent
 #define FURI_HAL_PWM_DUTY_CYCLE_DEFAULT               (0U)
 #define FURI_HAL_PWM_BASE_TIMER_MODE                  FuriHalPwmBaseTimerModeFreeRunMode
@@ -133,7 +133,7 @@ static inline void furi_hal_pwm_channel_config(uint32_t chnlNum) {
         (uint16_t)FURI_HAL_PWM_BASE_TIMER_COUNTER_INITIAL_VALUE);
 
     mcpwm_set_output_mode(MCPWM, FURI_HAL_PWM_MODE, chnlNum);
-    uint32_t ticks = (uint32_t)((FURI_HAL_PWM_RATE * FURI_HAL_PWM_DUTY_CYCLE_DEFAULT) / 100);
+    uint32_t ticks = (uint32_t)((FURI_HAL_PWM_RATE * FURI_HAL_PWM_DUTY_CYCLE_DEFAULT) >> 8);
     // Set Duty cycle value for channel
     RSI_MCPWM_SetDutyCycle(MCPWM, ticks, chnlNum);
     mcpwm_set_base_timer_mode(MCPWM, FURI_HAL_PWM_BASE_TIMER_MODE, chnlNum);
