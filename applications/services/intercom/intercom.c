@@ -9,12 +9,18 @@
 
 #define TAG "IntercomSrv"
 
+#ifdef INTERCOM_DEBUG
+#define INTERCOM_LOG_D(...) FURI_LOG_D(TAG, __VA_ARGS__)
+#else
+#define INTERCOM_LOG_D(...)
+#endif
+
 #ifndef INTERCOM_BAUD_RATE
-#define INTERCOM_BAUD_RATE (115200UL)
+#define INTERCOM_BAUD_RATE (11250000UL)
 #endif
 
 // TODO: Reduce timeout to absolute minimum
-#define INTERCOM_RESPONSE_TIMEOUT_MS (250U)
+#define INTERCOM_RESPONSE_TIMEOUT_MS (1000U)
 
 #ifdef STM32U595xx
 #define INTERCOM_SERIAL FuriHalSerialIdUsart1
@@ -59,7 +65,7 @@ static void intercom_serial_tx_callback(
     }
 }
 
-// Called in interrupt context
+// Called in ISR context
 static void intercom_serial_rx_callback(
     FuriHalSerialHandle* handle,
     FuriHalSerialRxEvent event,
@@ -71,15 +77,6 @@ static void intercom_serial_rx_callback(
     if(event & FuriHalSerialRxEventData) {
         furi_event_loop_set_custom_event(instance->event_loop, IntercomEventFrameReceived);
     }
-}
-
-void intercom_set_rx_callback(Intercom* instance, IntercomRxCallback callback, void* context) {
-    furi_check(instance);
-    furi_check(callback);
-    furi_check(instance->rx_callback == NULL);
-
-    instance->callback_context = context;
-    instance->rx_callback = callback;
 }
 
 static inline void intercom_send_data_frame(Intercom* instance) {
@@ -104,9 +101,26 @@ static inline void intercom_send_response_frame(Intercom* instance) {
     furi_hal_serial_dma_tx(instance->serial, (uint8_t*)tx_frame, INTERCOM_S_FRAME_SIZE);
 }
 
-static inline void intercom_process_rx_frame(Intercom* instance) {
+static inline void intercom_process_tx_data(Intercom* instance) {
     if(instance->state == IntercomStateIdle) {
+        instance->state = IntercomStateWaitingForResponse;
+        intercom_send_data_frame(instance);
+
+    } else {
+        // Unexpected state
+        furi_crash();
+    }
+}
+
+static inline void intercom_process_rx_frame(Intercom* instance) {
+    INTERCOM_LOG_D("Frame received");
+
+    if(instance->state == IntercomStateIdle) {
+        INTERCOM_LOG_D("Data frame expected");
+
         if(instance->rx_frame.header.flags & IntercomFrameFlagData) {
+            INTERCOM_LOG_D("Data frame received");
+
             if(instance->rx_callback) {
                 instance->rx_callback(
                     instance->rx_frame.d.payload.data,
@@ -122,12 +136,17 @@ static inline void intercom_process_rx_frame(Intercom* instance) {
         }
 
     } else if(instance->state == IntercomStateWaitingForResponse) {
+        INTERCOM_LOG_D("Response frame expected");
+
         furi_event_loop_timer_stop(instance->response_timer);
 
         if(instance->rx_frame.header.flags & IntercomFrameFlagService) {
-            instance->state = IntercomStateIdle;
+            INTERCOM_LOG_D("Response frame received");
+
             furi_hal_serial_dma_rx_start(
                 instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
+
+            instance->state = IntercomStateIdle;
             furi_semaphore_release(instance->tx_semaphore);
 
         } else {
@@ -138,21 +157,33 @@ static inline void intercom_process_rx_frame(Intercom* instance) {
 }
 
 static inline void intercom_process_tx_frame(Intercom* instance) {
-    // Start waiting for the response
-    furi_hal_serial_dma_rx_start(
-        instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_S_FRAME_SIZE);
-    furi_event_loop_timer_start(instance->response_timer, INTERCOM_RESPONSE_TIMEOUT_MS);
+    size_t buffer_size;
+
+    if(instance->state == IntercomStateIdle) {
+        buffer_size = INTERCOM_D_FRAME_SIZE;
+    } else {
+        buffer_size = INTERCOM_S_FRAME_SIZE;
+        // Start waiting for the response
+        furi_event_loop_timer_start(instance->response_timer, INTERCOM_RESPONSE_TIMEOUT_MS);
+    }
+
+    furi_hal_serial_dma_rx_start(instance->serial, (uint8_t*)&instance->rx_frame, buffer_size);
+
+    INTERCOM_LOG_D("Frame transmit complete");
 }
 
 static void intercom_custom_event_callback(uint32_t events, void* context) {
     Intercom* instance = context;
     if(events & IntercomEventData) {
-        intercom_send_data_frame(instance);
+        INTERCOM_LOG_D("IntercomEventData");
+        intercom_process_tx_data(instance);
     }
     if(events & IntercomEventFrameReceived) {
+        INTERCOM_LOG_D("IntercomEventFrameReceived");
         intercom_process_rx_frame(instance);
     }
     if(events & IntercomEventFrameSent) {
+        INTERCOM_LOG_D("IntercomEventFrameSent");
         intercom_process_tx_frame(instance);
     }
 }
@@ -208,6 +239,7 @@ size_t intercom_tx(Intercom* instance, const void* data, size_t data_size, uint3
         memcpy(instance->tx_frame.d.payload.data, data + sent_data_size, payload_size);
         instance->tx_frame.d.payload.size = payload_size;
 
+        INTERCOM_LOG_D("TX payload size: %zu byte(s)", payload_size);
         furi_event_loop_set_custom_event(instance->event_loop, IntercomEventData);
 
         sent_data_size += payload_size;
@@ -220,6 +252,15 @@ size_t intercom_tx(Intercom* instance, const void* data, size_t data_size, uint3
     }
 
     return sent_data_size;
+}
+
+void intercom_set_rx_callback(Intercom* instance, IntercomRxCallback callback, void* context) {
+    furi_check(instance);
+    furi_check(callback);
+    furi_check(instance->rx_callback == NULL);
+
+    instance->callback_context = context;
+    instance->rx_callback = callback;
 }
 
 int32_t intercom_srv(void* arg) {
