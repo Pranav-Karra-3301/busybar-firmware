@@ -93,7 +93,7 @@ static inline void intercom_send_data_frame(Intercom* instance) {
     furi_hal_serial_dma_tx(instance->serial, (uint8_t*)tx_frame, INTERCOM_D_FRAME_SIZE);
 }
 
-static inline void intercom_send_service_frame(Intercom* instance) {
+static inline void intercom_send_response_frame(Intercom* instance) {
     IntercomFrame* tx_frame = &instance->tx_frame;
 
     tx_frame->header.id = 0;
@@ -114,7 +114,7 @@ static inline void intercom_process_rx_frame(Intercom* instance) {
                     instance->callback_context);
             }
 
-            intercom_send_service_frame(instance);
+            intercom_send_response_frame(instance);
 
         } else {
             // Unexpected frame

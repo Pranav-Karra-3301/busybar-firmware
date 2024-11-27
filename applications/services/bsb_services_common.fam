@@ -3,9 +3,9 @@ App(
     name="BSB Common Services",
     apptype=FlipperAppType.METAPACKAGE,
     provides=[
-        #"intercom",
-        #"intercom_echo",
-        "serial_test",
+        "intercom",
+        "rpc_common_start",
+        "rpc_intercom_start",
     ],
     targets=["f20", "f64"],
 )
