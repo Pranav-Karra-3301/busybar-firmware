@@ -16,3 +16,6 @@
 [submodule "lib/wiseconnect"]
 	path = lib/wiseconnect
 	url = https://github.com/flipperdevices/wiseconnect.git
+[submodule "lib/bsb-protobuf"]
+	path = lib/bsb_protobuf
+	url = git@github.com:flipperdevices/bsb-protobuf.git
