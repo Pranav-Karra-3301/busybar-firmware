@@ -496,11 +496,6 @@ int32_t cli_srv(void* p) {
     }
 #endif
 
-    // Load system applications
-    for(size_t i = 0; i < FLIPPER_ON_SYSTEM_START_COUNT; i++) {
-        FLIPPER_ON_SYSTEM_START[i]();
-    }
-
     while(1) {
         if(cli->session != NULL) {
             cli_process_input(cli);

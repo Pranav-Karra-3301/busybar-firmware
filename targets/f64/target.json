@@ -55,7 +55,8 @@
         "inc"
     ],
     "env_setup_scripts": [
-        "#/f64_env_init.scons"
+        "#/f64_env_init.scons",
+        "#/bsb_common_env_init.scons"
     ],
     "extra_tool_paths": [
         "../../scripts/fbt_f64_tools"
@@ -79,6 +80,9 @@
         "print",
         "targets",
         "furi",
+        "nanopb",
+        "bsb_protobuf",
+        "rpc_handlers_f64",
         "si917_toolbox",
         "si917_applications"
     ],

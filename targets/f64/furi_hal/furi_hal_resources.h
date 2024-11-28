@@ -20,14 +20,14 @@ typedef enum {
     InputKeyOk,
     InputKeyBack,
     InputKeyStartPause,
-    InputSwitch,
-    InputEncoder,
+    InputKeySwitch,
+    InputKeyEncoder,
     InputKeyMAX, /**< Special value, don't use it */
 } InputKey;
 
 typedef enum {
-    InputSwitchPositionPomodoro,
     InputSwitchPositionBusy,
+    InputSwitchPositionStatus,
     InputSwitchPositionOff,
     InputSwitchPositionApps,
     InputSwitchPositionSettings,
@@ -61,7 +61,7 @@ extern const GpioPin gpio_46;
 extern const GpioPin gpio_47;
 extern const GpioPin gpio_48;
 extern const GpioPin gpio_49;
-extern const GpioPin gpio_sw_pomodoro;
+extern const GpioPin gpio_sw_busy;
 extern const GpioPin gpio_sw_settings;
 extern const GpioPin gpio_usart0_clk;
 extern const GpioPin gpio_53;
@@ -92,7 +92,7 @@ extern const GpioPin gpio_ulp_i_3; /**< Not available on the package, internal u
 extern const GpioPin gpio_ulp_4;
 extern const GpioPin gpio_ulp_5;
 extern const GpioPin gpio_sw_apps;
-extern const GpioPin gpio_sw_busy;
+extern const GpioPin gpio_sw_status;
 extern const GpioPin gpio_uart1_rx;
 extern const GpioPin gpio_encoder_a;
 extern const GpioPin gpio_encoder_b;

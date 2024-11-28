@@ -1,5 +1,5 @@
 App(
-    appid="input_f64",
+    appid="input",
     name="InputSrv",
     apptype=FlipperAppType.SERVICE,
     entry_point="input_srv",
@@ -7,5 +7,4 @@ App(
     stack_size=2 * 1024,
     order=80,
     targets=["f64"],
-    # sdk_headers=["input.h"],
 )

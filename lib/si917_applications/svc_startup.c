@@ -20,4 +20,11 @@ void flipper_init_services(void) {
 
         furi_thread_start(thread);
     }
+
+    // TODO: Move to Loader
+    FURI_LOG_I(TAG, "Running %d startup hooks", FLIPPER_ON_SYSTEM_START_COUNT);
+
+    for(size_t i = 0; i < FLIPPER_ON_SYSTEM_START_COUNT; i++) {
+        FLIPPER_ON_SYSTEM_START[i]();
+    }
 }

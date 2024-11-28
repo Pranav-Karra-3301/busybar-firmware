@@ -26,7 +26,7 @@ const GpioPin gpio_46 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_47 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_48 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_49 = {.type = GpioTypeHp, .pin = 40};
-const GpioPin gpio_sw_pomodoro = {.type = GpioTypeHp, .pin = 50};
+const GpioPin gpio_sw_busy = {.type = GpioTypeHp, .pin = 50};
 const GpioPin gpio_sw_settings = {.type = GpioTypeHp, .pin = 51};
 const GpioPin gpio_usart0_clk = {.type = GpioTypeHp, .pin = 52};
 const GpioPin gpio_53 = {.type = GpioTypeHp, .pin = 53};
@@ -55,7 +55,7 @@ const GpioPin gpio_ulp_i_3 = {.type = GpioTypeUlp, .pin = 3};
 const GpioPin gpio_ulp_4 = {.type = GpioTypeUlp, .pin = 4};
 const GpioPin gpio_ulp_5 = {.type = GpioTypeUlp, .pin = 5};
 const GpioPin gpio_sw_apps = {.type = GpioTypeUlp, .pin = 6};
-const GpioPin gpio_sw_busy = {.type = GpioTypeUlp, .pin = 7};
+const GpioPin gpio_sw_status = {.type = GpioTypeUlp, .pin = 7};
 const GpioPin gpio_uart1_rx = {.type = GpioTypeUlp, .pin = 8};
 const GpioPin gpio_encoder_a = {.type = GpioTypeUlp, .pin = 9};
 const GpioPin gpio_encoder_b = {.type = GpioTypeUlp, .pin = 10};
@@ -67,51 +67,67 @@ const GpioPin gpio_sw_start_pause = {.type = GpioTypeUulp, .pin = 2};
 const GpioPin gpio_sw_ok = {.type = GpioTypeUulp, .pin = 3};
 
 const InputPin input_pins[] = {
-    {.gpio = &gpio_sw_ok,
-     .key = InputKeyOk,
-     .inverted = true,
-     .name = "Ok",
-     .condition = GpioConditionRiseFall},
-    {.gpio = &gpio_sw_back,
-     .key = InputKeyBack,
-     .inverted = true,
-     .name = "Back",
-     .condition = GpioConditionRiseFall},
-    {.gpio = &gpio_sw_start_pause,
-     .key = InputKeyStartPause,
-     .inverted = true,
-     .name = "Start/Pause",
-     .condition = GpioConditionRiseFall},
-    {.gpio = &gpio_sw_pomodoro,
-     .key = InputSwitch,
-     .inverted = true,
-     .name = "Switch Pomodoro",
-     .switch_position = InputSwitchPositionPomodoro,
-     .condition = GpioConditionFall},
-    {.gpio = &gpio_sw_busy,
-     .key = InputSwitch,
-     .inverted = true,
-     .name = "Switch Busy",
-     .switch_position = InputSwitchPositionBusy,
-     .condition = GpioConditionFall},
-    {.gpio = &gpio_sw_off,
-     .key = InputSwitch,
-     .inverted = true,
-     .name = "Switch Off",
-     .switch_position = InputSwitchPositionOff,
-     .condition = GpioConditionFall},
-    {.gpio = &gpio_sw_apps,
-     .key = InputSwitch,
-     .inverted = true,
-     .name = "Switch Apps",
-     .switch_position = InputSwitchPositionApps,
-     .condition = GpioConditionFall},
-    {.gpio = &gpio_sw_settings,
-     .key = InputSwitch,
-     .inverted = true,
-     .name = "Switch Settings",
-     .switch_position = InputSwitchPositionSettings,
-     .condition = GpioConditionFall},
+    {
+        .gpio = &gpio_sw_ok,
+        .key = InputKeyOk,
+        .inverted = true,
+        .name = "Ok",
+        .condition = GpioConditionRiseFall,
+    },
+    {
+        .gpio = &gpio_sw_back,
+        .key = InputKeyBack,
+        .inverted = true,
+        .name = "Back",
+        .condition = GpioConditionRiseFall,
+    },
+    {
+        .gpio = &gpio_sw_start_pause,
+        .key = InputKeyStartPause,
+        .inverted = true,
+        .name = "Start/Pause",
+        .condition = GpioConditionRiseFall,
+    },
+    {
+        .gpio = &gpio_sw_busy,
+        .key = InputKeySwitch,
+        .inverted = true,
+        .name = "Switch Busy",
+        .switch_position = InputSwitchPositionBusy,
+        .condition = GpioConditionFall,
+    },
+    {
+        .gpio = &gpio_sw_status,
+        .key = InputKeySwitch,
+        .inverted = true,
+        .name = "Switch Status",
+        .switch_position = InputSwitchPositionStatus,
+        .condition = GpioConditionFall,
+    },
+    {
+        .gpio = &gpio_sw_off,
+        .key = InputKeySwitch,
+        .inverted = true,
+        .name = "Switch Off",
+        .switch_position = InputSwitchPositionOff,
+        .condition = GpioConditionFall,
+    },
+    {
+        .gpio = &gpio_sw_apps,
+        .key = InputKeySwitch,
+        .inverted = true,
+        .name = "Switch Apps",
+        .switch_position = InputSwitchPositionApps,
+        .condition = GpioConditionFall,
+    },
+    {
+        .gpio = &gpio_sw_settings,
+        .key = InputKeySwitch,
+        .inverted = true,
+        .name = "Switch Settings",
+        .switch_position = InputSwitchPositionSettings,
+        .condition = GpioConditionFall,
+    },
 };
 const size_t input_pins_count = COUNT_OF(input_pins);
 
