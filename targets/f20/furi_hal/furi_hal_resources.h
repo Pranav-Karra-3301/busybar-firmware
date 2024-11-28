@@ -33,9 +33,10 @@ extern const GpioPin gpio_swclk;
 extern const GpioPin gpio_log_usart_tx;
 extern const GpioPin gpio_log_usart_rx;
 
-extern const GpioPin gpio_usart1_ck;
 extern const GpioPin gpio_usart1_tx;
 extern const GpioPin gpio_usart1_rx;
+extern const GpioPin gpio_usart1_rts;
+extern const GpioPin gpio_usart1_cts;
 extern const GpioPin gpio_lpuart1_tx;
 extern const GpioPin gpio_lpuart1_rx;
 
@@ -47,7 +48,6 @@ extern const GpioPin gpio_917_irq;
 extern const GpioPin gpio_bq25798_qon;
 extern const GpioPin gpio_bq25798_irq;
 
-extern const GpioPin gpio_sd_card_rst;
 extern const GpioPin gpio_sd_card_d0;
 extern const GpioPin gpio_sd_card_d1;
 extern const GpioPin gpio_sd_card_d2;
@@ -81,7 +81,7 @@ extern const GpioPin gpio_led_le_ospi_d1;
 extern const GpioPin gpio_led_dclk_ospi_clk;
 
 extern const GpioPin gpio_audio_dac;
-extern const GpioPin gpio_audio_amp_en;
+extern const GpioPin gpio_pa8;
 
 extern const GpioPinRecord gpio_pins[];
 extern const size_t gpio_pins_count;

@@ -8,6 +8,7 @@ for libname in [
     "lwip",
     "network",
     "mongoose",
+    "rpc_handlers_f20",
 ]:
     # print(f"In {env.Real(Dir('.'))}, registering {libname}")
     env.RegisterComponent(f"fwlib_{libname}", env.FindComponentSconscript(libname))

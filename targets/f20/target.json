@@ -68,7 +68,8 @@
         "lwip"
     ],
     "env_setup_scripts": [
-        "#/f50_env_init.scons"
+        "#/u5_env_init.scons",
+        "#/bsb_common_env_init.scons"
     ],
     "extra_tool_paths": [
         "../../scripts/fbt_tools"
@@ -104,6 +105,8 @@
         "flipper_format",
         "flipper_application",
         "nanopb",
+        "bsb_protobuf",
+        "rpc_handlers_f20",
         "heatshrink",
         "bit_lib",
         "datetime",

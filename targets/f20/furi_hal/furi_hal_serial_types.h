@@ -19,6 +19,8 @@ typedef enum {
 typedef enum {
     FuriHalSerialPinTx,
     FuriHalSerialPinRx,
+    FuriHalSerialPinRts,
+    FuriHalSerialPinCts,
 
     FuriHalSerialPinMax,
 } FuriHalSerialPin;

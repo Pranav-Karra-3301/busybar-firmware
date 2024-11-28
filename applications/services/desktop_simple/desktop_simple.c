@@ -23,8 +23,6 @@ typedef enum {
 
 static void desktop_submenu_callback(void* context, uint32_t index) {
     Desktop* instance = (Desktop*)context;
-    // UNUSED(instance);
-    // UNUSED(index);
 
     FuriString* error_message = furi_string_alloc();
     const char* app_name = FLIPPER_APPS[index].name;
@@ -53,7 +51,6 @@ Desktop* desktop_alloc(void) {
 
     instance->gui = furi_record_open(RECORD_GUI);
     instance->view_dispatcher = view_dispatcher_alloc();
-    view_dispatcher_enable_queue(instance->view_dispatcher);
     view_dispatcher_attach_to_gui(
         instance->view_dispatcher, instance->gui, ViewDispatcherTypeFullscreen);
 

@@ -256,8 +256,6 @@ static void furi_hal_sdmmc_periph_init(void) {
         GpioSpeedVeryHigh,
         FURI_SDMMC_PIN_ALTFN);
 
-    furi_hal_gpio_init(&gpio_sd_card_rst, GpioModeOutputPushPull, GpioPullNo, GpioSpeedVeryHigh);
-
     LL_RCC_SetSDMMCKernelClockSource(LL_RCC_SDMMC12_KERNELCLKSOURCE_PLL1);
 
     furi_hal_bus_enable(FURI_SDMMC_BUS);
@@ -271,7 +269,6 @@ static void furi_hal_sdmmc_periph_deinit(void) {
     furi_hal_gpio_init_simple(&gpio_sd_card_d3, GpioModeAnalog);
     furi_hal_gpio_init_simple(&gpio_sd_card_ck, GpioModeAnalog);
     furi_hal_gpio_init_simple(&gpio_sd_card_cmd, GpioModeAnalog);
-    furi_hal_gpio_init_simple(&gpio_sd_card_rst, GpioModeAnalog);
 }
 
 static void furi_hal_sdmmc_card_enable_power(void) {
@@ -1905,12 +1902,6 @@ static bool sdmmc_init_mmc_lowspeed(uint32_t sdmmc_clk) {
 }
 
 static bool sdmmc_init_mmc(uint32_t sdmmc_clk) {
-    // reset sd card
-    furi_hal_gpio_write(&gpio_sd_card_rst, 0);
-    furi_delay_ms(10);
-    furi_hal_gpio_write(&gpio_sd_card_rst, 1);
-    furi_delay_ms(10);
-
     if(!sdmmc_init_mmc_lowspeed(sdmmc_clk)) {
         FURI_LOG_E(TAG, "sdmmc_init_mmc failed");
         return false;

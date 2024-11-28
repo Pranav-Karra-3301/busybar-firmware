@@ -9,6 +9,7 @@ App(
         "lightsensor_test",
         "led_indicator",
     ],
+    targets=["f20"],
 )
 
 App(
@@ -16,6 +17,6 @@ App(
     name="On start hooks",
     apptype=FlipperAppType.METAPACKAGE,
     provides=[],
+    targets=["f20"],
 )
 
-targets=["f20"],
