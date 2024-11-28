@@ -187,7 +187,7 @@ static void furi_hal_sdmmc_gpio_init(void) {
 }
 
 bool furi_hal_sdmmc_is_sd_present(void) {
-    bool sd_present = true;//(furi_hal_gpio_read(&gpio_sd_card_detect) == 0);
+    bool sd_present = true; //(furi_hal_gpio_read(&gpio_sd_card_detect) == 0);
     return sd_present;
 }
 
@@ -274,7 +274,11 @@ static void furi_hal_sdmmc_periph_deinit(void) {
 static void furi_hal_sdmmc_card_enable_power(void) {
     // furi_hal_gpio_write(&gpio_sd_card_power_switch, 1);
     // we need about 1.2ms to stabilize the power
-    furi_delay_ms(2);
+    // furi_delay_ms(2);
+
+    // wait some time after reset to correctly mount the card
+    // TODO: why?
+    furi_delay_ms(35);
 }
 
 static void furi_hal_sdmmc_card_disable_power(void) {
