@@ -30,7 +30,7 @@
 
 typedef enum {
     IntercomStateIdle,
-    IntercomStateWaitingResponse,
+    IntercomStateWaitingConfirmation,
 } IntercomState;
 
 typedef enum {
@@ -83,7 +83,7 @@ static FURI_ALWAYS_INLINE void intercom_send_data_frame(Intercom* instance) {
     IntercomFrame* tx_frame = &instance->tx_frame;
 
     tx_frame->header.id = 0;
-    tx_frame->header.flags = IntercomFrameFlagData;
+    tx_frame->header.type = IntercomFrameTypeData;
     tx_frame->d.trailer.check = intercom_frame_calculate_checksum(tx_frame);
 
     // Send request
@@ -91,11 +91,12 @@ static FURI_ALWAYS_INLINE void intercom_send_data_frame(Intercom* instance) {
     furi_hal_serial_dma_rx_start(instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_S_FRAME_SIZE);
 }
 
-static FURI_ALWAYS_INLINE void intercom_send_response_frame(Intercom* instance) {
+static FURI_ALWAYS_INLINE void intercom_send_confirmation_frame(Intercom* instance) {
     IntercomFrame* tx_frame = &instance->tx_frame;
 
     tx_frame->header.id = 0;
-    tx_frame->header.flags = IntercomFrameFlagService;
+    tx_frame->header.type = IntercomFrameTypeConfirm;
+    tx_frame->header.error = IntercomFrameErrorNone;
     tx_frame->s.trailer.check = intercom_frame_calculate_checksum(tx_frame);
 
     // Send confirmation
@@ -105,11 +106,10 @@ static FURI_ALWAYS_INLINE void intercom_send_response_frame(Intercom* instance) 
 
 static FURI_ALWAYS_INLINE void intercom_process_tx_data_event(Intercom* instance) {
     if(instance->state == IntercomStateIdle) {
-        instance->state = IntercomStateWaitingResponse;
+        instance->state = IntercomStateWaitingConfirmation;
         intercom_send_data_frame(instance);
-
     } else {
-        // Unexpected state
+        // Unexpected state - should not ever get here
         furi_crash();
     }
 }
@@ -117,10 +117,16 @@ static FURI_ALWAYS_INLINE void intercom_process_tx_data_event(Intercom* instance
 static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instance) {
     INTERCOM_LOG_D("Frame received");
 
-    if(instance->state == IntercomStateIdle) {
+    IntercomFrame* rx_frame = &instance->rx_frame;
+
+    if(!intercom_frame_is_valid(rx_frame)) {
+        // TODO: Error handling
+        furi_crash();
+
+    } else if(instance->state == IntercomStateIdle) {
         INTERCOM_LOG_D("Data frame expected");
 
-        if(instance->rx_frame.header.flags & IntercomFrameFlagData) {
+        if(instance->rx_frame.header.type == IntercomFrameTypeData) {
             INTERCOM_LOG_D("Data frame received");
 
             if(instance->rx_callback) {
@@ -130,19 +136,19 @@ static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instanc
                     instance->callback_context);
             }
 
-            intercom_send_response_frame(instance);
+            intercom_send_confirmation_frame(instance);
 
         } else {
-            // Unexpected frame
+            // TODO: Error handling
             furi_crash();
         }
 
-    } else if(instance->state == IntercomStateWaitingResponse) {
-        INTERCOM_LOG_D("Response frame expected");
+    } else if(instance->state == IntercomStateWaitingConfirmation) {
+        INTERCOM_LOG_D("Confirmation frame expected");
         furi_event_loop_timer_stop(instance->response_timer);
 
-        if(instance->rx_frame.header.flags & IntercomFrameFlagService) {
-            INTERCOM_LOG_D("Response frame received");
+        if(instance->rx_frame.header.type == IntercomFrameTypeConfirm) {
+            INTERCOM_LOG_D("Confirmation frame received");
             instance->state = IntercomStateIdle;
 
             furi_hal_serial_dma_rx_start(
@@ -151,14 +157,14 @@ static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instanc
             furi_semaphore_release(instance->tx_semaphore);
 
         } else {
-            // Unexpected frame
+            // TODO: Error handling
             furi_crash();
         }
     }
 }
 
 static FURI_ALWAYS_INLINE void intercom_process_tx_frame_event(Intercom* instance) {
-    if(instance->state == IntercomStateWaitingResponse) {
+    if(instance->state == IntercomStateWaitingConfirmation) {
         furi_event_loop_timer_start(instance->response_timer, INTERCOM_RESPONSE_TIMEOUT_MS);
     }
 

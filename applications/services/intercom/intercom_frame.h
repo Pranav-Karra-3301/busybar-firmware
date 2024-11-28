@@ -19,15 +19,25 @@ extern "C" {
 #define INTERCOM_D_FRAME_DATA_SIZE    (INTERCOM_D_FRAME_PAYLOAD_SIZE - sizeof(uint16_t))
 
 typedef enum {
-    IntercomFrameFlagData = 1U << 0,
-    IntercomFrameFlagService = 1U << 1,
-} IntercomFrameFlag;
+    IntercomFrameTypeData,
+    IntercomFrameTypeConfirm,
+    IntercomFrameTypeError,
+    IntercomFrameTypeMax,
+} IntercomFrameType;
+
+typedef enum {
+    IntercomFrameErrorNone,
+    IntercomFrameErrorFormat,
+    IntercomFrameErrorWrongType,
+    IntercomFrameErrorMax,
+} IntercomFrameError;
 
 #pragma pack(push, 1)
 
 typedef struct {
     uint8_t id;
-    uint8_t flags;
+    uint8_t type  : 4;
+    uint8_t error : 4;
 } IntercomFrameHeader;
 
 typedef struct {
@@ -60,6 +70,44 @@ static inline uint16_t intercom_frame_calculate_checksum(const IntercomFrame* fr
     (void)frame;
     // TODO: Decide on the algorithm
     return 0xa1a1;
+}
+
+static inline bool intercom_frame_is_valid(const IntercomFrame* frame) {
+    bool is_valid = false;
+
+    do {
+        const IntercomFrameType type = frame->header.type;
+        uint16_t checksum;
+
+        if(type == IntercomFrameTypeData) {
+            const uint16_t payload_size = frame->d.payload.size;
+            if(payload_size > INTERCOM_D_FRAME_PAYLOAD_SIZE) {
+                break;
+            }
+
+            checksum = frame->d.trailer.check;
+
+        } else if(type == IntercomFrameTypeConfirm || type == IntercomFrameTypeError) {
+            if(type == IntercomFrameTypeError) {
+                if(frame->header.error >= IntercomFrameErrorMax) {
+                    break;
+                }
+            }
+
+            checksum = frame->s.trailer.check;
+
+        } else {
+            break;
+        }
+
+        if(intercom_frame_calculate_checksum(frame) != checksum) {
+            break;
+        }
+
+        is_valid = true;
+    } while(false);
+
+    return is_valid;
 }
 
 #ifdef __cplusplus
