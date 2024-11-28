@@ -93,7 +93,7 @@ static FURI_ALWAYS_INLINE void intercom_send_data_frame(Intercom* instance) {
 }
 
 static FURI_ALWAYS_INLINE void
-    intercom_send_service_frame(Intercom* instance, IntercomFrameError error) {
+    intercom_send_service_frame(Intercom* instance, IntercomFrameError error, uint16_t expected_size) {
     IntercomFrame* tx_frame = &instance->tx_frame;
 
     tx_frame->header.id = 0;
@@ -104,7 +104,7 @@ static FURI_ALWAYS_INLINE void
     // Send confirmation
     furi_hal_serial_dma_tx(instance->serial, (uint8_t*)tx_frame, INTERCOM_S_FRAME_SIZE);
     furi_hal_serial_dma_rx_start(
-        instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
+        instance->serial, (uint8_t*)&instance->rx_frame, expected_size);
 }
 
 static FURI_ALWAYS_INLINE void intercom_process_tx_data_event(Intercom* instance) {
@@ -127,9 +127,9 @@ static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instanc
         INTERCOM_LOG_D("D-frame expected");
 
         if(!frame_is_valid) {
-            // TODO: Error handling
             // Frame is invalid, a D-frame was expected
-            furi_crash();
+            FURI_LOG_E(TAG, "[Idle] Invalid frame");
+            intercom_send_service_frame(instance, IntercomFrameErrorFormat, INTERCOM_D_FRAME_SIZE);
 
         } else if(rx_frame->header.type == IntercomFrameTypeData) {
             INTERCOM_LOG_D("D-frame received");
@@ -140,12 +140,14 @@ static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instanc
                 instance->rx_callback(payload->data, payload->size, instance->callback_context);
             }
 
-            intercom_send_service_frame(instance, IntercomFrameErrorNone);
+            // Confirm the incoming D-frame and start listening for the next one
+            intercom_send_service_frame(instance, IntercomFrameErrorNone, INTERCOM_D_FRAME_SIZE);
 
         } else {
-            // TODO: Error handling
             // Frame valid, but unexpected
-            furi_crash();
+            // TODO: send the frame after a random delay
+            FURI_LOG_E(TAG, "[Idle] Unexpected frame");
+            intercom_send_service_frame(instance, IntercomFrameErrorWrongType, INTERCOM_D_FRAME_SIZE);
         }
 
     } else if(instance->state == IntercomStateWaitingConfirmation) {
@@ -153,9 +155,9 @@ static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instanc
         furi_event_loop_timer_stop(instance->response_timer);
 
         if(!frame_is_valid) {
-            // TODO: Error handling
             // Frame is invalid, an S-frame was expected
-            furi_crash();
+            FURI_LOG_E(TAG, "[Waiting] Invalid frame");
+            intercom_send_service_frame(instance, IntercomFrameErrorFormat, INTERCOM_S_FRAME_SIZE);
 
         } else if(rx_frame->header.type == IntercomFrameTypeService) {
             INTERCOM_LOG_D("S-frame received");
@@ -168,15 +170,16 @@ static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instanc
                 furi_semaphore_release(instance->tx_semaphore);
 
             } else {
-                // TODO: Error handling
-                // Frame is valid and of proper type, but reports and error
-                furi_crash();
+                // Frame is valid and of proper type, but reports and error - resend current tx frame
+                FURI_LOG_E(TAG, "Resending frame");
+                intercom_send_data_frame(instance);
             }
 
         } else {
-            // TODO: Error handling
             // Frame valid, but unexpected
-            furi_crash();
+            // TODO: send the frame after a random delay
+            FURI_LOG_E(TAG, "[Waiting] Unexpected frame");
+            intercom_send_service_frame(instance, IntercomFrameErrorWrongType, INTERCOM_S_FRAME_SIZE);
         }
     }
 }
