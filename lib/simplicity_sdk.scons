@@ -1,0 +1,52 @@
+Import("env")
+
+SDK_DIR = "simplicity_sdk"
+SDK_INCDIR = f"#/lib/{SDK_DIR}"
+
+FREERTOS_DIR = "FreeRTOS-Kernel"
+FREERTOS_INCDIR = f"#/lib/{FREERTOS_DIR}"
+
+WISECONNECT_DIR = "wiseconnect/components"
+WISECONNECT_INCDIR = f"#/lib/{WISECONNECT_DIR}"
+
+env.Append(
+    CPPPATH=[
+        Dir(f"{SDK_INCDIR}/platform/common/inc").rdir(),
+        # SDK Wifi Silabs
+        Dir(f"{SDK_INCDIR}/platform/emlib/inc").rdir(),
+        Dir(f"{SDK_INCDIR}/platform/common/inc").rdir(),
+        Dir(f"{SDK_INCDIR}/platform/service/mem_pool/inc").rdir(),
+        # Break cyclic dependency on FreeRTOS
+        Dir(f"{FREERTOS_INCDIR}/include").rdir(),
+        Dir(f"{FREERTOS_INCDIR}/portable/GCC/ARM_CM4F").rdir(),
+        # Break cyclic dependency on WiseConnect
+        Dir(f"{WISECONNECT_INCDIR}/device/silabs/si91x/mcu/core/config").rdir(),
+        Dir(f"{WISECONNECT_INCDIR}/device/silabs/si91x/mcu/core/chip/inc").rdir(),
+    ],
+    CPPDEFINES=[
+        # SDK Wifi Silabs
+        "SI917",
+        "SLI_SI917",
+        "SLI_SI917B0",
+        "PRINT_DEBUG_LOG",
+        "SIWG917M111MGTBA",
+        "SL_CODE_COMPONENT_CORE=core",
+        "SL_COMPONENT_CATALOG_PRESENT=1",
+        "configNUM_SDK_THREAD_LOCAL_STORAGE_POINTERS=2",
+        "configNUM_USER_THREAD_LOCAL_STORAGE_POINTERS=0",
+    ],
+)
+
+libenv = env.Clone(FW_LIB_NAME="simplicity_sdk")
+libenv.ApplyLibFlags()
+
+sources = [
+    f"{SDK_DIR}/platform/common/src/sli_cmsis_os2_ext_task_register.c",
+    f"{SDK_DIR}/platform/common/src/sl_core_cortexm.c",
+    f"{SDK_DIR}/platform/common/src/sl_string.c",
+    f"{SDK_DIR}/platform/service/mem_pool/src/sl_mem_pool.c",
+]
+
+lib = libenv.StaticLibrary("${FW_LIB_NAME}", sources)
+libenv.Install("${LIB_DIST_DIR}", lib)
+Return("lib")

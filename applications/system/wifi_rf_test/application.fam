@@ -1,0 +1,11 @@
+App(
+    appid="wifi_rf_test_start",
+    targets=["f64"],
+    apptype=FlipperAppType.STARTUP,
+    entry_point="wifi_rf_test_system_start",
+    sources=[
+        "wifi_rf_test.c",
+        "helpers/wifi_test_app.c",
+    ],
+    order=40,
+)

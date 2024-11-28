@@ -1,0 +1,30 @@
+from fbt_extra.util import find_variable_config
+
+Import("ENV", "VARS")
+
+VARS.AddVariables(
+    (
+        "SI917_PORT",
+        "Serial port for communication with the device's bootloader",
+        "auto",
+    ),
+)
+
+
+# Inject default values for this target into global variables
+_fw_default_apps_config = {
+    "default": [
+        "basic_services",
+        "system_apps",
+    ],
+}
+
+fw_apps_configs_option = find_variable_config(VARS, "FIRMWARE_APPS")
+assert isinstance(fw_apps_configs_option.default, dict)
+for key, value in _fw_default_apps_config.items():
+    fw_apps_configs_option.default[key] = value
+
+
+fw_appdirs_option = find_variable_config(VARS, "APPDIRS")
+assert isinstance(fw_appdirs_option.default, list)
+fw_appdirs_option.default.extend((("applications/system", False),))
