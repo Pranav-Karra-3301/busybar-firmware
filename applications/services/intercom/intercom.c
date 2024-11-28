@@ -88,20 +88,23 @@ static FURI_ALWAYS_INLINE void intercom_send_data_frame(Intercom* instance) {
 
     // Send request
     furi_hal_serial_dma_tx(instance->serial, (uint8_t*)tx_frame, INTERCOM_D_FRAME_SIZE);
-    furi_hal_serial_dma_rx_start(instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_S_FRAME_SIZE);
+    furi_hal_serial_dma_rx_start(
+        instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_S_FRAME_SIZE);
 }
 
-static FURI_ALWAYS_INLINE void intercom_send_confirmation_frame(Intercom* instance) {
+static FURI_ALWAYS_INLINE void
+    intercom_send_service_frame(Intercom* instance, IntercomFrameError error) {
     IntercomFrame* tx_frame = &instance->tx_frame;
 
     tx_frame->header.id = 0;
-    tx_frame->header.type = IntercomFrameTypeConfirm;
-    tx_frame->header.error = IntercomFrameErrorNone;
+    tx_frame->header.type = IntercomFrameTypeService;
+    tx_frame->header.error = error;
     tx_frame->s.trailer.check = intercom_frame_calculate_checksum(tx_frame);
 
     // Send confirmation
     furi_hal_serial_dma_tx(instance->serial, (uint8_t*)tx_frame, INTERCOM_S_FRAME_SIZE);
-    furi_hal_serial_dma_rx_start(instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
+    furi_hal_serial_dma_rx_start(
+        instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
 }
 
 static FURI_ALWAYS_INLINE void intercom_process_tx_data_event(Intercom* instance) {
@@ -117,47 +120,62 @@ static FURI_ALWAYS_INLINE void intercom_process_tx_data_event(Intercom* instance
 static FURI_ALWAYS_INLINE void intercom_process_rx_frame_event(Intercom* instance) {
     INTERCOM_LOG_D("Frame received");
 
-    IntercomFrame* rx_frame = &instance->rx_frame;
+    const IntercomFrame* rx_frame = &instance->rx_frame;
+    const bool frame_is_valid = intercom_frame_is_valid(rx_frame);
 
-    if(!intercom_frame_is_valid(rx_frame)) {
-        // TODO: Error handling
-        furi_crash();
+    if(instance->state == IntercomStateIdle) {
+        INTERCOM_LOG_D("D-frame expected");
 
-    } else if(instance->state == IntercomStateIdle) {
-        INTERCOM_LOG_D("Data frame expected");
+        if(!frame_is_valid) {
+            // TODO: Error handling
+            // Frame is invalid, a D-frame was expected
+            furi_crash();
 
-        if(instance->rx_frame.header.type == IntercomFrameTypeData) {
-            INTERCOM_LOG_D("Data frame received");
+        } else if(rx_frame->header.type == IntercomFrameTypeData) {
+            INTERCOM_LOG_D("D-frame received");
+
+            const IntercomFramePayload* payload = &rx_frame->d.payload;
 
             if(instance->rx_callback) {
-                instance->rx_callback(
-                    instance->rx_frame.d.payload.data,
-                    instance->rx_frame.d.payload.size,
-                    instance->callback_context);
+                instance->rx_callback(payload->data, payload->size, instance->callback_context);
             }
 
-            intercom_send_confirmation_frame(instance);
+            intercom_send_service_frame(instance, IntercomFrameErrorNone);
 
         } else {
             // TODO: Error handling
+            // Frame valid, but unexpected
             furi_crash();
         }
 
     } else if(instance->state == IntercomStateWaitingConfirmation) {
-        INTERCOM_LOG_D("Confirmation frame expected");
+        INTERCOM_LOG_D("S-frame expected");
         furi_event_loop_timer_stop(instance->response_timer);
 
-        if(instance->rx_frame.header.type == IntercomFrameTypeConfirm) {
-            INTERCOM_LOG_D("Confirmation frame received");
-            instance->state = IntercomStateIdle;
+        if(!frame_is_valid) {
+            // TODO: Error handling
+            // Frame is invalid, an S-frame was expected
+            furi_crash();
 
-            furi_hal_serial_dma_rx_start(
-                instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
+        } else if(rx_frame->header.type == IntercomFrameTypeService) {
+            INTERCOM_LOG_D("S-frame received");
 
-            furi_semaphore_release(instance->tx_semaphore);
+            const IntercomFrameError error = rx_frame->header.error;
+            if(error == IntercomFrameErrorNone) {
+                instance->state = IntercomStateIdle;
+                furi_hal_serial_dma_rx_start(
+                    instance->serial, (uint8_t*)&instance->rx_frame, INTERCOM_D_FRAME_SIZE);
+                furi_semaphore_release(instance->tx_semaphore);
+
+            } else {
+                // TODO: Error handling
+                // Frame is valid and of proper type, but reports and error
+                furi_crash();
+            }
 
         } else {
             // TODO: Error handling
+            // Frame valid, but unexpected
             furi_crash();
         }
     }

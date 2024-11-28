@@ -20,8 +20,7 @@ extern "C" {
 
 typedef enum {
     IntercomFrameTypeData,
-    IntercomFrameTypeConfirm,
-    IntercomFrameTypeError,
+    IntercomFrameTypeService,
     IntercomFrameTypeMax,
 } IntercomFrameType;
 
@@ -87,11 +86,9 @@ static inline bool intercom_frame_is_valid(const IntercomFrame* frame) {
 
             checksum = frame->d.trailer.check;
 
-        } else if(type == IntercomFrameTypeConfirm || type == IntercomFrameTypeError) {
-            if(type == IntercomFrameTypeError) {
-                if(frame->header.error >= IntercomFrameErrorMax) {
-                    break;
-                }
+        } else if(type == IntercomFrameTypeService) {
+            if(frame->header.error >= IntercomFrameErrorMax) {
+                break;
             }
 
             checksum = frame->s.trailer.check;
