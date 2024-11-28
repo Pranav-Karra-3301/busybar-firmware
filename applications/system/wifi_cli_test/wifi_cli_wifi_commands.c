@@ -107,12 +107,12 @@ uint16_t crc_pass = 0;
 uint16_t crc_fail = 0;
 
 volatile bool scan_results_complete = false;
-volatile sl_status_t callback_status = SL_STATUS_OK;
+static volatile sl_status_t callback_status = SL_STATUS_OK;
 volatile bool stop_wifi_statistic_report = false;
 osThreadId_t wifi_statistic_thread_id = NULL;
 //static uint32_t max_receive_stats_count  = 0;
-float pass_avg = 0;
-float fail_avg = 0;
+//static float pass_avg = 0;
+//static float fail_avg = 0;
 
 /******************************************************
  *               Variable Definitions

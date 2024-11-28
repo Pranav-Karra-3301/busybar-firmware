@@ -15,6 +15,7 @@ App(
     provides=[
         "wifi_cli_test_start",
         "wifi_calibration_start",
+        "wifi_rf_test_start",
     ],
     targets=["f64"],
 )

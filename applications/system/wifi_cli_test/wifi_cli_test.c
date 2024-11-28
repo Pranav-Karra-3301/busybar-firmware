@@ -13,7 +13,7 @@ void wifi_cli_test_command_wifi_init(Cli* cli, FuriString* args, void* context) 
         if(strint_to_uint32(furi_string_get_cstr(args), NULL, &arg.arg[0], 10) !=
            StrintParseNoError) {
             cli_print_usage(
-                "wifi_test wifi_init",
+                "wifi_cli_test wifi_init",
                 "wifi_init Init Wi-Fi interface \"ap-1\", \"apsta-2\", \"ble_coex\", \"client-0\", \"client_ipv6\", \"eap-3\", \"transmit_test-6\"\r\n",
                 furi_string_get_cstr(args));
         }
@@ -40,7 +40,7 @@ void wifi_cli_test_command_wifi_scan(Cli* cli, FuriString* args, void* context) 
     UNUSED(cli);
     UNUSED(args);
     if(furi_string_size(args)) {
-        printf("wifi_test wifi_scan not used arg\r\n");
+        printf("wifi_cli_test wifi_scan not used arg\r\n");
     }
 
     sl_status_t status = wifi_scan_command_handler(NULL);
@@ -51,7 +51,7 @@ void wifi_cli_test_command_wifi_scan(Cli* cli, FuriString* args, void* context) 
 
 static void wifi_cli_test_command_print_usage(void) {
     printf("Usage:\r\n");
-    printf("wifi_test <cmd> <args>\r\n");
+    printf("wifi_cli_test <cmd> <args>\r\n");
     printf("Cmd list:\r\n");
 
     printf(
@@ -93,7 +93,7 @@ void wifi_cli_test_system_start(void) {
 #ifdef SRV_CLI
     Cli* cli = furi_record_open(RECORD_CLI);
 
-    cli_add_command(cli, "wifi_test", CliCommandFlagParallelSafe, wifi_cli_test_command, NULL);
+    cli_add_command(cli, "wifi_cli_test", CliCommandFlagParallelSafe, wifi_cli_test_command, NULL);
 
     furi_record_close(RECORD_CLI);
 #else

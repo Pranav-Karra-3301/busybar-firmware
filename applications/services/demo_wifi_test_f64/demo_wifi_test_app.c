@@ -4,6 +4,8 @@
 #include "sl_wifi.h"
 #include "sl_net.h"
 #include "sl_si91x_driver.h"
+#include "sl_wifi_callback_framework.h"
+#include <cmsis_os2.h>
 
 #define TAG "DemoWifiTest"
 
@@ -12,12 +14,12 @@ typedef struct {
     FuriEventLoopTimer* timer;
 } DemoWifiTest;
 
-const sl_wifi_data_rate_t rate = SL_WIFI_DATA_RATE_6;
-const sl_wifi_tx_test_mode_t mode = SL_WIFI_TEST_BURST_MODE;
+static const sl_wifi_data_rate_t rate = SL_WIFI_DATA_RATE_6;
+static const sl_wifi_tx_test_mode_t mode = SL_WIFI_TEST_BURST_MODE;
 
-#define RECEIVE_STATS           0
+#define RECEIVE_STATS           1
 #define MAX_RECEIVE_STATS_COUNT 5
-#define CHANNEL                 6 // 1ch - 2412MHz 6ch - 2437MHz 11ch - 2462MHz
+#define CHANNEL                 1 // 1ch - 2412MHz 6ch - 2437MHz 11ch - 2462MHz
 
 static const sl_wifi_device_configuration_t transmit_test_configuration = {
     .boot_option = LOAD_NWP_FW,
@@ -48,7 +50,7 @@ static const sl_wifi_device_configuration_t transmit_test_configuration = {
         .ble_ext_feature_bit_map = 0,
         .config_feature_bit_map = SL_SI91X_FEAT_SLEEP_GPIO_SEL_BITMAP}};
 
-sl_si91x_request_tx_test_info_t tx_test_info = {
+static sl_si91x_request_tx_test_info_t tx_test_info = {
     .enable = 1,
     .power = 127,
     .rate = rate,
@@ -83,14 +85,25 @@ sl_si91x_request_tx_test_info_t tx_test_info = {
 #endif
 };
 
-float pass_avg = 0;
-float fail_avg = 0;
-uint32_t rssi_avg = 0;
-uint32_t crc_pass = 0;
-uint32_t crc_fail = 0;
-uint32_t cal_rssi = 0;
-uint16_t total_crc_pass = 0;
-uint16_t total_crc_fail = 0;
+static float pass_avg = 0;
+static float fail_avg = 0;
+// static uint32_t rssi_avg = 0;
+// static uint32_t crc_pass = 0;
+// static uint32_t crc_fail = 0;
+// static uint32_t cal_rssi = 0;
+static uint16_t total_crc_pass = 0;
+static uint16_t total_crc_fail = 0;
+
+#if RECEIVE_STATS
+static uint8_t stats_count = 0;
+#endif
+static volatile sl_status_t callback_status = SL_STATUS_OK;
+
+sl_status_t wifi_stats_receive_handler(
+    sl_wifi_event_t event,
+    void* reponse,
+    uint32_t result_length,
+    void* arg);
 
 void demo_wifi_test(void* p) {
     UNUSED(p);
@@ -181,8 +194,8 @@ void demo_wifi_test(void* p) {
         if(SL_STATUS_IN_PROGRESS == status) {
             callback_status = SL_STATUS_IN_PROGRESS;
             FURI_LOG_I(TAG, "Receive Statistics...");
+            bool ret = true;
             do {
-                bool ret = true;
                 while(stats_count <= MAX_RECEIVE_STATS_COUNT) {
                     osThreadYield();
                     if(stats_count == MAX_RECEIVE_STATS_COUNT &&
@@ -247,8 +260,8 @@ sl_status_t wifi_stats_receive_handler(
             FURI_LOG_I(
                 TAG,
                 "CRC Average pass%% = %.6f,         CRC Average fail%% = %.6f",
-                pass_avg / MAX_RECEIVE_STATS_COUNT,
-                fail_avg / MAX_RECEIVE_STATS_COUNT);
+                (double)pass_avg / MAX_RECEIVE_STATS_COUNT,
+                (double)fail_avg / MAX_RECEIVE_STATS_COUNT);
             FURI_LOG_I(
                 TAG,
                 "Total : total_crc_pass %d, total_crc_fail %d",

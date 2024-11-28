@@ -59,8 +59,8 @@ typedef struct {
 
 } CalibrationApp;
 
-const sl_wifi_data_rate_t rate = SL_WIFI_DATA_RATE_1;
-sl_si91x_request_tx_test_info_t tx_test_info = {
+static const sl_wifi_data_rate_t rate = SL_WIFI_DATA_RATE_1;
+static sl_si91x_request_tx_test_info_t tx_test_info = {
     .enable = 1,
     .power = 18,
     .rate = rate,
