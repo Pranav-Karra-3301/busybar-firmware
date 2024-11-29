@@ -14,6 +14,12 @@
 extern "C" {
 #endif
 
+/** Serial hardware flow control modes */
+typedef enum {
+    FuriHalSerialHwFlowControlNone, /**< Do not use any hardware flow control */
+    FuriHalSerialHwFlowControlRtsCts, /**< Use both RTS and CTS signals */
+} FuriHalSerialHwFlowControl;
+
 /** Serial RX events */
 typedef enum {
     FuriHalSerialRxEventData = (1 << 0), /**< Data: new data available */
@@ -50,6 +56,14 @@ void furi_hal_serial_resume(FuriHalSerialHandle* handle);
 bool furi_hal_serial_is_baud_rate_supported(FuriHalSerialHandle* handle, uint32_t baud);
 
 void furi_hal_serial_set_br(FuriHalSerialHandle* handle, uint32_t baud);
+
+/**
+ * Set the hardware flow control mode for the serial interface.
+ *
+ * @param handle Pointer to the serial handle.
+ * @param flow_control Flow control mode.
+ */
+void furi_hal_serial_set_hw_flow_control(FuriHalSerialHandle* handle, FuriHalSerialHwFlowControl flow_control);
 
 void furi_hal_serial_set_callback(
     FuriHalSerialHandle* handle,
