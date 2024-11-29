@@ -425,12 +425,24 @@ void furi_hal_serial_deinit(FuriHalSerialHandle* handle) {
 
 inline void furi_hal_serial_suspend(FuriHalSerialHandle* handle) {
     furi_hal_serial_check(handle);
-    LL_USART_Disable(furi_hal_serial[handle->id]->periph_ptr);
+
+    USART_TypeDef* periph = furi_hal_serial[handle->id]->periph_ptr;
+
+    LL_USART_Disable(periph);
+
+    while(LL_USART_IsActiveFlag_TEACK(periph) && LL_USART_IsActiveFlag_REACK(periph))
+        ;
 }
 
 inline void furi_hal_serial_resume(FuriHalSerialHandle* handle) {
     furi_hal_serial_check(handle);
-    LL_USART_Enable(furi_hal_serial[handle->id]->periph_ptr);
+
+    USART_TypeDef* periph = furi_hal_serial[handle->id]->periph_ptr;
+
+    LL_USART_Enable(periph);
+
+    while(!LL_USART_IsActiveFlag_TEACK(periph) || !LL_USART_IsActiveFlag_REACK(periph))
+        ;
 }
 
 bool furi_hal_serial_is_baud_rate_supported(FuriHalSerialHandle* handle, uint32_t baud_rate) {
@@ -514,18 +526,27 @@ void furi_hal_serial_set_hw_flow_control(FuriHalSerialHandle* handle, FuriHalSer
     } else if(flow_control == FuriHalSerialHwFlowControlCts) {
         hw_flow_reg_value = LL_USART_HWCONTROL_CTS;
         furi_hal_gpio_init_simple(gpio_rts, GpioModeAnalog);
-        furi_hal_gpio_init_ex(gpio_cts, GpioModeInput, GpioPullNo, GpioSpeedVeryHigh, alt_fn);
+        furi_hal_gpio_init_ex(gpio_cts, GpioModeInput, GpioPullUp, GpioSpeedVeryHigh, alt_fn);
 
     } else if(flow_control == FuriHalSerialHwFlowControlRtsCts) {
         hw_flow_reg_value = LL_USART_HWCONTROL_RTS_CTS;
         furi_hal_gpio_init_ex(gpio_rts, GpioModeAltFunctionPushPull, GpioPullNo, GpioSpeedVeryHigh, alt_fn);
-        furi_hal_gpio_init_ex(gpio_cts, GpioModeInput, GpioPullNo, GpioSpeedVeryHigh, alt_fn);
+        furi_hal_gpio_init_ex(gpio_cts, GpioModeInput, GpioPullUp, GpioSpeedVeryHigh, alt_fn);
 
     } else {
         furi_crash();
     }
 
+    const bool is_enabled = furi_hal_serial_is_enabled(handle);
+    if(is_enabled) {
+        furi_hal_serial_suspend(handle);
+    }
+
     LL_USART_SetHWFlowCtrl(resources->periph, hw_flow_reg_value);
+
+    if(is_enabled) {
+        furi_hal_serial_resume(handle);
+    }
 }
 
 void furi_hal_serial_set_callback(
