@@ -1,7 +1,0 @@
-Import("env")
-
-SConscript(
-    "#/lib/register_u5_libs.scons",
-    exports={"env": env},
-    duplicate=0,
-)

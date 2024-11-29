@@ -18,4 +18,16 @@
 	url = https://github.com/flipperdevices/wiseconnect.git
 [submodule "lib/bsb-protobuf"]
 	path = lib/bsb_protobuf
-	url = git@github.com:flipperdevices/bsb-protobuf.git
+	url = https://github.com/flipperdevices/bsb-protobuf.git
+[submodule "lib/microtar"]
+	path = lib/microtar
+	url = https://github.com/amachronic/microtar.git
+[submodule "lib/mbedtls"]
+	path = lib/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "lib/nanopb"]
+	path = lib/nanopb
+	url = https://github.com/nanopb/nanopb.git
+[submodule "lib/heatshrink"]
+	path = lib/heatshrink
+	url = https://github.com/flipperdevices/heatshrink.git

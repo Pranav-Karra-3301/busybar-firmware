@@ -1,6 +1,6 @@
 from fbt_extra.util import find_variable_config
 
-Import("ENV", "VARS")
+Import("FW_ENV", "VARS")
 
 VARS.AddVariables(
     (

@@ -1,8 +1,37 @@
 Import("env")
 
 for libname in [
+    "canvas_nema",
+    "tinyusb",
+    "nema_gfx",
+    "canvas_oled",
+    "lwip",
+    "network",
+    "mongoose",
+    "rpc_handlers_f20",
+    "fw_updater_opts",
+    "lib_base",
+    "microtar",
+    "mbedtls",
+    "icon_assets",
+    # "toolbox",
+    # "flipper_format",
+    "flipper_application",
+    "nanopb",
+    "heatshrink",
+    "ext_applications",
+    "firmware_applications",
+    ## BSB
     "bsb_protobuf",
+    ## SI917
+    "sl_glue",
+    "simplicity_sdk",
+    "wiseconnect",
+    "rpc_handlers_f64",
+    "si917_toolbox",
+    "si917_applications",
 ]:
     # print(f"In {env.Real(Dir('.'))}, registering {libname}")
     env.RegisterComponent(f"fwlib_{libname}", env.FindComponentSconscript(libname))
 
+# Return("libs")

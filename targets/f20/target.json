@@ -68,7 +68,6 @@
         "lwip"
     ],
     "env_setup_scripts": [
-        "#/u5_env_init.scons",
         "#/bsb_common_env_init.scons"
     ],
     "extra_tool_paths": [

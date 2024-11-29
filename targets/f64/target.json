@@ -55,11 +55,10 @@
         "inc"
     ],
     "env_setup_scripts": [
-        "#/f64_env_init.scons",
         "#/bsb_common_env_init.scons"
     ],
     "extra_tool_paths": [
-        "../../scripts/fbt_f64_tools"
+        "../../scripts/fbt_tools"
     ],
     "sdk_header_paths": [],
     "sources": [

@@ -1,5 +1,5 @@
 entry,status,name,type,params
-Version,+,1.16,,
+Version,+,1.17,,
 Header,-,applications/services/cli/cli.h,,
 Header,-,applications/services/cli/cli_vcp.h,,
 Header,-,applications/services/gui/elements.h,,
