@@ -230,6 +230,7 @@ static Intercom* intercom_alloc(void) {
 
     instance->serial = furi_hal_serial_control_acquire(INTERCOM_SERIAL);
     furi_hal_serial_init(instance->serial, INTERCOM_BAUD_RATE);
+    furi_hal_serial_set_hw_flow_control(instance->serial, FuriHalSerialHwFlowControlRtsCts);
     furi_hal_serial_set_callback(
         instance->serial, intercom_serial_tx_callback, intercom_serial_rx_callback, instance);
     // Start listening for D-frames right away
