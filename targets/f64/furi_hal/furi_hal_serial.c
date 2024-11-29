@@ -44,6 +44,13 @@
 #define LSR_BI_POS (4)
 #define LSR_BI_SET (1UL << LSR_BI_POS)
 
+#define MCR_RTS_POS  (1)
+#define MCR_RTS_SET  (1UL << MCR_RTS_POS)
+#define MCR_RTS_CLR  (0UL << MCR_RTS_POS)
+#define MCR_AFCE_POS (5)
+#define MCR_AFCE_SET (1UL << MCR_AFCE_POS)
+#define MCR_AFCE_CLR (0UL << MCR_AFCE_POS)
+
 #define IIR_IID_MASK         (0xFUL)
 #define IIR_IID_MODEM_STATUS (0x0)
 #define IIR_IID_NO_INTERRUPT (0x1)
@@ -120,8 +127,6 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
         M4CLK->CLK_CONFIG_REG2_b.USART1_SCLK_DIV_FAC = 0;
 
         // Init main pins
-        furi_hal_gpio_init_ex(
-            &gpio_usart0_clk, GpioModeInput, GpioPullNo, GpioSpeedHigh, GpioAltFn2USART0_CLK);
         furi_hal_gpio_init_ex(
             &gpio_usart0_rx, GpioModeInput, GpioPullUp, GpioSpeedHigh, GpioAltFn2USART0_RX);
         furi_hal_gpio_init_ex(
@@ -204,6 +209,7 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
 
     furi_hal_serial_set_br(handle, baud);
     furi_hal_serial_enable_fifo(handle);
+    furi_hal_serial_set_hw_flow_control(handle, FuriHalSerialHwFlowControlNone);
 }
 
 void furi_hal_serial_deinit(FuriHalSerialHandle* handle) {
@@ -244,6 +250,55 @@ void furi_hal_serial_set_br(FuriHalSerialHandle* handle, uint32_t baud) {
     periph->DLF = divisor_64 & FRAC_MASK;
     // Disable divisor modification and use 8bit per character
     periph->LCR = LCR_DLS_8BIT;
+}
+
+void furi_hal_serial_set_hw_flow_control(FuriHalSerialHandle* handle, FuriHalSerialHwFlowControl flow_control) {
+    furi_check(handle);
+
+    const FuriHalSerialId serial_id = handle->id;
+    USART0_Type* periph = furi_hal_serial_resources[serial_id].periph;
+
+    if(flow_control == FuriHalSerialHwFlowControlNone) {
+        periph->MCR = MCR_RTS_CLR | MCR_AFCE_CLR;
+
+        if(serial_id == FuriHalSerialIdUsart0) {
+            furi_hal_gpio_init_simple(
+                &gpio_usart0_cts, GpioModeInput);
+            furi_hal_gpio_init_simple(
+                &gpio_usart0_rts, GpioModeInput);
+
+        } else if(serial_id == FuriHalSerialIdUart1) {
+            // No pins defined for hardware flow control
+        } else if(serial_id == FuriHalSerialIdUlpuart) {
+            // No pins defined for hardware flow control
+        } else {
+            furi_crash();
+        }
+
+    } else if(flow_control == FuriHalSerialHwFlowControlRtsCts) {
+        periph->MCR = MCR_RTS_SET | MCR_AFCE_SET;
+
+        if(serial_id == FuriHalSerialIdUsart0) {
+            furi_hal_gpio_init_ex(
+                &gpio_usart0_cts, GpioModeInput, GpioPullUp, GpioSpeedHigh, GpioAltFn2USART0_CTS);
+            furi_hal_gpio_init_ex(
+                &gpio_usart0_rts,
+                GpioModeOutputPushPull,
+                GpioPullNo,
+                GpioSpeedHigh,
+                GpioAltFn2USART0_RTS);
+
+        } else if(serial_id == FuriHalSerialIdUart1) {
+            // No pins defined for hardware flow control
+        } else if(serial_id == FuriHalSerialIdUlpuart) {
+            // No pins defined for hardware flow control
+        } else {
+            furi_crash();
+        }
+
+    } else {
+        furi_crash();
+    }
 }
 
 void furi_hal_serial_set_callback(

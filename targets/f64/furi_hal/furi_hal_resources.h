@@ -63,11 +63,11 @@ extern const GpioPin gpio_48;
 extern const GpioPin gpio_49;
 extern const GpioPin gpio_sw_busy;
 extern const GpioPin gpio_sw_settings;
-extern const GpioPin gpio_usart0_clk;
-extern const GpioPin gpio_53;
+extern const GpioPin gpio_52;
+extern const GpioPin gpio_usart0_rts;
 extern const GpioPin gpio_usart0_tx;
 extern const GpioPin gpio_usart0_rx;
-extern const GpioPin gpio_56;
+extern const GpioPin gpio_usart0_cts;
 extern const GpioPin gpio_57;
 
 /* Internal HP GPIO pins */

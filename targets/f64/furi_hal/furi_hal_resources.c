@@ -28,11 +28,11 @@ const GpioPin gpio_48 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_49 = {.type = GpioTypeHp, .pin = 40};
 const GpioPin gpio_sw_busy = {.type = GpioTypeHp, .pin = 50};
 const GpioPin gpio_sw_settings = {.type = GpioTypeHp, .pin = 51};
-const GpioPin gpio_usart0_clk = {.type = GpioTypeHp, .pin = 52};
-const GpioPin gpio_53 = {.type = GpioTypeHp, .pin = 53};
+const GpioPin gpio_52 = {.type = GpioTypeHp, .pin = 52};
+const GpioPin gpio_usart0_rts = {.type = GpioTypeHp, .pin = 53};
 const GpioPin gpio_usart0_tx = {.type = GpioTypeHp, .pin = 54};
 const GpioPin gpio_usart0_rx = {.type = GpioTypeHp, .pin = 55};
-const GpioPin gpio_56 = {.type = GpioTypeHp, .pin = 56};
+const GpioPin gpio_usart0_cts = {.type = GpioTypeHp, .pin = 56};
 const GpioPin gpio_57 = {.type = GpioTypeHp, .pin = 57};
 
 const GpioPin gpio_i_64 = {.type = GpioTypeHp, .pin = 64};
