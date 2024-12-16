@@ -142,24 +142,41 @@ static int32_t vcp_worker(void* context) {
             if(furi_stream_buffer_spaces_available(vcp->rx_stream) >= USB_CDC_PKT_LEN) {
                 flags |= VcpEvtRx;
                 missed_rx--;
+                VCP_DEBUG("Missed %zu", missed_rx);
             }
         }
 
         // New data received
         if(flags & VcpEvtRx) {
-            if(furi_stream_buffer_spaces_available(vcp->rx_stream) >= USB_CDC_PKT_LEN) {
-                int32_t len = furi_hal_cdc_read(vcp->data_buffer, USB_CDC_PKT_LEN);
-                VCP_DEBUG("Rx %ld", len);
+            bool leftover = true;
 
-                if(len > 0) {
-                    furi_check(
-                        furi_stream_buffer_send(
-                            vcp->rx_stream, vcp->data_buffer, len, FuriWaitForever) ==
-                        (size_t)len);
+            while(leftover) {
+                leftover = false;
+
+                size_t available = furi_stream_buffer_spaces_available(vcp->rx_stream);
+                VCP_DEBUG("Available %zu", available);
+                if(available >= USB_CDC_PKT_LEN) {
+                    int32_t len = furi_hal_cdc_read(vcp->data_buffer, USB_CDC_PKT_LEN);
+                    VCP_DEBUG("Rx %ld", len);
+
+                    if(len > 0) {
+                        furi_check(
+                            furi_stream_buffer_send(
+                                vcp->rx_stream, vcp->data_buffer, len, FuriWaitForever) ==
+                            (size_t)len);
+                    }
+
+                    if(furi_hal_cdc_available() > 0) {
+                        leftover = true;
+                    }
+                } else {
+                    VCP_DEBUG("Rx missed");
+                    missed_rx++;
+                    VCP_DEBUG("Missed %zu", missed_rx);
                 }
-            } else {
-                VCP_DEBUG("Rx missed");
-                missed_rx++;
+
+                VCP_DEBUG(
+                    "Available after %zu", furi_stream_buffer_spaces_available(vcp->rx_stream));
             }
         }
 
@@ -238,7 +255,7 @@ static size_t cli_vcp_rx(uint8_t* buffer, size_t size, uint32_t timeout) {
         if(batch_size > VCP_RX_BUF_SIZE) batch_size = VCP_RX_BUF_SIZE;
 
         size_t len = furi_stream_buffer_receive(vcp->rx_stream, buffer, batch_size, timeout);
-        VCP_DEBUG("rx %u ", batch_size);
+        VCP_DEBUG("rx %u ", len);
 
         if(len == 0) break;
         if(vcp->running == false) {
@@ -250,6 +267,7 @@ static size_t cli_vcp_rx(uint8_t* buffer, size_t size, uint32_t timeout) {
         size -= len;
         buffer += len;
         rx_cnt += len;
+        VCP_DEBUG("size %zu", size);
     }
 
     VCP_DEBUG("rx %u end", size);
