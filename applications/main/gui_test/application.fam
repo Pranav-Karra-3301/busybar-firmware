@@ -1,10 +1,10 @@
 App(
-    appid="wifi_setup",
-    name="WiFi Setup",
+    appid="gui_test",
+    name="Gui Test",
     apptype=FlipperAppType.APP,
-    entry_point="wifi_setup_app",
+    entry_point="gui_test_app",
     requires=["gui"],
-    stack_size=2 * 1024,
+    stack_size=4 * 1024,
     fap_category="Debug",
     targets=["f20"],
 )
