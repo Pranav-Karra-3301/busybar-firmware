@@ -42,7 +42,7 @@ struct SlUpdater {
 #ifdef SRV_INTERCOM
     Intercom* intercom;
 #endif
-    uint8_t timeout_seconds;
+    uint8_t install_timeout_seconds;
     bool is_stack_image;
     Si917BootloaderState bootloader_state;
     Storage* storage;
@@ -50,7 +50,7 @@ struct SlUpdater {
     kermit_t* kermit;
 };
 
-#define KERMIT_TIMEOUT_SECONDS (5)
+#define KERMIT_TIMEOUT_SECONDS (2)
 
 //////////////////////////////////////////////////////////////////////////
 // Kermit i/o functions
@@ -62,7 +62,7 @@ static int32_t kermit_src_file_read(void* context, uint8_t* buffer, size_t lengt
 
 static int32_t kermit_comms_send(void* context, const uint8_t* buffer, size_t length) {
     SlUpdater* app = context;
-    FURI_LOG_D(TAG, "Sending %d bytes", length);
+    FURI_LOG_T(TAG, "Sending %d bytes", length);
 
 #ifdef KERMIT_DEBUG
     FuriString* str = furi_string_alloc();
@@ -142,11 +142,11 @@ static void sl_updater_handle_rx(SlUpdater* instance) {
 
     case Si917BootloaderStateChangeBaudRate:
         if(sl_updater_check_rx_for(instance, "5 115200\r\n")) {
-            const uint8_t choice = '4';
+            const uint8_t choice = '3';
             furi_hal_serial_tx(instance->serial_handle, &choice, sizeof(choice));
             FURI_LOG_I(TAG, "UART Baud Rate speed request sent: %c", choice);
 
-            furi_hal_serial_set_baud_rate(instance->serial_handle, 921600);
+            furi_hal_serial_set_baud_rate(instance->serial_handle, 460800);
             instance->bootloader_state = Si917BootloaderStateChangeBaudRateNewLeader;
         }
         break;
@@ -159,13 +159,14 @@ static void sl_updater_handle_rx(SlUpdater* instance) {
 
     case Si917BootloaderStateChangeBaudRateSuccess:
         if(sl_updater_check_rx_for(instance, "Baud Rate was updated successfully!")) {
-            FURI_LOG_I(TAG, "Baud rate was set to 921600");
+            FURI_LOG_I(TAG, "Baud rate was set to 460800");
             instance->bootloader_state = Si917BootloaderStateSetImageType;
         }
         break;
 
     case Si917BootloaderStateSetImageType:
         if(sl_updater_check_rx_for(instance, "Enter Next Command")) {
+            furi_delay_ms(10);
             const uint8_t image_type = instance->is_stack_image ? 'B' : '4';
             furi_hal_serial_tx(instance->serial_handle, &image_type, sizeof(image_type));
 
@@ -266,6 +267,16 @@ static void sl_updater_intercom_error_callback(IntercomError error, void* contex
 
 static void sl_update_idle_timer_callback(void* context) {
     SlUpdater* instance = context;
+    if(instance->bootloader_state == Si917BootloaderStateWaitInstall) {
+        // First time we timeout, we update the timer to an actual install timeout
+        uint32_t desired_timeout = furi_ms_to_ticks(instance->install_timeout_seconds * 1000);
+        if(furi_event_loop_timer_get_interval(instance->idle_timer) != desired_timeout) {
+            furi_event_loop_timer_start(instance->idle_timer, desired_timeout);
+            FURI_LOG_I(
+                TAG, "Setting install timeout to %d seconds", instance->install_timeout_seconds);
+            return;
+        }
+    }
 
     FURI_LOG_W(TAG, "Watchdog expired");
     furi_event_loop_stop(instance->event_loop);
@@ -279,10 +290,10 @@ SlUpdater* sl_updater_alloc(void) {
     instance->event_loop = furi_event_loop_alloc();
     instance->rx_buffer = furi_stream_buffer_alloc(512, 1);
     instance->rx_string = furi_string_alloc();
-    instance->serial_handle = furi_hal_serial_control_acquire(FuriHalSerialIdUsart2);
+    instance->serial_handle = NULL;
 
     instance->bootloader_state = Si917BootloaderStateInit;
-    instance->timeout_seconds = 1;
+    instance->install_timeout_seconds = 1;
 
     instance->kermit = kermit_alloc(&kermit_io, instance);
     instance->storage = furi_record_open(RECORD_STORAGE);
@@ -323,12 +334,18 @@ bool sl_updater_run(
     SlUpdater* instance,
     const char* firmware_path,
     bool is_stack_image,
-    uint8_t timeout_seconds) {
+    uint8_t install_timeout_seconds) {
     furi_check(instance);
     furi_check(firmware_path);
+    furi_check(instance->serial_handle == NULL);
 
-    instance->timeout_seconds = timeout_seconds;
+    instance->install_timeout_seconds = install_timeout_seconds;
     instance->is_stack_image = is_stack_image;
+
+    kermit_reset_state(instance->kermit);
+    // We start with the default timeout since it's enough for non-install operations
+    furi_event_loop_timer_start(
+        instance->idle_timer, furi_ms_to_ticks((KERMIT_TIMEOUT_SECONDS + 1) * 1000));
 
     instance->bootloader_state = Si917BootloaderStateInit;
 
@@ -347,9 +364,7 @@ bool sl_updater_run(
     UNUSED(sl_updater_intercom_error_callback);
 #endif
 
-    // Start idle timer
-    furi_event_loop_timer_start(
-        instance->idle_timer, furi_ms_to_ticks((instance->timeout_seconds + 2) * 1000));
+    instance->serial_handle = furi_hal_serial_control_acquire(FuriHalSerialIdUsart2);
 
     furi_hal_serial_init(instance->serial_handle, 115200);
     furi_hal_serial_set_callback(
@@ -376,6 +391,7 @@ bool sl_updater_run(
     furi_hal_serial_async_rx_stop(instance->serial_handle);
     furi_hal_serial_set_callback(instance->serial_handle, NULL, NULL, NULL);
     furi_hal_serial_control_release(instance->serial_handle);
+    instance->serial_handle = NULL;
 
     storage_file_close(instance->firmware_file);
 

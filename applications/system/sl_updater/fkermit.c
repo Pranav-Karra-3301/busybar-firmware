@@ -66,7 +66,7 @@ typedef enum {
 
 // Packet reassembly state
 typedef struct {
-    kermit_packet_t* packet;
+    kermit_packet_t* contents;
     kermit_packet_type_t type;
     kermit_packet_state_t state;
     uint8_t seq;
@@ -124,6 +124,23 @@ typedef struct {
 } FURI_PACKED kermit_packet_footer_t;
 
 _Static_assert(sizeof(kermit_packet_footer_t) == 2, "Invalid size of kermit_packet_footer_t");
+
+typedef struct {
+    uint8_t maxl;
+    uint8_t timo;
+    uint8_t npad;
+    uint8_t padc;
+    uint8_t eol;
+    uint8_t qctl;
+    uint8_t ebq;
+    uint8_t bct;
+    uint8_t rpt;
+    uint8_t capas;
+    uint8_t wslots;
+    uint8_t maxlx1, maxlx2;
+} FURI_PACKED kermit_init_packet_t;
+
+_Static_assert(sizeof(kermit_init_packet_t) == 13, "Invalid size of kermit_init_packet_t");
 
 // Kermit packet allocation and deallocation
 
@@ -243,13 +260,16 @@ kermit_packet_t* kermit_create_ext_packet(
     return packet;
 }
 
-static void kermit_reset_state(kermit_t* kermit) {
+void kermit_reset_state(kermit_t* kermit) {
     kermit->seq_counter = 0;
 
     kermit->max_packet_length = KERMIT_PACKET_MAX_LENGTH;
     kermit->max_ext_packet_length = KERMIT_PACKET_EXT_MAX_LENGTH;
 
-    // todo: release packet if allocated
+    if(kermit->rx.contents) {
+        kermit_packet_free(kermit->rx.contents);
+    }
+
     memset(&kermit->rx, 0, sizeof(kermit_rx_t));
     kermit->rx.state = KERMIT_PACKET_STATE_WAIT_MARK;
 
@@ -262,12 +282,15 @@ kermit_t* kermit_alloc(const kermit_io_t* io, void* context) {
     kermit_t* kermit = malloc(sizeof(kermit_t));
     kermit->io = io;
     kermit->io_context = context;
+
+    kermit->rx.contents = NULL;
     kermit_reset_state(kermit);
 
     return kermit;
 }
 
 void kermit_free(kermit_t* kermit) {
+    kermit_reset_state(kermit);
     free(kermit);
 }
 
@@ -276,21 +299,6 @@ bool kermit_is_active(kermit_t* kermit) {
 }
 
 static bool kermit_process_packet(kermit_t* kermit);
-
-typedef struct {
-    uint8_t maxl;
-    uint8_t timo;
-    uint8_t npad;
-    uint8_t padc;
-    uint8_t eol;
-    uint8_t qctl;
-    uint8_t ebq;
-    uint8_t bct;
-    uint8_t rpt;
-    uint8_t capas;
-    uint8_t wslots;
-    uint8_t maxlx1, maxlx2;
-} FURI_PACKED kermit_init_packet_t;
 
 static bool kermit_feed_byte(kermit_t* kermit, uint8_t c) {
     furi_check(kermit != NULL);
@@ -304,9 +312,6 @@ static bool kermit_feed_byte(kermit_t* kermit, uint8_t c) {
     case KERMIT_PACKET_STATE_WAIT_MARK:
         if(c == KERMIT_PACKET_MARK) {
             rx->state = KERMIT_PACKET_STATE_WAIT_LEN;
-        } else if(c == 0) { /// what the actual hell. FIXME TODO WTF
-            FURI_LOG_E(TAG, "Received zero byte, accepting as mark");
-            rx->state = KERMIT_PACKET_STATE_WAIT_LEN;
         } else {
             KERMIT_LOG("Garbage data: %02x", c);
         }
@@ -319,7 +324,7 @@ static bool kermit_feed_byte(kermit_t* kermit, uint8_t c) {
             rx->state = KERMIT_PACKET_STATE_ERROR;
             return false;
         }
-        if(rx->packet) {
+        if(rx->contents) {
             FURI_LOG_E(TAG, "Packet already allocated but not processed");
             rx->state = KERMIT_PACKET_STATE_ERROR;
             return false;
@@ -332,7 +337,7 @@ static bool kermit_feed_byte(kermit_t* kermit, uint8_t c) {
         // seq + type + check go to separate fields in reassembly
         rx->len -= 3;
         rx->state = KERMIT_PACKET_STATE_WAIT_SEQ;
-        rx->packet = kermit_packet_alloc(rx->len);
+        rx->contents = kermit_packet_alloc(rx->len);
         break;
 
     case KERMIT_PACKET_STATE_WAIT_SEQ:
@@ -349,16 +354,16 @@ static bool kermit_feed_byte(kermit_t* kermit, uint8_t c) {
         break;
 
     case KERMIT_PACKET_STATE_WAIT_CONTENTS:
-        KERMIT_LOG("Packet sz: %ld, rem rxlen: %d", rx->packet->sz, rx->len);
+        KERMIT_LOG("Packet sz: %ld, rem rxlen: %d", rx->contents->sz, rx->len);
         furi_check(rx->len >= 0);
-        furi_check(rx->packet->sz - rx->len < rx->packet->sz);
+        furi_check(rx->contents->sz - rx->len < rx->contents->sz);
 
         if(c == KERMIT_PACKET_END) {
             KERMIT_LOG("End of packet in contents");
             rx->state = KERMIT_PACKET_STATE_ERROR;
         }
 
-        rx->packet->data[rx->packet->sz - rx->len] = c;
+        rx->contents->data[rx->contents->sz - rx->len] = c;
         rx->len--;
         if(rx->len == 0) {
             KERMIT_LOG("Received all expected data");
@@ -380,12 +385,12 @@ static bool kermit_feed_byte(kermit_t* kermit, uint8_t c) {
             rx->state = KERMIT_PACKET_STATE_ERROR;
             return false;
         }
-        rx->state = KERMIT_PACKET_STATE_WAIT_MARK;
-
         result = kermit_process_packet(kermit);
 
-        kermit_packet_free(rx->packet);
-        rx->packet = NULL;
+        kermit_packet_free(rx->contents);
+        rx->contents = NULL;
+
+        rx->state = KERMIT_PACKET_STATE_WAIT_MARK;
         break;
 
     case KERMIT_PACKET_STATE_ERROR:
@@ -437,7 +442,7 @@ bool kermit_start(kermit_t* kermit, const uint8_t timeout_seconds) {
         .npad = kermit_tochar(KERMIT_NPAD),
         .padc = kermit_ctl(KERMIT_PADC),
         .eol = kermit_tochar(KERMIT_PACKET_END), // should be `kermit_ctl` to spec
-        .qctl = (KERMIT_CONTROL_CHAR),
+        .qctl = KERMIT_CONTROL_CHAR,
         .ebq = KERMIT_EBQ_MODE,
         .bct = KERMIT_BCT_MODE,
         .rpt = KERMIT_RPT,
@@ -454,15 +459,15 @@ bool kermit_start(kermit_t* kermit, const uint8_t timeout_seconds) {
 }
 
 static bool kermit_parse_session_params(kermit_t* kermit) {
-    furi_check(kermit->rx.packet != NULL);
+    furi_check(kermit->rx.contents != NULL);
     furi_check(kermit->rx.type == KERMIT_PACKET_TYPE_ACK);
 
-    if(kermit->rx.packet->sz != sizeof(kermit_init_packet_t)) {
-        FURI_LOG_E(TAG, "Invalid ACK packet size: %ld", kermit->rx.packet->sz);
+    if(kermit->rx.contents->sz != sizeof(kermit_init_packet_t)) {
+        FURI_LOG_E(TAG, "Invalid ACK packet size: %ld", kermit->rx.contents->sz);
         return false;
     }
 
-    kermit_init_packet_t* init_packet = (kermit_init_packet_t*)kermit->rx.packet->data;
+    kermit_init_packet_t* init_packet = (kermit_init_packet_t*)kermit->rx.contents->data;
 
     KERMIT_LOG("maxl: %d", kermit_fromchar(init_packet->maxl));
     KERMIT_LOG("timo: %d", kermit_fromchar(init_packet->timo));
@@ -495,80 +500,74 @@ static kermit_packet_t* kermit_encode_file_data_packet(kermit_t* kermit) {
     furi_check(kermit->file_transfer_state == KERMIT_FILE_TRANSFER_STATE_SEND_FILE_DATA);
     furi_check(kermit->max_ext_packet_length >= 2);
 
-    uint8_t* tmp_buffer = malloc(kermit->max_ext_packet_length);
-    uint8_t* buffer_ptr = tmp_buffer;
-    do {
-        uint8_t file_char;
-        if(kermit->io->src_file_read(kermit->io_context, &file_char, 1) != 1) {
-            FURI_LOG_W(TAG, "Failed to read file");
-            break; // eof or error
-        }
+    uint8_t* encoded_data = malloc(kermit->max_ext_packet_length);
+    uint8_t* encoded_data_write = encoded_data;
+
+    uint8_t* read_buffer = malloc(kermit->max_ext_packet_length / 2);
+    const size_t read_length = kermit->io->src_file_read(
+        kermit->io_context, read_buffer, kermit->max_ext_packet_length / 2);
+
+    for(size_t i = 0; i < read_length; i++) {
+        const uint8_t file_char = read_buffer[i];
 
         if(((file_char & 0x7F) < 0x20) || (file_char == 0x7F)) {
-            *buffer_ptr++ = KERMIT_CONTROL_CHAR;
-            *buffer_ptr++ = kermit_ctl(file_char);
+            *encoded_data_write++ = KERMIT_CONTROL_CHAR;
+            *encoded_data_write++ = kermit_ctl(file_char);
         } else if(file_char == KERMIT_CONTROL_CHAR) {
-            *buffer_ptr++ = KERMIT_CONTROL_CHAR;
-            *buffer_ptr++ = KERMIT_CONTROL_CHAR;
+            *encoded_data_write++ = KERMIT_CONTROL_CHAR;
+            *encoded_data_write++ = KERMIT_CONTROL_CHAR;
         } else {
-            *buffer_ptr++ = file_char;
+            *encoded_data_write++ = file_char;
         }
-        // leave 1 byte in case last char will be escaped
-        // so we don't need to rewind the file pointer if it doesn't fit
-    } while((uint32_t)(buffer_ptr - tmp_buffer) < (kermit->max_ext_packet_length - 2));
+    }
+    free(read_buffer);
+    const size_t encoded_length = encoded_data_write - encoded_data;
 
-    size_t length = buffer_ptr - tmp_buffer;
-
-    if(length == 0) {
-        free(tmp_buffer);
+    kermit_packet_t* packet = NULL;
+    if(encoded_length == 0) {
         FURI_LOG_I(TAG, "EOF packet");
+        packet = kermit_create_packet(kermit, KERMIT_PACKET_TYPE_EOF, NULL, 0);
         kermit->file_transfer_state = KERMIT_FILE_TRANSFER_STATE_SEND_FILE_EOF;
-        return kermit_create_packet(kermit, KERMIT_PACKET_TYPE_EOF, NULL, 0);
+    } else {
+        KERMIT_LOG("Packeted %d bytes from %d file bytes", encoded_length, read_length);
+        packet = kermit_create_ext_packet(
+            kermit, KERMIT_PACKET_TYPE_DATA, encoded_data, encoded_length);
     }
 
-    KERMIT_LOG("Packeted %d bytes", length);
-    kermit_packet_t* packet =
-        kermit_create_ext_packet(kermit, KERMIT_PACKET_TYPE_DATA, tmp_buffer, length);
-    free(tmp_buffer);
+    free(encoded_data);
     return packet;
 }
 
-static kermit_packet_t* kermit_encode_file_header_packet(kermit_t* kermit) {
-    static const char filename[] = KERMIT_DEFAULT_FILE_NAME;
-
+static kermit_packet_t* kermit_encode_file_header_packet(kermit_t* kermit, const char* filename) {
     return kermit_create_packet(
         kermit, KERMIT_PACKET_TYPE_FILE, (uint8_t*)filename, strlen(filename));
 }
 
 static bool kermit_process_packet(kermit_t* kermit) {
-    furi_check(kermit->rx.packet != NULL);
+    furi_check(kermit->rx.contents != NULL);
 
-    FURI_LOG_D(
-        TAG,
+    KERMIT_LOG(
         "Received packet type: %c, seq: %i, data: %s",
         kermit->rx.type,
         kermit->rx.seq,
-        kermit->rx.packet->sz ? (const char*)kermit->rx.packet->data : "NULL");
+        kermit->rx.contents->sz ? (const char*)kermit->rx.contents->data : "NULL");
 
     if(kermit_next_seq(kermit->rx.seq) != kermit->seq_counter) {
-        FURI_LOG_E(
-            TAG, "Invalid sequence number: %d != %d", kermit->rx.seq, kermit->seq_counter - 1);
+        FURI_LOG_E(TAG, "Broken sequencing");
         return false;
     }
 
     kermit_packet_t* response_packet = NULL;
-
     bool rx_packet_is_sane = true;
 
-    const kermit_packet_type_t packet_type = kermit->rx.type;
-    switch(packet_type) {
+    switch(kermit->rx.type) {
     case KERMIT_PACKET_TYPE_ACK:
         KERMIT_LOG("ACK received, state: %d", kermit->file_transfer_state);
         switch(kermit->file_transfer_state) {
         case KERMIT_FILE_TRANSFER_STATE_SYNC_PARAMS:
             kermit->file_transfer_state = KERMIT_FILE_TRANSFER_STATE_SEND_FILE_DATA;
             rx_packet_is_sane = kermit_parse_session_params(kermit);
-            response_packet = kermit_encode_file_header_packet(kermit);
+            response_packet = kermit_encode_file_header_packet(kermit, KERMIT_DEFAULT_FILE_NAME);
             break;
 
         case KERMIT_FILE_TRANSFER_STATE_SEND_FILE_DATA:
@@ -584,8 +583,8 @@ static bool kermit_process_packet(kermit_t* kermit) {
         case KERMIT_FILE_TRANSFER_STATE_SEND_BREAK:
             kermit->file_transfer_state = KERMIT_FILE_TRANSFER_STATE_DONE;
             FURI_LOG_I(TAG, "File transfer done");
-            kermit_packet_free(kermit->rx.packet);
-            kermit->rx.packet = NULL;
+            kermit_packet_free(kermit->rx.contents);
+            kermit->rx.contents = NULL;
             return true;
 
         default:
@@ -600,7 +599,7 @@ static bool kermit_process_packet(kermit_t* kermit) {
         break;
 
     default:
-        FURI_LOG_E(TAG, "Unsupported packet type: '%c' (%02x)", packet_type, packet_type);
+        FURI_LOG_E(TAG, "Unsupported packet type: '%c' (%02xh)", kermit->rx.type, kermit->rx.type);
         break;
     }
 
@@ -609,8 +608,8 @@ static bool kermit_process_packet(kermit_t* kermit) {
         tx_failed = !kermit_tx_and_release_packet(kermit, response_packet);
     }
 
-    kermit_packet_free(kermit->rx.packet);
-    kermit->rx.packet = NULL;
+    kermit_packet_free(kermit->rx.contents);
+    kermit->rx.contents = NULL;
 
     return rx_packet_is_sane && (response_packet != NULL) && !tx_failed;
 }
