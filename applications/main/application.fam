@@ -15,6 +15,7 @@ App(
         # "wifi_setup",
         # "sockets_test",
         "animation_player",
+        "lottie_player",
         # "busy",
         #"dummy",
         "sound",
