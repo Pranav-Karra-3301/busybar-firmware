@@ -29,7 +29,13 @@ int32_t init_task(void* context) {
     furi_hal_gpio_write(&gpio_led_power_en, 0);
 
     //furi_hal_clock_suspend_tick();
-    LL_PWR_SetPowerMode(PWR_CR1_LPMS_2); //STOP 0
+    LL_PWR_SetPowerMode(PWR_CR1_LPMS_2); //stendby
+    // LL_PWR_SetPowerMode(0); //STOP 0
+    // LL_PWR_SetPowerMode(PWR_CR1_LPMS_0); //STOP 1
+    // LL_PWR_SetPowerMode(PWR_CR1_LPMS_1); //STOP 2
+    // LL_PWR_SetPowerMode((PWR_CR1_LPMS_0 | PWR_CR1_LPMS_1)); //STOP 3
+    // LL_PWR_SetPowerMode((PWR_CR1_LPMS_2 | PWR_CR1_LPMS_1)); //Shutdown
+
     LL_LPM_EnableDeepSleep();
     __WFI();
     LL_LPM_EnableSleep();
@@ -53,14 +59,6 @@ int main(void) {
 
     // Flipper critical FURI HAL
     furi_hal_init_early();
-
-    // for(uint32_t i = 0; i < 1600000; i++) {
-    //     __asm volatile("nop");
-    // }
-    // LL_PWR_SetPowerMode(0); //STOP 0
-    // LL_LPM_EnableDeepSleep();
-    // __WFI();
-    // LL_LPM_EnableSleep();
 
     FuriThread* main_thread = furi_thread_alloc_ex("Init", 4096, init_task, NULL);
 
