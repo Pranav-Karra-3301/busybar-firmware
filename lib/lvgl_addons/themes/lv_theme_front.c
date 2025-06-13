@@ -148,7 +148,7 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
     } else if(lv_obj_check_type(obj, &var_item_editor_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
         lv_obj_add_style(obj, &theme->styles.focused, LV_PART_MAIN | LV_STATE_EDITED);
-
+#ifndef FURI_RAM_EXEC
     } else if(lv_obj_check_type(obj, &var_item_cursor_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.transparent, LV_PART_MAIN);
         lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN | LV_STATE_EDITED);
@@ -157,6 +157,7 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
 
     } else if(lv_obj_check_type(obj, &timer_label_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.timer_label, LV_PART_MAIN);
+#endif
     }
 }
 
