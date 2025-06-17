@@ -131,6 +131,14 @@ static const HttpHandler handlers_api_root[] = {
         .on_request = http_api_audio_callback,
     },
     {
+        .uri = "/api/v0/wifi/*",
+        .method = "*",
+        .type = HttpHandlerCustom,
+        .ctx_alloc = http_api_wifi_alloc,
+        .ctx_free = http_api_wifi_free,
+        .on_request = http_api_wifi_callback,
+    },
+    {
         .uri = "/api/v0/update",
         .method = "POST",
         .type = HttpHandlerCustom,
