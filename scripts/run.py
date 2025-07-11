@@ -15,12 +15,12 @@ U5_TARGET_HW = 20
 
 # Firmware SI917:
 SI_TARGET_HW = 64
-SI_RADIO_FW_PATH = "./lib/wiseconnect/connectivity_firmware/standard/SiWG917-B.2.13.4.1.0.4.rps"    # TODO: auto discover?
+SI_RADIO_FW_PATH = "./lib/wiseconnect/connectivity_firmware/standard/SiWG917-B.2.14.5.0.0.10.rps"    # TODO: auto discover?
 
 # Script settings:
 RUN_ASSETS_DIR = ".run_assets"    # All build outputs will be placed here
-UPDATE_BUNDLE_DIR = os.path.join(RUN_ASSETS_DIR, "upd_bundle")              # Vanilla
-UPDATE_BUNDLE_TAR = os.path.join(RUN_ASSETS_DIR, "upd_bundle.tar")          # .tar, for update via storage.py and HTTP API
+UPDATE_BUNDLE_DIR = os.path.join(RUN_ASSETS_DIR, "upd_bundle")              # Vanilla, for update via storage.py and CLI
+UPDATE_BUNDLE_TAR = os.path.join(RUN_ASSETS_DIR, "upd_bundle.tar")          # .tar, for update via HTTP API
 UPDATE_BUNDLE_PROD_DIR = os.path.join(RUN_ASSETS_DIR, "upd_bundle_prod")    # For production line
 
 # End of script settings
@@ -120,7 +120,12 @@ def run_build_all(args):
         return ret
     
     ret = run_build_si(args)
+    if ret != 0:
+        return ret
+    
+    ret = run_build_update_bundles(args)
     return ret
+
 
 def run_build_u5(args):
     cmd = ["./fbt", "TARGET_HW=" + str(U5_TARGET_HW), "updater_bin", "firmware_dfu", "resources"]
@@ -261,6 +266,29 @@ def run_update_via_storage(args):
 
     return None
 
+def run_flash_u5_dfu(args):
+    if args.device_ip == "ref" or args.device_ip == "r":
+        args.device_ip = DEVICE_IP_REF
+
+    # wait_for_device(args.device_ip, verbose=args.verbose)
+
+    dfu_file = os.path.join(UPDATE_BUNDLE_DIR, "firmware.dfu")  # TODO: auto discover
+    cmd = ["./scripts/update.py",
+            "-p", args.device_ip,
+            "u5",
+            dfu_file,
+            "--to-dfu"
+        ]
+
+    ret = subprocess_exec(cmd, verbose=args.verbose)
+    if ret != 0:
+        print("\tPlease ensure that the device is in DFU mode and try again.")
+        print("\tYou can do it by pressing and holding START/STOP and BACK button for 2 sec,")
+        print("\tand then releasing BACK button, and then releasing START/STOP button after 1 sec.")
+        print("\tMost possibly after the falsh via DFU you will have to reboot it manually.")
+        print(f"Flashing U5 DFU failed with return code: {ret}")
+    return ret
+
 def main():
     # print("cwd:", os.getcwd())
     parser = argparse.ArgumentParser(description="Runner")
@@ -281,7 +309,7 @@ def main():
 
 
     p_build_all = subparsers.add_parser(
-        "build", help="Build all firmwares"
+        "build", help="Build all firmwares and bundles"
     )
     p_build_all.set_defaults(func=run_build_all)
 
@@ -299,6 +327,13 @@ def main():
         "build-bundles", help="Build all bundles: update, production, etc."
     )
     p_build_update_bundle.set_defaults(func=run_build_update_bundles)
+
+    p_flash_u5_dfu = subparsers.add_parser(
+        "flash-u5-dfu", help="Flash U5 firmware via DFU"
+    )
+    p_flash_u5_dfu.add_argument("-d", "--device_ip", help="Device IP", type=str, default=DEVICE_IP)
+    p_flash_u5_dfu.add_argument("-p", "--device_port", help="Device Port", type=int, default=DEVICE_PORT)
+    p_flash_u5_dfu.set_defaults(func=run_flash_u5_dfu)
 
     p_update_via_http = subparsers.add_parser(
         "update-http", help="Update device via HTTP API using curl (upd_bundle.tar)"
@@ -352,4 +387,4 @@ if __name__ == "__main__":
 # TODO:
 # - success build flags for bundles
 # - check if bundle exists before running updates
-# - legacy flash
+# - readme
