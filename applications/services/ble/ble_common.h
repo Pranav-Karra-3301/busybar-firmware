@@ -26,17 +26,22 @@ typedef enum {
 //=============================================
 
 typedef enum {
-    BleIntercomRequestTypeRead,
-    BleIntercomRequestTypeWrite,
-    BleIntercomRequestTypeNotify,
-} BleIntercomRequestType;
+    BleRequestTypeEnable,
+    BleRequestTypeDisable,
+    BleRequestTypeRead,
+    BleRequestTypeWrite,
+    BleRequestTypeNotify,
+} BleRequestType;
+
+#define MAX_BLE_INTERCOM_FRAME_SIZE (512U)
 
 typedef struct {
-    BleIntercomRequestType type;
-    BleIntercomCharIndex char_index;
+    BleRequestType type;
     size_t data_size;
-    uint8_t data[];
-} BleIntercomRequest;
+    BleIntercomCharIndex
+        char_index; //TODO: this can be moved to the data below, so we will send characteristic data only when needed;
+    uint8_t data[MAX_BLE_INTERCOM_FRAME_SIZE];
+} BleIntercomFrame;
 //=============================================
 
 typedef union {
