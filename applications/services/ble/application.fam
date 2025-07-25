@@ -9,3 +9,15 @@ App(
     requires=["intercom"],
     sources=["ble_backend.c", "ble_worker.c", "ble_backend_util.c"],
 )
+
+App(
+    appid="ble",
+    name="BleSrv",
+    apptype=FlipperAppType.SERVICE,
+    entry_point="ble_srv",
+    stack_size=2 * 1024,
+    order=100,
+    targets=["f20"],
+    requires=["intercom"],
+    sources=["ble.c"],
+)

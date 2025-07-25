@@ -35,6 +35,7 @@ App(
         "status_lights",
         "light_sensor",
         "supervisor",
+        "ble",
     ],
     targets=["f20", "f21"],
 )
