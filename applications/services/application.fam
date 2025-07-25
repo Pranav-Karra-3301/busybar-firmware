@@ -60,6 +60,7 @@ App(
         "sockets",
         "status_lights",
         "cli_intercom",
+        "ble"
     ],
     targets=["f64"],
 )
