@@ -16,16 +16,6 @@
 
 #define TAG "BleWorker"
 
-#define BLE_DEBUG
-
-#ifdef BLE_DEBUG
-#define BLE_LOG_I(...) FURI_LOG_I(TAG, __VA_ARGS__)
-#define BLE_LOG_W(...) FURI_LOG_W(TAG, __VA_ARGS__)
-#else
-#define BLE_LOG_D(...)
-#define BLE_LOG_W(...)
-#endif
-
 #define BLE_WORKER_LOCAL_NAME         "Busybar"
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
 #define BLE_WORKER_MAX_MTU_SIZE       200
@@ -543,7 +533,7 @@ static int32_t ble_worker_thread_callback(void* context) {
     sl_status_t status = 0;
 
     FURI_LOG_D(TAG, "Worker Start");
-    while(!instance->exit) {
+    while(true) {
         uint32_t events =
             furi_thread_flags_wait(BLE_USART_ECHO_ALL_EVENTS, FuriFlagWaitAny, FuriWaitForever);
 
@@ -716,6 +706,7 @@ static int32_t ble_worker_thread_callback(void* context) {
         }
 
         if(events & BLEWorkerEvtExit) {
+            rsi_ble_stop_advertising();
             break;
         }
     }
@@ -956,6 +947,8 @@ void ble_worker_start() {
 }
 
 void ble_worker_stop() {
-    ble_worker_instance->exit = true;
+    BLE_LOG_I("Stopping BLE...");
+    furi_thread_flags_set(furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtExit);
     furi_thread_join(ble_worker_instance->thread);
+    BLE_LOG_I("Stopped");
 }

@@ -2,6 +2,16 @@
 
 #include <furi.h>
 
+#define BLE_DEBUG
+
+#ifdef BLE_DEBUG
+#define BLE_LOG_I(...) FURI_LOG_I(TAG, __VA_ARGS__)
+#define BLE_LOG_W(...) FURI_LOG_W(TAG, __VA_ARGS__)
+#else
+#define BLE_LOG_D(...)
+#define BLE_LOG_W(...)
+#endif
+
 ///TODO: here we will place all includes for services, but for now we will place everything here
 
 typedef struct {
