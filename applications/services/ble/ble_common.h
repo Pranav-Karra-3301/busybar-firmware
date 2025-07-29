@@ -18,40 +18,75 @@ typedef struct {
     uint8_t flags;
     uint16_t power_state;
     uint8_t battery_level;
-} FURI_PACKED BatteryStatusInfo;
+} /*FURI_PACKED*/ BatteryStatusInfo;
 
 //=============================================
+// typedef enum {
+//     BleIntercomCharIndexBatteryLevel,
+//     BleIntercomCharIndexBatteryStatus,
+
+//     BleIntercomCharIndexUartRx,
+//     BleIntercomCharIndexUartTx,
+
+//     BleIntercomCharIndexDeviceInfoSerialNumber,
+//     BleIntercomCharIndexDeviceInfoHardwareRevision,
+//     BleIntercomCharIndexDeviceInfoSoftwareRevision,
+// } BleIntercomCharIndex;
+
 typedef enum {
-    BleIntercomCharIndexBatteryLevel,
-    BleIntercomCharIndexBatteryStatus,
+    BleSrvDeviceInfoCharacterIndexSerialNumber,
+    BleSrvDeviceInfoCharacterIndexHardwareRevision,
+    BleSrvDeviceInfoCharacterIndexSoftwareRevision,
+} BleSrvDeviceInfoCharacterIndex;
 
-    BleIntercomCharIndexUartRx,
-    BleIntercomCharIndexUartTx,
-
-    BleIntercomCharIndexDeviceInfoSerialNumber,
-    BleIntercomCharIndexDeviceInfoHardwareRevision,
-    BleIntercomCharIndexDeviceInfoSoftwareRevision,
-} BleIntercomCharIndex;
-
+typedef enum {
+    BleIntercomServiceIndexBattery,
+    BleIntercomServiceIndexDeviceInfo,
+    BleIntercomServiceIndexUart,
+} BleIntercomServiceIndex;
 //=============================================
 
 typedef enum {
     BleRequestTypeEnable,
     BleRequestTypeDisable,
+    BleRequestTypeInit,
     BleRequestTypeRead,
     BleRequestTypeWrite,
     BleRequestTypeNotify,
 } BleRequestType;
 
-#define MAX_BLE_INTERCOM_FRAME_SIZE (512U)
+typedef struct /*FURI_PACKED*/ {
+    BleRequestType type;
+    BleIntercomServiceIndex service_index;
+    size_t data_size;
+} BleIntercomFrameHeader;
+
+#define MAX_BLE_INTERCOM_FRAME_SIZE (512U - sizeof(BleIntercomFrameHeader))
 
 typedef struct {
-    BleRequestType type;
-    size_t data_size;
-    BleIntercomCharIndex
-        char_index; //TODO: this can be moved to the data below, so we will send characteristic data only when needed;
+    BleIntercomFrameHeader header;
     uint8_t data[MAX_BLE_INTERCOM_FRAME_SIZE];
-} BleIntercomFrame;
+} BleIntercomFrameGeneric;
+
+typedef struct {
+    BleIntercomFrameHeader header;
+    // size_t data_size;
+    //TODO: this can be moved to the data below, so we will send characteristic data only when needed;
+    uint16_t char_index;
+    uint8_t data[];
+} BleIntercomFrameCharData;
+
+typedef struct /*FURI_PACKED*/ {
+    uint8_t intercom_index;
+    uint8_t data_size;
+} BleCharSize;
+
+typedef struct /*FURI_PACKED*/ {
+    BleIntercomFrameHeader header;
+    uint8_t char_count;
+    BleCharSize chars_config[];
+} BleIntercomFrameServiceConfig;
+
 //=============================================
 
 typedef union {
@@ -71,7 +106,7 @@ typedef void (*BleCharacteristicOnWrite)(void* data, uint8_t data_size);
 typedef void (*BleCharacteristicOnNotify)(void* data, uint8_t data_size);
 
 typedef struct {
-    BleIntercomCharIndex intercom_index;
+    uint16_t intercom_index;
     Char_UUID_t uuid;
     uint8_t uuid_size;
     uint8_t data_size;
@@ -81,16 +116,23 @@ typedef struct {
 
     ///TODO:This might be optional and everything could be done via same handlers
     //If NULL invoke default handler
-    const BleCharacteristicOnRead on_read;
-    const BleCharacteristicOnWrite on_write;
-    const BleCharacteristicOnNotify on_notify;
+    // const BleCharacteristicOnRead on_read;
+    // const BleCharacteristicOnWrite on_write;
+    // const BleCharacteristicOnNotify on_notify;
 } BleCharacteristicDescriptor;
 
+typedef enum {
+    BleServiceInitMethodLocal,
+    BleServiceInitMethodRemote,
+} BleServiceInitMethod;
+
 typedef struct {
+    BleIntercomServiceIndex index;
     Char_UUID_t uuid;
     uint8_t uuid_size;
     uint8_t char_count;
-    const BleCharacteristicDescriptor* const char_descriptors;
+    BleServiceInitMethod init_method;
+    const BleCharacteristicDescriptor* char_descriptors;
     const char* name;
 } BleServiceDescriptor;
 
@@ -99,3 +141,19 @@ typedef struct {
     uint16_t handle;
     void* data;
 } BleCharacteristicObject;
+
+typedef enum {
+    BleServiceStateIdle,
+    BleServiceStateReady,
+} BleServiceState;
+
+typedef struct {
+    // BleIntercomServiceIndex intercom_index;
+    BleServiceState state;
+    const BleServiceDescriptor* desc;
+    BleCharacteristicObject** chars;
+
+    // #if defined(TARGET_F64)
+    void* service_handler;
+    // #endif
+} BleServiceObject;

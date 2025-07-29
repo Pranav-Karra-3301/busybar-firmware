@@ -72,7 +72,8 @@ typedef struct {
     bool exit;
 
     ///TODO: replace this with LIST
-    BleCharacteristicObject* characteristics[10];
+    // BleCharacteristicObject* characteristics[10];
+    BleServiceObject* services[3];
 } BleWorker;
 
 //==========================================================
@@ -134,7 +135,7 @@ static_assert(sizeof(advertise_data) <= BLE_ADVERTISE_PACKET_MAX_SIZE);
 
 static const BleCharacteristicDescriptor battery_service_characteristics[] = {
     {
-        .intercom_index = BleIntercomCharIndexBatteryLevel,
+        .intercom_index = 0,
         .name = "Battery Level",
         .uuid = {.Char_UUID_16 = 0x2A19},
         .uuid_size = 2,
@@ -142,7 +143,7 @@ static const BleCharacteristicDescriptor battery_service_characteristics[] = {
         .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_NOTIFY,
     },
     {
-        .intercom_index = BleIntercomCharIndexBatteryStatus,
+        .intercom_index = 1,
         .name = "Battery Status",
         .uuid = {.Char_UUID_16 = 0x2BED},
         .uuid_size = 2,
@@ -161,7 +162,7 @@ static const BleCharacteristicDescriptor battery_service_characteristics[] = {
 
 static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] = {
     {
-        .intercom_index = BleIntercomCharIndexUartRx,
+        .intercom_index = 0,
         .name = "Uart Rx",
         .uuid = {.Char_UUID_128 = UART_RX_CHAR_UUID},
         .uuid_size = 16,
@@ -169,7 +170,7 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
         .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_WRITE,
     },
     {
-        .intercom_index = BleIntercomCharIndexUartTx,
+        .intercom_index = 1,
         .name = "Uart Tx",
         .uuid = {.Char_UUID_128 = UART_TX_CHAR_UUID},
         .uuid_size = 16,
@@ -178,55 +179,61 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
     },
 };
 //==========================================================
-static const BleCharacteristicDescriptor device_info_service_characteristics[] = {
+const BleCharacteristicDescriptor device_info_service_characteristics[] = {
     {
-        .intercom_index = BleIntercomCharIndexDeviceInfoSerialNumber,
+        .intercom_index = BleSrvDeviceInfoCharacterIndexSerialNumber,
         .name = "Serial Number",
         .uuid = {.Char_UUID_16 = 0x2A25},
         .uuid_size = 2,
-        .data_size = sizeof(uint8_t),
         .char_properties = RSI_BLE_ATT_PROPERTY_READ,
     },
     {
-        .intercom_index = BleIntercomCharIndexDeviceInfoHardwareRevision,
+        .intercom_index = BleSrvDeviceInfoCharacterIndexHardwareRevision,
         .name = "Hardware Revision",
         .uuid = {.Char_UUID_16 = 0x2A27},
         .uuid_size = 2,
-        .data_size = sizeof(uint8_t),
         .char_properties = RSI_BLE_ATT_PROPERTY_READ,
     },
     {
-        .intercom_index = BleIntercomCharIndexDeviceInfoSoftwareRevision,
+        .intercom_index = BleSrvDeviceInfoCharacterIndexSoftwareRevision,
         .name = "Software Revision",
         .uuid = {.Char_UUID_16 = 0x2A26},
         .uuid_size = 2,
-        .data_size = sizeof(uint8_t),
         .char_properties = RSI_BLE_ATT_PROPERTY_READ,
     },
 };
 //==========================================================
-static const BleServiceDescriptor services[] = {
-    {
-        .name = "Battery Service",
-        .uuid = {.Char_UUID_16 = 0x180F},
-        .uuid_size = 2,
-        .char_count = COUNT_OF(battery_service_characteristics),
-        .char_descriptors = battery_service_characteristics,
-    },
-    {
-        .name = "Device Information",
-        .uuid = {.Char_UUID_16 = 0x180A},
-        .uuid_size = 2,
-        .char_count = COUNT_OF(device_info_service_characteristics),
-        .char_descriptors = device_info_service_characteristics,
-    },
-    {
-        .name = "Nordic UART",
-        .uuid = {.Char_UUID_128 = UART_SERVICE_UUID},
-        .uuid_size = 16,
-        .char_count = COUNT_OF(nordic_uart_service_characteristics),
-        .char_descriptors = nordic_uart_service_characteristics,
-    },
+static const BleServiceDescriptor service_config[] = {
+    [BleIntercomServiceIndexDeviceInfo] =
+        {
+            .name = "Device Information",
+            .uuid = {.Char_UUID_16 = 0x180A},
+            .uuid_size = 2,
+            .index = BleIntercomServiceIndexDeviceInfo,
+            .init_method = BleServiceInitMethodRemote,
+            .char_count = COUNT_OF(device_info_service_characteristics),
+            .char_descriptors = device_info_service_characteristics,
+        },
+    [BleIntercomServiceIndexBattery] =
+        {
+            .name = "Battery Service",
+            .uuid = {.Char_UUID_16 = 0x180F},
+            .uuid_size = 2,
+            .index = BleIntercomServiceIndexBattery,
+            .init_method = BleServiceInitMethodLocal,
+            .char_count = COUNT_OF(battery_service_characteristics),
+            .char_descriptors = battery_service_characteristics,
+        },
+    [BleIntercomServiceIndexUart] =
+        {
+            .name = "Nordic UART",
+            .uuid = {.Char_UUID_128 = UART_SERVICE_UUID},
+            .uuid_size = 16,
+            .index = BleIntercomServiceIndexUart,
+            .init_method = BleServiceInitMethodLocal,
+            .char_count = COUNT_OF(nordic_uart_service_characteristics),
+            .char_descriptors = nordic_uart_service_characteristics,
+        },
 };
 
 //==========================================================
@@ -813,6 +820,7 @@ static uint16_t ble_worker_add_char_val_att(
 
     //! add attribute to the service
     sl_status_t status = rsi_ble_add_attribute(&new_att);
+
     if(status != SL_STATUS_OK) {
         BLE_LOG_W("Status: %04lX", status);
     }
@@ -845,7 +853,7 @@ static void ble_prepare_uuid(const Char_UUID_t* temp, const uint8_t size, uuid_t
         ble_worker_prepare_128bit_uuid(temp->Char_UUID_128, uuid);
 }
 
-static BleCharacteristicObject* ble_characteristic_alloc(
+BleCharacteristicObject* ble_characteristic_alloc(
     const BleCharacteristicDescriptor* desc,
     void* service_handler,
     uint16_t handle,
@@ -876,16 +884,24 @@ static BleCharacteristicObject* ble_characteristic_alloc(
         desc->data_size,
         0);
 
+    instance->handle = *out_handle;
+
     return instance;
 }
 
 ///TODO: Possibly return handle here for future use
-static void ble_worker_create_service(const BleServiceDescriptor* service_config) {
+static BleServiceObject* ble_worker_create_service(const BleServiceDescriptor* service_config) {
     rsi_ble_resp_add_serv_t new_serv_resp = {0};
     uuid_t uuid = {0};
+
+    BleServiceObject* instance = malloc(sizeof(BleServiceObject));
     BLE_LOG_I("Create %s service", service_config->name);
     ble_prepare_uuid(&service_config->uuid, service_config->uuid_size, &uuid);
     rsi_ble_add_service(uuid, &new_serv_resp);
+
+    instance->service_handler = new_serv_resp.serv_handler;
+    instance->desc = service_config;
+    instance->chars = malloc(sizeof(BleCharacteristicObject*) * service_config->char_count);
 
     uint16_t handle = new_serv_resp.start_handle;
     BLE_LOG_I("Start handle: %04X", handle);
@@ -893,11 +909,11 @@ static void ble_worker_create_service(const BleServiceDescriptor* service_config
         const BleCharacteristicDescriptor* config = &service_config->char_descriptors[i];
 
         BleCharacteristicObject* ble_char =
-            ble_characteristic_alloc(config, new_serv_resp.serv_handler, handle + 1, &handle);
+            ble_characteristic_alloc(config, instance->service_handler, handle + 1, &handle);
 
-        furi_assert(ble_worker_instance->characteristics[ble_char->desc->intercom_index] == NULL);
-        ble_worker_instance->characteristics[ble_char->desc->intercom_index] = ble_char;
+        instance->chars[config->intercom_index] = ble_char;
     }
+    return instance;
 }
 
 void ble_worker_init() {
@@ -910,20 +926,34 @@ void ble_worker_init() {
 
     ble_hw_config();
 
-    for(size_t i = 0; i < COUNT_OF(services); i++) {
-        ble_worker_create_service(&services[i]);
+    for(size_t i = 0; i < COUNT_OF(service_config); i++) {
+        if(service_config[i].init_method == BleServiceInitMethodRemote) {
+            BLE_LOG_I("Skip creation of %s", service_config[i].name);
+            continue;
+        }
+
+        BleServiceObject* service = ble_worker_create_service(&service_config[i]);
+        ble_worker_instance->services[service->desc->index] = service;
     }
 
     uuid_t uuid = {0};
     uuid.size = 2;
     uuid.val.val16 = 0x2A01;
     uint16_t value_handle = 0;
+    sl_status_t status;
     if(ble_find_characteristic_value_handle_by_uiid(&uuid, 0x001E, &value_handle)) {
         uint16_t data = 0x00C0;
         BLE_LOG_I("Handle found: %04X", value_handle);
-        sl_status_t status = rsi_ble_set_local_att_value(value_handle, 2, (uint8_t*)&data);
+        status = rsi_ble_set_local_att_value(value_handle, 2, (uint8_t*)&data);
         BLE_LOG_I("Status: %lX", status);
     }
+
+    // value_handle =
+    //     ble_worker_instance->characteristics[BleIntercomCharIndexDeviceInfoSerialNumber]->handle;
+    // BLE_LOG_I("Handle serial: %04X", value_handle);
+    // const char* test = "Att value adjusted after creation";
+    // status = rsi_ble_set_local_att_value(value_handle, strlen(test), (uint8_t*)test);
+    // BLE_LOG_I("Adjs Status: %lX", status);
 
     ble_print_service_hierarchy(0x001E);
 }
@@ -931,6 +961,50 @@ void ble_worker_init() {
 ///TODO: Optional, maybe not needed but will add for now
 void ble_worker_deinit() {
     free(ble_worker_instance);
+}
+
+void ble_worker_init_service(BleIntercomFrameServiceConfig* config) {
+    furi_assert(config);
+
+    //const BleServiceDescriptor* service_descriptor = &service_config[config->service_index];
+    BleServiceDescriptor* service_descriptor = malloc(sizeof(BleServiceDescriptor));
+
+    memcpy(
+        service_descriptor,
+        &service_config[config->header.service_index],
+        sizeof(BleServiceDescriptor));
+
+    BLE_LOG_I("Init service: %s", service_descriptor->name);
+
+    BleCharacteristicDescriptor* descriptors =
+        malloc(config->char_count * sizeof(BleCharacteristicDescriptor));
+
+    //check counts are equal
+
+    for(size_t i = 0; i < config->char_count; i++) {
+        memcpy(
+            &descriptors[i],
+            &service_descriptor->char_descriptors[i],
+            sizeof(BleCharacteristicDescriptor));
+
+        BLE_LOG_I(
+            "data_size old: %d, new: %d",
+            descriptors[i].data_size,
+            config->chars_config[i].data_size);
+
+        descriptors[i].data_size = config->chars_config[i].data_size;
+    }
+    service_descriptor->char_descriptors = descriptors;
+
+    BLE_LOG_I("Service descriptor copied");
+
+    BleServiceObject* service = ble_worker_create_service(service_descriptor);
+    ble_worker_instance->services[service->desc->index] = service;
+
+    free(descriptors);
+    free(service_descriptor);
+
+    ble_print_service_hierarchy(0x001E);
 }
 
 void ble_worker_start() {
@@ -951,4 +1025,18 @@ void ble_worker_stop() {
     furi_thread_flags_set(furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtExit);
     furi_thread_join(ble_worker_instance->thread);
     BLE_LOG_I("Stopped");
+}
+
+void ble_worker_set_value(
+    uint16_t service_index,
+    uint16_t char_index,
+    uint16_t data_size,
+    uint8_t* data) {
+    furi_assert(data);
+    BLE_LOG_I("Set Value");
+
+    BleServiceObject* service = ble_worker_instance->services[service_index];
+    BleCharacteristicObject* char_obj = service->chars[char_index];
+
+    rsi_ble_set_local_att_value(char_obj->handle, data_size, data);
 }

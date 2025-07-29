@@ -14,7 +14,7 @@ typedef enum {
 typedef struct {
     FuriEventLoop* event_loop;
     Intercom* intercom;
-    BleIntercomFrame frame;
+    BleIntercomFrameGeneric frame;
 } Ble;
 
 void ble_custom_event_callback(uint32_t events, void* context) {
@@ -27,20 +27,36 @@ void ble_custom_event_callback(uint32_t events, void* context) {
         return;
     }
 
-    if(instance->frame.type == BleRequestTypeEnable) {
+    if(instance->frame.header.type == BleRequestTypeEnable) {
         BLE_LOG_I("Enable");
         ble_worker_start();
-    } else if(instance->frame.type == BleRequestTypeDisable) {
+    } else if(instance->frame.header.type == BleRequestTypeDisable) {
         BLE_LOG_I("Disable");
         ble_worker_stop();
-    } else if(instance->frame.type == BleRequestTypeWrite) {
-        const BleIntercomFrame* frame = &instance->frame;
-        BLE_LOG_I("Write Char: %04X Data_size: %d", frame->char_index, frame->data_size);
+    } else if(instance->frame.header.type == BleRequestTypeWrite) {
+        const BleIntercomFrameCharData* frame = (BleIntercomFrameCharData*)&instance->frame;
+        BLE_LOG_I("Write Char: %04X Data_size: %d", frame->char_index, frame->header.data_size);
+    } else if(instance->frame.header.type == BleRequestTypeInit) {
+        BleIntercomFrameServiceConfig* frame = (BleIntercomFrameServiceConfig*)&instance->frame;
+        ble_worker_init_service(frame);
+
+        for(size_t i = 0; i < frame->char_count; i++) {
+            size_t data_size = frame->chars_config[i].data_size;
+            uint8_t* buf = malloc(data_size);
+            memset(buf, 'A' + i, data_size);
+
+            ble_worker_set_value(
+                frame->header.service_index,
+                frame->chars_config[i].intercom_index,
+                frame->chars_config[i].data_size,
+                buf);
+            free(buf);
+        }
     }
 
-    instance->frame.data_size = 0;
-    size_t data_size = instance->frame.data_size + sizeof(instance->frame.type) +
-                       sizeof(instance->frame.data_size) + sizeof(instance->frame.char_index);
+    // instance->frame. data_size = 0;
+
+    size_t data_size = instance->frame.header.data_size + sizeof(BleIntercomFrameHeader);
     size_t tx_size =
         intercom_tx(instance->intercom, IntercomChannelBle, &instance->frame, data_size, 100);
     furi_assert(data_size == tx_size);
