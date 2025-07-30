@@ -35,7 +35,26 @@ void ble_custom_event_callback(uint32_t events, void* context) {
         ble_worker_stop();
     } else if(instance->frame.header.type == BleRequestTypeWrite) {
         const BleIntercomFrameCharData* frame = (BleIntercomFrameCharData*)&instance->frame;
-        BLE_LOG_I("Write Char: %04X Data_size: %d", frame->char_index, frame->header.data_size);
+        BLE_LOG_I(
+            "Service: %d, Write Char: %04X Data_size: %d",
+            frame->header.service_index,
+            frame->char_index,
+            frame->header.data_size);
+        FuriString* buf = furi_string_alloc();
+        for(size_t i = 0; i < frame->header.data_size; i++) {
+            furi_string_cat_printf(buf, "%02X", frame->data[i]);
+        }
+        BLE_LOG_I("Data: %s", furi_string_get_cstr(buf));
+        furi_string_free(buf);
+
+        if(frame->header.service_index == BleIntercomServiceIndexDeviceInfo) {
+            ble_worker_set_value(
+                frame->header.service_index,
+                frame->char_index,
+                frame->header.data_size,
+                frame->data);
+        }
+
     } else if(instance->frame.header.type == BleRequestTypeInit) {
         BleIntercomFrameServiceConfig* frame = (BleIntercomFrameServiceConfig*)&instance->frame;
         ble_worker_init_service(frame);
