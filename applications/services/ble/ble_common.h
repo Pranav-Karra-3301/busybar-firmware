@@ -2,6 +2,8 @@
 
 #include <furi.h>
 
+#include <intercom/intercom.h>
+
 #define BLE_DEBUG
 
 #ifdef BLE_DEBUG
@@ -18,7 +20,7 @@ typedef struct {
     uint8_t flags;
     uint16_t power_state;
     uint8_t battery_level;
-} /*FURI_PACKED*/ BatteryStatusInfo;
+} FURI_PACKED BatteryStatusInfo;
 
 //=============================================
 // typedef enum {
@@ -40,8 +42,8 @@ typedef enum {
 } BleSrvDeviceInfoCharacterIndex;
 
 typedef enum {
-    BleIntercomServiceIndexBattery,
     BleIntercomServiceIndexDeviceInfo,
+    BleIntercomServiceIndexBattery,
     BleIntercomServiceIndexUart,
 } BleIntercomServiceIndex;
 //=============================================
@@ -68,7 +70,7 @@ typedef struct {
     uint8_t data[MAX_BLE_INTERCOM_FRAME_SIZE];
 } BleIntercomFrameGeneric;
 
-typedef struct {
+typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameHeader header;
     // size_t data_size;
     //TODO: this can be moved to the data below, so we will send characteristic data only when needed;
@@ -76,9 +78,15 @@ typedef struct {
     uint8_t data[];
 } BleIntercomFrameCharData;
 
+// typedef struct /*FURI_PACKED*/ {
+//     uint8_t intercom_index;
+//     uint8_t data_size;
+// } BleCharSize;
+
 typedef struct /*FURI_PACKED*/ {
     uint8_t intercom_index;
     uint8_t data_size;
+    uint8_t data[];
 } BleCharSize;
 
 typedef struct /*FURI_PACKED*/ {
@@ -126,6 +134,9 @@ typedef enum {
     BleServiceInitMethodRemote,
 } BleServiceInitMethod;
 
+typedef bool (*BleServiceInit)(void* context, BleIntercomFrameGeneric* output_frame);
+typedef void (*BleServiceOnResponse)(void* context, BleIntercomFrameGeneric* response);
+
 typedef struct {
     BleIntercomServiceIndex index;
     Char_UUID_t uuid;
@@ -134,6 +145,9 @@ typedef struct {
     BleServiceInitMethod init_method;
     const BleCharacteristicDescriptor* char_descriptors;
     const char* name;
+
+    BleServiceInit init;
+    BleServiceOnResponse on_response;
 } BleServiceDescriptor;
 
 typedef struct {
@@ -152,8 +166,10 @@ typedef struct {
     BleServiceState state;
     const BleServiceDescriptor* desc;
     BleCharacteristicObject** chars;
+    FuriSemaphore* access_lock;
+    Intercom* intercom;
 
-    // #if defined(TARGET_F64)
+#if defined(SI917)
     void* service_handler;
-    // #endif
+#endif
 } BleServiceObject;
