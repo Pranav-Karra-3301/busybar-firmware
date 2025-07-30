@@ -19,5 +19,5 @@ App(
     order=100,
     targets=["f20"],
     requires=["intercom"],
-    sources=["ble.c"],
+    sources=["ble.c", "ble_service.c"],
 )
