@@ -1004,7 +1004,7 @@ void ble_worker_init_service(BleIntercomFrameServiceConfig* config) {
     free(descriptors);
     free(service_descriptor);
 
-    ble_print_service_hierarchy(0x001E);
+    // ble_print_service_hierarchy(0x001E);
 }
 
 void ble_worker_start() {
@@ -1031,7 +1031,7 @@ void ble_worker_set_value(
     uint16_t service_index,
     uint16_t char_index,
     uint16_t data_size,
-    uint8_t* data) {
+    const uint8_t* data) {
     furi_assert(data);
     BLE_LOG_I("Set Value");
 
