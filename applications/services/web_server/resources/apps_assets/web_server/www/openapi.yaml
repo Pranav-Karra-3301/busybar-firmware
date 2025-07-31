@@ -6,6 +6,9 @@ info:
   contact:
     name: tbd
 
+security:
+  - ApiKeyAuth: []
+
 paths:
   /api/version:
     get:
@@ -23,6 +26,57 @@ paths:
                 $ref: "#/components/schemas/VersionInfo"
         "500":
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/access:
+    get:
+      tags:
+        - Settings
+      summary: HTTP API access over Wi-Fi configuration get
+      description: HTTP API access over Wi-Fi configuration get
+      operationId: getHttpAccess
+      responses:
+        "200":
+          description: Information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpAccessInfo"
+    post:
+      tags:
+        - Settings
+      summary: HTTP API access over Wi-Fi configuration set
+      description: HTTP API access over Wi-Fi configuration set
+      operationId: setHttpAccess
+      parameters:
+        - name: mode
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["disabled", "enabled", "key"]
+          description: Access mode
+          example: "key"
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9]+$"
+          description: Access key (4-10 digits len)
+          example: "12345678"
+      responses:
+        "200":
+          description: Set successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid request data
           content:
             application/json:
               schema:
@@ -875,6 +929,12 @@ paths:
                 $ref: "#/components/schemas/Error"
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Bearer
+
   schemas:
     SuccessResponse:
       type: object
@@ -912,6 +972,19 @@ components:
         - api_semver
       example:
         api_semver: "0.0.0"
+
+    HttpAccessInfo:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: ["disabled", "enabled", "key"]
+          description: Access mode
+          example: "key"
+        key_valid:
+          type: bool
+          description: Access key was set and is valid
+          example: true
 
     StorageList:
       type: object
