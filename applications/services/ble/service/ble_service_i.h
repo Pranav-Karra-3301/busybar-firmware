@@ -15,6 +15,7 @@ struct BleServiceObject {
 
     FuriMessageQueue* message_queue;
     FuriMutex* service_lock;
+    Intercom* intercom;
 
     FuriSemaphore* frame_lock;
     size_t frame_size;
@@ -32,10 +33,3 @@ void ble_service_enqueue_message(
     BleCommand command,
     void* data,
     uint8_t data_size);
-
-inline void ble_service_set_state(BleServiceObject* instance, BleServiceState new_state) {
-    //service_lock()
-    ble_service_enqueue_message(
-        instance, BleCommandServiceSetState, &new_state, sizeof(BleServiceState));
-    //service_unlock();
-}

@@ -48,8 +48,56 @@ static void ble_service_unlock_frame(BleServiceObject* instance) {
     }
 }
 
-BleServiceObject*
-    ble_service_alloc(const BleServiceDescriptor* service_config, FuriMessageQueue* dest_queue) {
+static void ble_service_send_intercom_frame(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    BleCommandEvent cmd_evt,
+    size_t data_size,
+    void* data) {
+    ble_service_lock_frame(instance);
+
+    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
+    frame->header.frame_type = frame_type;
+    frame->header.type = cmd_evt;
+    frame->header.service_index = instance->desc->index;
+    frame->header.data_size = data_size;
+    memcpy(frame->data, data, data_size);
+
+    size_t frame_size = data_size + sizeof(BleIntercomFrameHeader);
+
+    BLE_LOG_D(
+        "Tx Frame t: %d c: %d ds: %d fs: %d", frame_type, cmd_evt.command, data_size, frame_size);
+    size_t tx =
+        intercom_tx(instance->intercom, IntercomChannelBle, instance->frame_buf, frame_size, 100);
+    furi_assert(tx == frame_size);
+
+    if(frame_type != BleIntercomFrameTypeRequest) ble_service_unlock_frame(instance);
+}
+
+static bool ble_service_switch_state_allowed(
+    const BleServiceState current_state,
+    const BleServiceState new_state) {
+    UNUSED(current_state);
+    UNUSED(new_state);
+    return true;
+}
+
+static void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_state) {
+    if(ble_service_switch_state_allowed(instance->state, new_state)) {
+        if(new_state == BleServiceStateInitialization) {
+            instance->desc->init(instance);
+        }
+
+        BleCommandEvent c = {.event = BleEventStateChanged};
+        ble_service_send_intercom_frame(
+            instance, BleIntercomFrameTypeNotification, c, sizeof(BleServiceState), &new_state);
+    }
+}
+
+BleServiceObject* ble_service_alloc(
+    const BleServiceDescriptor* service_config,
+    FuriMessageQueue* dest_queue,
+    Intercom* intercom) {
     furi_assert(service_config);
     furi_assert(dest_queue);
 
@@ -58,7 +106,7 @@ BleServiceObject*
 
     instance->state = BleServiceStateReset;
     instance->desc = service_config;
-    // instance->intercom = intercom;
+    instance->intercom = intercom;
     instance->message_queue = dest_queue;
     instance->frame_lock = furi_semaphore_alloc(1, 1);
     instance->service_lock = furi_mutex_alloc(FuriMutexTypeNormal);
@@ -86,10 +134,13 @@ bool ble_service_run(BleServiceObject* instance, const BleMessage* msg) {
     if(ble_service_lock(instance)) {
         if(msg->type == BleCommandServiceProcessFrame) {
             BLE_LOG_D("process_input_frame");
-
             ble_service_unlock_frame(instance);
-        }
+        } else if(msg->type == BleCommandServiceSetState) {
+            BLE_LOG_D("Set new_state: %d", msg->data[0]);
+            ble_service_switch_state(instance, msg->data[0]);
 
+            //send notification
+        }
         ble_service_unlock(instance);
         result = true;
     }
@@ -99,10 +150,13 @@ bool ble_service_run(BleServiceObject* instance, const BleMessage* msg) {
 void ble_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* input_frame) {
     furi_assert(instance);
     furi_assert(input_frame);
-    furi_assert(input_frame->header.data_size <= instance->frame_size);
+
+    size_t fs = input_frame->header.data_size + sizeof(BleIntercomFrameHeader);
+
+    furi_assert(fs <= instance->frame_size);
 
     if(ble_service_lock_frame(instance)) {
-        memcpy(instance->frame_buf, input_frame->data, input_frame->header.data_size);
+        memcpy(instance->frame_buf, input_frame, fs);
         ble_service_enqueue_message(instance, BleCommandServiceProcessFrame, NULL, 0);
     }
 }
@@ -122,4 +176,14 @@ void ble_service_enqueue_message(
         BLE_LOG_W("Unable to enqueue for processing");
     } else
         BLE_LOG_D("Enqueue service run");
+}
+
+void ble_service_set_state(BleServiceObject* instance, BleServiceState new_state) {
+    furi_assert(instance);
+    BLE_LOG_D("Require new_state: %d", new_state);
+    if(ble_service_lock(instance)) {
+        ble_service_enqueue_message(
+            instance, BleCommandServiceSetState, &new_state, sizeof(BleServiceState));
+        ble_service_unlock(instance);
+    }
 }
