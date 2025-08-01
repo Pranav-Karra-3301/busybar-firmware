@@ -29,28 +29,27 @@ static void device_info_callback(const char* key, const char* value, bool last, 
     furi_string_free(key_str);
 }
 
-static bool ble_service_device_info_init(void* context, BleIntercomFrameGeneric* frame) {
+static bool ble_service_device_info_init(void* context) {
     furi_assert(context);
-    furi_assert(frame);
 
     BLE_LOG_W("device_info_init");
     furi_hal_info_get(device_info_callback, '_', NULL);
-    BleIntercomFrameServiceConfig* frd = (BleIntercomFrameServiceConfig*)frame;
+    //BleIntercomFrameServiceConfig* frd = (BleIntercomFrameServiceConfig*)frame;
 
-    frd->header.type = BleRequestTypeInit;
-    frd->header.service_index = BleIntercomServiceIndexDeviceInfo;
-    frd->header.data_size = sizeof(BleCharSize) * 3 + sizeof(frd->char_count);
+    // frd->header.type = BleRequestTypeInit;
+    // frd->header.service_index = BleIntercomServiceIndexDeviceInfo;
+    // frd->header.data_size = sizeof(BleCharSize) * 3 + sizeof(frd->char_count);
 
-    frd->char_count = 3;
+    // frd->char_count = 3;
 
-    frd->chars_config[0].intercom_index = BleSrvDeviceInfoCharacterIndexSerialNumber;
-    // frd->chars_config[0].data_size = furi_string_size(results[0]);
+    // frd->chars_config[0].intercom_index = BleSrvDeviceInfoCharacterIndexSerialNumber;
+    // // frd->chars_config[0].data_size = furi_string_size(results[0]);
 
-    frd->chars_config[1].intercom_index = BleSrvDeviceInfoCharacterIndexHardwareRevision;
-    // frd->chars_config[1].data_size = furi_string_size(results[1]);
+    // frd->chars_config[1].intercom_index = BleSrvDeviceInfoCharacterIndexHardwareRevision;
+    // // frd->chars_config[1].data_size = furi_string_size(results[1]);
 
-    frd->chars_config[2].intercom_index = BleSrvDeviceInfoCharacterIndexSoftwareRevision;
-    // frd->chars_config[2].data_size = furi_string_size(results[2]);
+    // frd->chars_config[2].intercom_index = BleSrvDeviceInfoCharacterIndexSoftwareRevision;
+    // // frd->chars_config[2].data_size = furi_string_size(results[2]);
 
     return true;
 }
