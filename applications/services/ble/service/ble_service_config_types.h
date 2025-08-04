@@ -20,7 +20,7 @@ typedef enum {
     BleServiceInitMethodRemote,
 } BleServiceInitMethod;
 
-typedef bool (*BleServiceInit)(void* context, BleIntercomFrameGeneric* output_frame);
+typedef bool (*BleServiceInit)(void* context);
 typedef void (*BleServiceRead)(void* data, uint8_t data_size);
 typedef void (*BleServiceWrite)(void* data, uint8_t data_size);
 typedef void (*BleServiceNotify)(void* data, uint8_t data_size);

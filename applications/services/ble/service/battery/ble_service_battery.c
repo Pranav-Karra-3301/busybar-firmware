@@ -15,9 +15,8 @@ typedef struct {
     uint8_t battery_level;
 } FURI_PACKED BatteryStatusInfo;
 
-static bool ble_service_battery_init(void* context, BleIntercomFrameGeneric* frame) {
+static bool ble_service_battery_init(void* context) {
     furi_assert(context);
-    furi_assert(frame);
 
     BLE_LOG_W("battery_init");
 
