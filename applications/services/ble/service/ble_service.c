@@ -35,7 +35,7 @@ static BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristic
     }
 }
 
-static bool ble_service_lock_frame(BleServiceObject* instance) {
+static bool ble_service_lock_input_frame(BleServiceObject* instance) {
     if(furi_semaphore_acquire(instance->frame_lock, 100) != FuriStatusOk) {
         FURI_LOG_W(instance->desc->name, "Frame lock failed");
         return false;
@@ -43,19 +43,19 @@ static bool ble_service_lock_frame(BleServiceObject* instance) {
     return true;
 }
 
-static void ble_service_unlock_frame(BleServiceObject* instance) {
+static void ble_service_unlock_input_frame(BleServiceObject* instance) {
     if(furi_semaphore_release(instance->frame_lock) != FuriStatusOk) {
         FURI_LOG_W(instance->desc->name, "Frame unlock failed");
     }
 }
 
-static void ble_service_send_intercom_frame(
+void ble_service_send_intercom_frame(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
     BleCommandEvent cmd_evt,
     size_t data_size,
     void* data) {
-    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
+    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->output;
     frame->header.frame_type = frame_type;
     frame->header.type = cmd_evt;
     frame->header.service_index = instance->desc->index;
@@ -73,7 +73,7 @@ static void ble_service_send_intercom_frame(
         frame_size);
 
     size_t tx =
-        intercom_tx(instance->intercom, IntercomChannelBle, instance->frame_buf, frame_size, 100);
+        intercom_tx(instance->intercom, IntercomChannelBle, instance->output, frame_size, 100);
     furi_assert(tx == frame_size);
 }
 
