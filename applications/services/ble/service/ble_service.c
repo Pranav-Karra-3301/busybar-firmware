@@ -54,8 +54,6 @@ static void ble_service_send_intercom_frame(
     BleCommandEvent cmd_evt,
     size_t data_size,
     void* data) {
-    ble_service_lock_frame(instance);
-
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
     frame->header.frame_type = frame_type;
     frame->header.type = cmd_evt;
@@ -76,8 +74,6 @@ static void ble_service_send_intercom_frame(
     size_t tx =
         intercom_tx(instance->intercom, IntercomChannelBle, instance->frame_buf, frame_size, 100);
     furi_assert(tx == frame_size);
-
-    if(frame_type != BleIntercomFrameTypeRequest) ble_service_unlock_frame(instance);
 }
 
 static bool ble_service_switch_state_allowed(
