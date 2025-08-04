@@ -16,5 +16,5 @@ BleServiceObject* ble_service_alloc(
     Intercom* intercom);
 
 bool ble_service_run(BleServiceObject* instance, const BleMessage* msg);
-void ble_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* input_frame);
-void ble_service_set_state(BleServiceObject* instance, BleServiceState new_state);
+void ble_service_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* input_frame);
+void ble_service_eqnueue_init(BleServiceObject* instance);
