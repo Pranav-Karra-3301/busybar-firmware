@@ -4,7 +4,9 @@
 #include "service/ble_service_config.h"
 
 #include <intercom/intercom.h>
+#if !defined(SI917)
 #include <api_lock.h>
+#endif
 
 #define TAG "BLE"
 
@@ -22,6 +24,9 @@ struct Ble {
     FuriSemaphore* mailbox_lock;
     BleIntercomFrameGeneric mailbox;
 
+    FuriEventLoopTimer* heartbear_timer;
+    FuriMutex* ble_lock;
+
     FuriEventLoop* event_loop;
     Intercom* intercom;
     //--------------------------
@@ -34,31 +39,22 @@ struct Ble {
     BleMessage* current_message;
 };
 
-// static bool heartbeat_processor(Ble* instance) {
-//     const BleIntercomFrameHeartbeat* frame = (BleIntercomFrameHeartbeat*)&instance->mailbox;
-//     if(frame->state == BleServiceStateInitialization) {
-//         BleMessage msg = {
-//             .type = BleCommandServiceSetState,
-//             .service_index = 0,
-//             .data[0] = BleServiceStateInitialization};
-//         furi_assert(furi_message_queue_put(instance->message_queue, &msg, 100) == FuriStatusOk);
-//         //instance->state = BleServiceStateInitialization;
-//     }
+static void ble_heartbeat_handler(Ble* instance /* , BleServiceState remote_state */) {
+    furi_assert(instance);
+    BLE_LOG_D("ble_heartbeat_handler");
 
-//     return true;
-// }
-
-// static bool ble_base_process_frame(Ble* instance) {
-//     furi_assert(instance);
-//     // BLE_LOG_D("ble_base_process_frame");
-
-//     // const BleIntercomFrameGeneric* frame = &instance->mailbox;
-//     // if(frame->header.new_type == BleIntercomFrameTypeHeartbeat) {
-//     //     heartbeat_processor(instance);
-//     // }
-
-//     // return true;
-// }
+#if !defined(SI917)
+    const BleIntercomFrameHeartbeat* heartbeat = (BleIntercomFrameHeartbeat*)&instance->mailbox;
+    BleServiceState remote_state = heartbeat->state;
+    if(instance->state == BleServiceStateReset && remote_state == BleServiceStateReset) {
+        BLE_LOG_I("Enqueue services start...");
+        for(size_t i = 0; i < BLE_SERVICES_COUNT; i++) {
+            ble_service_eqnueue_init(instance->services[i]);
+        }
+        instance->state = BleServiceStateInitialization;
+    }
+#endif
+}
 
 static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
@@ -93,33 +89,26 @@ void ble_custom_event_callback(uint32_t events, void* context) {
 
     if(events == BleEventTypeFrameReceived) {
         const BleIntercomFrameGeneric* frame = &instance->mailbox;
-        FURI_LOG_I(
-            "Event",
-            "Rcv type: %d serv: %d data_size: %d",
-            frame->header.new_type,
-            frame->header.service_index,
-            frame->header.data_size);
-        // BLE_LOG_D(
-        //     "Rcv type: %d serv: %d data_size: %d",
-        //     frame->header.new_type,
-        //     frame->header.service_index,
-        //     frame->header.data_size);
 
-        // if(frame->header.service_index == BleIntercomServiceIndexBase) {
-        //     ble_base_process_frame(instance);
-        // } else {
-        BleIntercomServiceIndex index = frame->header.service_index;
-        if(index == BLE_SERVICES_COUNT) {
-            index -= 1;
+        if(frame->header.frame_type != BleIntercomFrameTypeHeartbeat) {
+            size_t frame_size = frame->header.data_size + sizeof(BleIntercomFrameHeader);
+            BLE_LOG_D(
+                "Rx Frame t: %d c: %d ds: %d fs: %d",
+                frame->header.frame_type,
+                frame->header.type.command,
+                frame->header.data_size,
+                frame_size);
+
+            BleIntercomServiceIndex index = frame->header.service_index;
+            if(index == BLE_SERVICES_COUNT) {
+                index -= 1;
+            }
+            BleServiceObject* service = instance->services[index];
+            ble_service_process_mailbox(service, &instance->mailbox);
+        } else {
+            ble_heartbeat_handler(instance);
         }
-
-        BleServiceObject* service = instance->services[index];
-        //ble_service_process_frame(service, &instance->mailbox);
-        ble_process_mailbox(service, &instance->mailbox);
-        // }
-
-        // BLE_LOG_D("Release frame_lock");
-        FURI_LOG_D("Event", "Release frame_lock");
+        BLE_LOG_D("Release frame_lock");
         furi_semaphore_release(instance->mailbox_lock);
     }
 }
@@ -127,8 +116,6 @@ void ble_custom_event_callback(uint32_t events, void* context) {
 static void ble_backend_intercom_rx_callback(const void* data, size_t data_size, void* context) {
     furi_assert(context);
     furi_assert(data_size < MAX_BLE_INTERCOM_FRAME_SIZE);
-    // BLE_LOG_D("input frame");
-    FURI_LOG_I("RxIntercom", "input frame");
     Ble* instance = context;
     if(furi_semaphore_acquire(instance->mailbox_lock, 100) == FuriStatusOk) {
         memcpy(&instance->mailbox, data, data_size);
@@ -138,15 +125,35 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
     // BLE_LOG_W("Projebany pakiet");
 }
 
-// static void ble_event_loop_on_start(void* context) {
-//     BLE_LOG_W("ble_event_loop_on_start");
-//     UNUSED(context);
-//     // Ble* ble = context;
-//     // ble->pending_service_index = 0;
-//     // ble->state = BleServiceStateIdle;
-//     // furi_delay_ms(10000);
-//     // furi_event_loop_set_custom_event(ble->event_loop, BleEventTypeInit);
-// }
+static void ble_heartbeat_timer_handler(void* context) {
+    Ble* instance = context;
+    BLE_LOG_D("Hearbeat");
+    if(furi_semaphore_acquire(instance->mailbox_lock, 100) == FuriStatusOk) {
+        BleIntercomFrameHeartbeat* frame = (BleIntercomFrameHeartbeat*)&instance->mailbox;
+
+        frame->header.frame_type = BleIntercomFrameTypeHeartbeat;
+        frame->header.data_size = sizeof(BleServiceState);
+        frame->state = instance->state;
+
+        size_t frame_size = sizeof(BleIntercomFrameHeartbeat);
+        size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
+        furi_assert(tx == frame_size);
+
+        furi_semaphore_release(instance->mailbox_lock);
+    }
+}
+
+#if defined(SI917)
+static void ble_event_loop_on_start(void* context) {
+    UNUSED(context);
+    BLE_LOG_W("ble_event_loop_on_start");
+    // furi_delay_ms(10000);
+    // Ble* ble = context;
+
+    // BleServiceObject* service = ble->services[BleIntercomServiceIndexState];
+    // ble_service_set_state(service, BleServiceStateInitialization);
+}
+#endif
 
 static Ble* ble_alloc() {
     Ble* instance = malloc(sizeof(Ble));
@@ -160,6 +167,13 @@ static Ble* ble_alloc() {
     furi_event_loop_set_custom_event_callback(
         instance->event_loop, ble_custom_event_callback, instance);
 
+    instance->heartbear_timer = furi_event_loop_timer_alloc(
+        instance->event_loop,
+        ble_heartbeat_timer_handler,
+        FuriEventLoopTimerTypePeriodic,
+        instance);
+    furi_event_loop_timer_start(instance->heartbear_timer, 1000);
+
     furi_event_loop_subscribe_message_queue(
         instance->event_loop,
         instance->message_queue,
@@ -167,14 +181,17 @@ static Ble* ble_alloc() {
         ble_event_loop_msg_queue_handler,
         instance);
 
-    // furi_event_loop_pend_callback(instance->event_loop, ble_event_loop_on_start, instance);
+#if defined(SI917)
+    furi_event_loop_pend_callback(instance->event_loop, ble_event_loop_on_start, instance);
+#endif
 
     instance->intercom = furi_record_open(RECORD_INTERCOM);
     intercom_set_rx_callback(
         instance->intercom, IntercomChannelBle, ble_backend_intercom_rx_callback, instance);
 
     for(size_t i = 0; i < BLE_SERVICES_COUNT; i++) {
-        instance->services[i] = ble_service_alloc(service_config[i], instance->message_queue);
+        instance->services[i] =
+            ble_service_alloc(service_config[i], instance->message_queue, instance->intercom);
         //ble_worker_create_service(&service_config[i], instance->message_queue);
     }
 
