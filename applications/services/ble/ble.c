@@ -108,7 +108,6 @@ void ble_custom_event_callback(uint32_t events, void* context) {
         } else {
             ble_heartbeat_handler(instance);
         }
-        BLE_LOG_D("Release frame_lock");
         furi_semaphore_release(instance->mailbox_lock);
     }
 }
@@ -172,7 +171,7 @@ static Ble* ble_alloc() {
         ble_heartbeat_timer_handler,
         FuriEventLoopTimerTypePeriodic,
         instance);
-    furi_event_loop_timer_start(instance->heartbear_timer, 1000);
+    furi_event_loop_timer_start(instance->heartbear_timer, 10000);
 
     furi_event_loop_subscribe_message_queue(
         instance->event_loop,
