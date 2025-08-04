@@ -1,4 +1,5 @@
 #include "ble_service_i.h"
+#include "target/ble_service_target.h"
 
 #define TAG "BleServiceBase"
 

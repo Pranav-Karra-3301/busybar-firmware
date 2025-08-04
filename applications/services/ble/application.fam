@@ -7,8 +7,13 @@ App(
     order=100,
     targets=["f64"],
     requires=["intercom"],
-    sources=["ble_backend.c", "ble_worker.c", "ble_backend_util.c"],
-)
+    sources=[ "ble.c",
+              "service/*.c",
+              "service/target/ble_service_target_917.c",
+              "service/device_info/*.c",
+              "service/battery/*.c",
+              "service/uart/*.c",      
+            ])
 
 App(
     appid="ble",
@@ -19,5 +24,10 @@ App(
     order=100,
     targets=["f20"],
     requires=["intercom"],
-    sources=["ble.c", "ble_service.c"],
-)
+    sources=["ble.c", 
+             "service/*.c",
+             "service/target/ble_service_target_u5.c",
+             "service/device_info/*.c",
+             "service/battery/*.c",
+             "service/uart/*.c",
+             ])
