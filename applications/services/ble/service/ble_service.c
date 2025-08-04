@@ -77,24 +77,78 @@ void ble_service_send_intercom_frame(
     furi_assert(tx == frame_size);
 }
 
-static bool ble_service_switch_state_allowed(
-    const BleServiceState current_state,
-    const BleServiceState new_state) {
-    UNUSED(current_state);
-    UNUSED(new_state);
+// static bool ble_service_switch_state_allowed(
+//     const BleServiceState current_state,
+//     const BleServiceState new_state) {
+//     UNUSED(current_state);
+//     UNUSED(new_state);
+//     return true;
+// }
+
+void ble_service_switch_state(
+    BleServiceObject* instance,
+    BleServiceState new_state/* ,
+    bool notify_remote */) {
+    // if(ble_service_switch_state_allowed(instance->state, new_state)) {
+
+    FURI_LOG_D(instance->desc->name, "Set new_state: %d", new_state);
+    instance->state = new_state;
+    ///TODO:Move code below to some other place, because state switching may happen by remote request
+    ///or by internal. In first case we need to send response and in second one - notification
+    // if(notify_remote) {
+    //     BleCommandEvent c = {.event = BleEventStateChanged};
+    //     ble_service_send_intercom_frame(
+    //         instance, BleIntercomFrameTypeNotification, c, sizeof(BleServiceState), &new_state);
+    // }
+    // }
+}
+
+static bool ble_service_process_request() {
+    //extract command type from frame
+    //check if command available in current state
+    //execute target specific command handler -> execute service specific handler
+
+    //send response with result to remote
+
     return true;
 }
 
-static void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_state) {
-    if(ble_service_switch_state_allowed(instance->state, new_state)) {
-        if(new_state == BleServiceStateInitialization) {
-            instance->desc->init(instance);
-        }
+static bool ble_service_process_response(BleServiceObject* instance) {
+    FURI_LOG_D(instance->desc->name, "Process response");
+    //extract command type from frame
+    //if(command == pending_command)
+    //perform target specific response handler -> execute service specific if present
+    //else
+    //Error wrong packet received;
 
-        BleCommandEvent c = {.event = BleEventStateChanged};
-        ble_service_send_intercom_frame(
-            instance, BleIntercomFrameTypeNotification, c, sizeof(BleServiceState), &new_state);
+    return true;
+}
+
+static bool ble_service_process_notification(BleServiceObject* instance) {
+    FURI_LOG_D(instance->desc->name, "Notification frame RX");
+    //extract command type from frame
+    //check if command available in current state
+    //execute target specific command handler -> execute service specific handler
+    return true;
+}
+
+static bool ble_service_process_input_frame(BleServiceObject* instance) {
+    FURI_LOG_D(instance->desc->name, "process_input_frame");
+    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
+    if(frame->header.frame_type == BleIntercomFrameTypeRequest) {
+        ble_service_process_request();
+        if(frame->header.type.command == BleCommandServiceInit) {
+            ble_service_target_init(instance);
+        }
+    } else if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
+        FURI_LOG_W(instance->desc->name, "State: %d", instance->state);
+        ble_service_process_response(instance);
+    } else if(frame->header.frame_type == BleIntercomFrameTypeNotification) {
+        ble_service_process_notification(instance);
     }
+
+    ble_service_unlock_input_frame(instance);
+    return true;
 }
 
 BleServiceObject* ble_service_alloc(
@@ -136,15 +190,17 @@ bool ble_service_run(BleServiceObject* instance, const BleMessage* msg) {
     bool result = false;
     if(ble_service_lock(instance)) {
         if(msg->type == BleCommandServiceProcessFrame) {
-            FURI_LOG_D(instance->desc->name, "process_input_frame");
+            result = ble_service_process_input_frame(instance);
+        } else if(msg->type == BleCommandServiceInit) {
+            FURI_LOG_I(instance->desc->name, "start local");
+            ble_service_target_init(instance);
         }
         ble_service_unlock(instance);
-        result = true;
     }
     return result;
 }
 
-void ble_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* input_frame) {
+void ble_service_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* input_frame) {
     furi_assert(instance);
     furi_assert(input_frame);
 
@@ -152,7 +208,7 @@ void ble_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* in
 
     furi_assert(fs <= instance->frame_size);
 
-    if(ble_service_lock_frame(instance)) {
+    if(ble_service_lock_input_frame(instance)) {
         memcpy(instance->frame_buf, input_frame, fs);
         ble_service_enqueue_message(instance, BleCommandServiceProcessFrame, NULL, 0);
     }
@@ -174,12 +230,11 @@ void ble_service_enqueue_message(
     }
 }
 
-void ble_service_set_state(BleServiceObject* instance, BleServiceState new_state) {
+void ble_service_eqnueue_init(BleServiceObject* instance) {
     furi_assert(instance);
-    BLE_LOG_D("Require new_state: %d", new_state);
+    FURI_LOG_D(instance->desc->name, "Enqueue init");
     if(ble_service_lock(instance)) {
-        ble_service_enqueue_message(
-            instance, BleCommandServiceSetState, &new_state, sizeof(BleServiceState));
+        ble_service_enqueue_message(instance, BleCommandServiceInit, NULL, 0);
         ble_service_unlock(instance);
     }
 }
