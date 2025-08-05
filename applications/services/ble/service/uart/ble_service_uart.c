@@ -1,5 +1,6 @@
 #include "ble_service_uart.h"
 
+#include "../ble_service_i.h"
 #include <furi_hal_info.h>
 #include <stdint.h>
 
@@ -18,9 +19,8 @@ typedef enum {
     BleSrvDeviceInfoCharacterIndexSoftwareRevision,
 } BleSrvDeviceInfoCharacterIndex;
 
-static bool ble_service_uart_init(void* context) {
-    furi_assert(context);
-
+static bool ble_service_uart_init(void* instance) {
+    furi_assert(instance);
     BLE_LOG_W("uart_init");
 
     return true;
