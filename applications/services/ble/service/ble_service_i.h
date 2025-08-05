@@ -1,10 +1,12 @@
 #pragma once
 
 #include "ble_service.h"
+#include <furi.h>
 
 typedef struct {
     const BleCharacteristicDescriptor* desc;
     uint16_t handle;
+    uint8_t data_size;
     void* data;
 } BleCharacteristicObject;
 
@@ -25,6 +27,7 @@ struct BleServiceObject {
 
     uint8_t output[50];
     BleServiceStateChangeCallback state_change_callback;
+    void* data_context;
 #if defined(SI917)
     void* service_handler;
 #endif
@@ -35,3 +38,15 @@ void ble_service_enqueue_message(
     BleCommand command,
     void* data,
     uint8_t data_size);
+
+void ble_service_prepare_frame(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    uint8_t command_event,
+    size_t data_size,
+    void* data);
+
+void ble_service_switch_state(
+    BleServiceObject* instance,
+    BleServiceState new_state/* ,
+    bool notify_remote */);

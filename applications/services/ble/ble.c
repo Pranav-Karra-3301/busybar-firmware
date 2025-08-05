@@ -95,7 +95,7 @@ void ble_custom_event_callback(uint32_t events, void* context) {
             BLE_LOG_D(
                 "Rx Frame t: %d c: %d ds: %d fs: %d",
                 frame->header.frame_type,
-                frame->header.type.command,
+                frame->header.command,
                 frame->header.data_size,
                 frame_size);
 
@@ -140,6 +140,7 @@ static void ble_heartbeat_timer_handler(void* context) {
 
         furi_semaphore_release(instance->mailbox_lock);
     }
+    furi_event_loop_timer_stop(instance->heartbear_timer);
 }
 
 #if defined(SI917)

@@ -7,39 +7,76 @@
 #define BLE_DEBUG
 
 #ifdef BLE_DEBUG
+#define BLE_LOG_D(...) FURI_LOG_D(TAG, __VA_ARGS__)
 #define BLE_LOG_I(...) FURI_LOG_I(TAG, __VA_ARGS__)
 #define BLE_LOG_W(...) FURI_LOG_W(TAG, __VA_ARGS__)
 #else
 #define BLE_LOG_D(...)
+#define BLE_LOG_I(...)
 #define BLE_LOG_W(...)
 #endif
 
-///TODO: here we will place all includes for services, but for now we will place everything here
-
-typedef struct {
-    uint8_t flags;
-    uint16_t power_state;
-    uint8_t battery_level;
-} FURI_PACKED BatteryStatusInfo;
-
-//=============================================
-// typedef enum {
-//     BleIntercomCharIndexBatteryLevel,
-//     BleIntercomCharIndexBatteryStatus,
-
-//     BleIntercomCharIndexUartRx,
-//     BleIntercomCharIndexUartTx,
-
-//     BleIntercomCharIndexDeviceInfoSerialNumber,
-//     BleIntercomCharIndexDeviceInfoHardwareRevision,
-//     BleIntercomCharIndexDeviceInfoSoftwareRevision,
-// } BleIntercomCharIndex;
+typedef enum {
+    BleIntercomFrameTypeRequest,
+    BleIntercomFrameTypeResponse,
+    BleIntercomFrameTypeNotification,
+    BleIntercomFrameTypeHeartbeat,
+} BleIntercomFrameType;
 
 typedef enum {
-    BleSrvDeviceInfoCharacterIndexSerialNumber,
-    BleSrvDeviceInfoCharacterIndexHardwareRevision,
-    BleSrvDeviceInfoCharacterIndexSoftwareRevision,
-} BleSrvDeviceInfoCharacterIndex;
+    BleServiceStateReset, /*Service was just created. Will move to BleServiceStateInitialization when it will create all inner objects*/
+    BleServiceStateInitialization, /* Service performs initialization sequence for all inner ble services. 
+    U5 also sends init data to 917 to help him create its services */
+    BleServiceStateReady, /*All init sequences are done. All inner services configured, and both u5 and 917 ready to work. But ble still disabled*/
+    BleServiceStateAdvertising, /*User enabled ble, device start advertising.*/
+    BleServiceStateConnected, /*Remote device connected to bsb over ble*/
+    BleServiceStateError, /*Error occured.*/
+} BleServiceState;
+//==========================================================================================================
+//Test shit
+///TODO: rename this to BleCommandType
+typedef enum {
+    ///TODO: remove all these
+    BleRequestTypeEnable,
+    BleRequestTypeDisable,
+    BleRequestTypeInit,
+    BleRequestTypeRead,
+    BleRequestTypeWrite,
+    BleRequestTypeNotify,
+
+    //keep these
+    BleCommandEnable,
+    BleCommandDisable,
+    //-------------------------------------
+    BleCommandServiceInit,
+
+    BleCommandServiceRead,
+    BleCommandServiceWrite,
+    BleCommandServiceNotify,
+
+    //-------------------------------------
+
+    BleCommandServiceProcessFrame,
+} BleCommand;
+
+// typedef enum {
+//     BleEventStateChanged,
+// } BleEvent;
+
+// typedef union {
+//     BleCommand command;
+//     BleEvent event;
+// } BleCommandEvent;
+
+///TODO: need to exted this more
+typedef struct {
+    BleCommand type; ///TODO: get rid if this
+    uint16_t service_index;
+    uint8_t data[5];
+    // FuriApiLock lock;
+    bool result; ///TODO: replace with some more extended status
+} BleMessage;
+//==========================================================================================================
 
 typedef enum {
     BleIntercomServiceIndexDeviceInfo,
@@ -48,17 +85,9 @@ typedef enum {
 } BleIntercomServiceIndex;
 //=============================================
 
-typedef enum {
-    BleRequestTypeEnable,
-    BleRequestTypeDisable,
-    BleRequestTypeInit,
-    BleRequestTypeRead,
-    BleRequestTypeWrite,
-    BleRequestTypeNotify,
-} BleRequestType;
-
 typedef struct /*FURI_PACKED*/ {
-    BleRequestType type;
+    BleIntercomFrameType frame_type;
+    BleCommand command;
     BleIntercomServiceIndex service_index;
     size_t data_size;
 } BleIntercomFrameHeader;
@@ -69,6 +98,11 @@ typedef struct {
     BleIntercomFrameHeader header;
     uint8_t data[MAX_BLE_INTERCOM_FRAME_SIZE];
 } BleIntercomFrameGeneric;
+
+typedef struct {
+    BleIntercomFrameHeader header;
+    BleServiceState state;
+} BleIntercomFrameHeartbeat;
 
 typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameHeader header;
@@ -83,16 +117,26 @@ typedef struct /*FURI_PACKED*/ {
 //     uint8_t data_size;
 // } BleCharSize;
 
-typedef struct /*FURI_PACKED*/ {
-    uint8_t intercom_index;
+typedef struct {
+    uint8_t index;
     uint8_t data_size;
+} BleCharacteristicInitHeader;
+
+typedef struct /*FURI_PACKED*/ {
+    BleCharacteristicInitHeader header;
     uint8_t data[];
-} BleCharSize;
+} BleCharacteristicInit;
+
+typedef uint8_t BleCharacteristicCountType;
+
+typedef struct {
+    BleCharacteristicCountType char_count;
+    BleCharacteristicInit chars_config[];
+} BleServiceInitConfig;
 
 typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameHeader header;
-    uint8_t char_count;
-    BleCharSize chars_config[];
+    BleServiceInitConfig service_init;
 } BleIntercomFrameServiceConfig;
 
 //=============================================
