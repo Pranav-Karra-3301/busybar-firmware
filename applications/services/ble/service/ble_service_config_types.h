@@ -20,10 +20,12 @@ typedef enum {
     BleServiceInitMethodRemote,
 } BleServiceInitMethod;
 
-typedef bool (*BleServiceInit)(void* context);
+typedef bool (*BleServiceInit)(void* instance);
 typedef void (*BleServiceRead)(void* data, uint8_t data_size);
 typedef void (*BleServiceWrite)(void* data, uint8_t data_size);
 typedef void (*BleServiceNotify)(void* data, uint8_t data_size);
+
+typedef const uint8_t* (*BleCharacterGetData)(void* instance);
 
 typedef struct {
     uint16_t intercom_index;
@@ -31,10 +33,12 @@ typedef struct {
     Char_UUID_t uuid;
     uint8_t uuid_size;
 #endif
+    ///TODO: rename to max_data_size
     uint8_t data_size;
     uint8_t char_properties;
     uint8_t security_permissions;
     const char* name;
+    BleCharacterGetData get_data;
 } BleCharacteristicDescriptor;
 
 typedef struct {
