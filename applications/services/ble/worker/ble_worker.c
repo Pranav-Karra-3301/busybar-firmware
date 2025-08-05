@@ -12,6 +12,7 @@
 #include "rsi_bt_common_apis.h"
 
 #include "ble_common.h"
+#include "ble_service.h"
 #include "ble_backend_util.h"
 
 #define TAG "BleWorker"
@@ -220,7 +221,7 @@ static const BleServiceDescriptor service_config[] = {
             .uuid = {.Char_UUID_16 = 0x180F},
             .uuid_size = 2,
             .index = BleIntercomServiceIndexBattery,
-            .init_method = BleServiceInitMethodLocal,
+            .init_method = BleServiceInitMethodRemote,
             .char_count = COUNT_OF(battery_service_characteristics),
             .char_descriptors = battery_service_characteristics,
         },
@@ -875,6 +876,7 @@ BleCharacteristicObject* ble_characteristic_alloc(
         service_handler, handle, desc->char_properties, handle + 1, uuid);
 
     BLE_LOG_I("Add char %s val att handle: %04X", desc->name, handle + 1);
+    instance->handle = handle + 1;
     *out_handle = ble_worker_add_char_val_att(
         service_handler,
         handle + 1,
@@ -883,8 +885,6 @@ BleCharacteristicObject* ble_characteristic_alloc(
         instance->data,
         desc->data_size,
         0);
-
-    instance->handle = *out_handle;
 
     return instance;
 }
@@ -1033,10 +1033,10 @@ void ble_worker_set_value(
     uint16_t data_size,
     const uint8_t* data) {
     furi_assert(data);
-    BLE_LOG_I("Set Value");
 
     BleServiceObject* service = ble_worker_instance->services[service_index];
     BleCharacteristicObject* char_obj = service->chars[char_index];
-
-    rsi_ble_set_local_att_value(char_obj->handle, data_size, data);
+    BLE_LOG_I("Set Value char_handle: %04X", char_obj->handle);
+    int32_t res = rsi_ble_set_local_att_value(char_obj->handle, data_size, data);
+    BLE_LOG_I("Set res: %lX", res);
 }
