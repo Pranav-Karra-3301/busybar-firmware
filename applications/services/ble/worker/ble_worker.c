@@ -691,88 +691,15 @@ static void ble_prepare_uuid(const Char_UUID_t* temp, const uint8_t size, uuid_t
         ble_worker_prepare_128bit_uuid(temp->Char_UUID_128, uuid);
 }
 
-BleCharacteristicObject* ble_characteristic_alloc(
-    const BleCharacteristicDescriptor* desc,
-    void* service_handler,
-    uint16_t handle,
-    uint16_t* out_handle) {
-    furi_assert(desc);
-    furi_assert(service_handler);
-    furi_assert(desc->data_size);
-    furi_assert(out_handle);
-
-    uuid_t uuid = {0};
-    ble_prepare_uuid(&desc->uuid, desc->uuid_size, &uuid);
-
-    BleCharacteristicObject* instance = malloc(sizeof(BleCharacteristicObject));
-    instance->data = malloc(desc->data_size);
-    instance->desc = desc;
-
-    BLE_LOG_I("Add char %s att handle: %04X", desc->name, handle);
-    handle = ble_worker_add_char_serv_att(
-        service_handler, handle, desc->char_properties, handle + 1, uuid);
-
-    BLE_LOG_I("Add char %s val att handle: %04X", desc->name, handle + 1);
-    instance->handle = handle + 1;
-    *out_handle = ble_worker_add_char_val_att(
-        service_handler,
-        handle + 1,
-        uuid,
-        desc->char_properties,
-        instance->data,
-        desc->data_size,
-        0);
-
-    return instance;
-}
-
-///TODO: Possibly return handle here for future use
-static BleServiceObject* ble_worker_create_service(const BleServiceDescriptor* service_config) {
-    rsi_ble_resp_add_serv_t new_serv_resp = {0};
-    uuid_t uuid = {0};
-
-    BleServiceObject* instance = malloc(sizeof(BleServiceObject));
-    BLE_LOG_I("Create %s service", service_config->name);
-    ble_prepare_uuid(&service_config->uuid, service_config->uuid_size, &uuid);
-    rsi_ble_add_service(uuid, &new_serv_resp);
-
-    instance->service_handler = new_serv_resp.serv_handler;
-    instance->desc = service_config;
-    instance->chars = malloc(sizeof(BleCharacteristicObject*) * service_config->char_count);
-
-    uint16_t handle = new_serv_resp.start_handle;
-    BLE_LOG_I("Start handle: %04X", handle);
-    for(size_t i = 0; i < service_config->char_count; i++) {
-        const BleCharacteristicDescriptor* config = &service_config->char_descriptors[i];
-
-        BleCharacteristicObject* ble_char =
-            ble_characteristic_alloc(config, instance->service_handler, handle + 1, &handle);
-
-        instance->chars[config->intercom_index] = ble_char;
-    }
-    return instance;
-}
-
 void ble_worker_init() {
     ble_worker_instance = malloc(sizeof(BleWorker));
 
     ble_worker_instance->thread =
         furi_thread_alloc_ex("BleWorker", 2048, ble_worker_thread_callback, ble_worker_instance);
 
-    //TODO: build services and add characteristics here
-
     ble_hw_config();
 
-    for(size_t i = 0; i < COUNT_OF(service_config); i++) {
-        if(service_config[i].init_method == BleServiceInitMethodRemote) {
-            BLE_LOG_I("Skip creation of %s", service_config[i].name);
-            continue;
-        }
-
-        BleServiceObject* service = ble_worker_create_service(&service_config[i]);
-        ble_worker_instance->services[service->desc->index] = service;
-    }
-
+    //Appearance adjustment
     uuid_t uuid = {0};
     uuid.size = 2;
     uuid.val.val16 = 0x2A01;
@@ -784,15 +711,7 @@ void ble_worker_init() {
         status = rsi_ble_set_local_att_value(value_handle, 2, (uint8_t*)&data);
         BLE_LOG_I("Status: %lX", status);
     }
-
-    // value_handle =
-    //     ble_worker_instance->characteristics[BleIntercomCharIndexDeviceInfoSerialNumber]->handle;
-    // BLE_LOG_I("Handle serial: %04X", value_handle);
-    // const char* test = "Att value adjusted after creation";
-    // status = rsi_ble_set_local_att_value(value_handle, strlen(test), (uint8_t*)test);
-    // BLE_LOG_I("Adjs Status: %lX", status);
-
-    ble_print_service_hierarchy(0x001E);
+    //---------------------------------------
 }
 
 ///TODO: Optional, maybe not needed but will add for now
