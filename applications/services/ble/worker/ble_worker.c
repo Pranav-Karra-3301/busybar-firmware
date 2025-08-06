@@ -11,13 +11,10 @@
 #include "rsi_ble_common_config.h"
 #include "rsi_bt_common_apis.h"
 
-#include "ble_common.h"
-#include "ble_service.h"
-#include "ble_backend_util.h"
+#include "ble_advertise_config.h"
 
 #define TAG "BleWorker"
 
-#define BLE_WORKER_LOCAL_NAME         "Busybar"
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
 #define BLE_WORKER_MAX_MTU_SIZE       200
 
@@ -76,166 +73,6 @@ typedef struct {
     // BleCharacteristicObject* characteristics[10];
     BleServiceObject* services[3];
 } BleWorker;
-
-//==========================================================
-// Advertise packet config
-#define BLE_ADVERTISE_PACKET_MAX_SIZE (32)
-
-typedef struct FURI_PACKED {
-    uint8_t length;
-    uint8_t type;
-} BleAdvertiseHeader;
-
-typedef struct FURI_PACKED {
-    BleAdvertiseHeader header;
-    uint8_t data;
-} BleAdvertiseByteData;
-
-typedef struct FURI_PACKED {
-    BleAdvertiseHeader header;
-    uint16_t data;
-} BleAdvertiseWordData;
-
-typedef struct FURI_PACKED {
-    BleAdvertiseHeader header;
-    char data[sizeof(BLE_WORKER_LOCAL_NAME)];
-} BleAdvertiseLocalName;
-
-typedef struct FURI_PACKED {
-    BleAdvertiseByteData flags;
-    BleAdvertiseWordData appearance;
-    BleAdvertiseLocalName local_name;
-    BleAdvertiseWordData manufacturer;
-} BleAdvertiseData;
-
-static const BleAdvertiseData advertise_data = {
-    .flags =
-        {
-            .header = {.length = 2, .type = 1},
-            .data = 6,
-        },
-    .appearance =
-        {
-            .header = {.type = 0x19, .length = 3},
-            .data = 0x0880, //0x00C0,
-        },
-    .local_name =
-        {
-            .header = {.type = 0x9, .length = sizeof(BLE_WORKER_LOCAL_NAME) + 1},
-            .data = BLE_WORKER_LOCAL_NAME,
-        },
-    .manufacturer =
-        {
-            .header = {.type = 0xFF, .length = 3},
-            .data = 0x0E29,
-        },
-};
-
-static_assert(sizeof(advertise_data) <= BLE_ADVERTISE_PACKET_MAX_SIZE);
-//==========================================================
-
-static const BleCharacteristicDescriptor battery_service_characteristics[] = {
-    {
-        .intercom_index = 0,
-        .name = "Battery Level",
-        .uuid = {.Char_UUID_16 = 0x2A19},
-        .uuid_size = 2,
-        .data_size = sizeof(uint8_t),
-        .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_NOTIFY,
-    },
-    {
-        .intercom_index = 1,
-        .name = "Battery Status",
-        .uuid = {.Char_UUID_16 = 0x2BED},
-        .uuid_size = 2,
-        .data_size = sizeof(BatteryStatusInfo),
-        .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_NOTIFY,
-    },
-};
-
-//==========================================================
-#define UART_SERVICE_UUID \
-    {0x6E, 0x40, 0x00, 0x01, 0xB5, 0xA3, 0xF3, 0x93, 0xE0, 0xA9, 0xE5, 0x0E, 0x24, 0xDC, 0xCA, 0x9E}
-#define UART_RX_CHAR_UUID \
-    {0x6E, 0x40, 0x00, 0x02, 0xB5, 0xA3, 0xF3, 0x93, 0xE0, 0xA9, 0xE5, 0x0E, 0x24, 0xDC, 0xCA, 0x9E}
-#define UART_TX_CHAR_UUID \
-    {0x6E, 0x40, 0x00, 0x03, 0xB5, 0xA3, 0xF3, 0x93, 0xE0, 0xA9, 0xE5, 0x0E, 0x24, 0xDC, 0xCA, 0x9E}
-
-static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] = {
-    {
-        .intercom_index = 0,
-        .name = "Uart Rx",
-        .uuid = {.Char_UUID_128 = UART_RX_CHAR_UUID},
-        .uuid_size = 16,
-        .data_size = sizeof(2),
-        .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_WRITE,
-    },
-    {
-        .intercom_index = 1,
-        .name = "Uart Tx",
-        .uuid = {.Char_UUID_128 = UART_TX_CHAR_UUID},
-        .uuid_size = 16,
-        .data_size = sizeof(2),
-        .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_NOTIFY,
-    },
-};
-//==========================================================
-const BleCharacteristicDescriptor device_info_service_characteristics[] = {
-    {
-        .intercom_index = BleSrvDeviceInfoCharacterIndexSerialNumber,
-        .name = "Serial Number",
-        .uuid = {.Char_UUID_16 = 0x2A25},
-        .uuid_size = 2,
-        .char_properties = RSI_BLE_ATT_PROPERTY_READ,
-    },
-    {
-        .intercom_index = BleSrvDeviceInfoCharacterIndexHardwareRevision,
-        .name = "Hardware Revision",
-        .uuid = {.Char_UUID_16 = 0x2A27},
-        .uuid_size = 2,
-        .char_properties = RSI_BLE_ATT_PROPERTY_READ,
-    },
-    {
-        .intercom_index = BleSrvDeviceInfoCharacterIndexSoftwareRevision,
-        .name = "Software Revision",
-        .uuid = {.Char_UUID_16 = 0x2A26},
-        .uuid_size = 2,
-        .char_properties = RSI_BLE_ATT_PROPERTY_READ,
-    },
-};
-//==========================================================
-static const BleServiceDescriptor service_config[] = {
-    [BleIntercomServiceIndexDeviceInfo] =
-        {
-            .name = "Device Information",
-            .uuid = {.Char_UUID_16 = 0x180A},
-            .uuid_size = 2,
-            .index = BleIntercomServiceIndexDeviceInfo,
-            .init_method = BleServiceInitMethodRemote,
-            .char_count = COUNT_OF(device_info_service_characteristics),
-            .char_descriptors = device_info_service_characteristics,
-        },
-    [BleIntercomServiceIndexBattery] =
-        {
-            .name = "Battery Service",
-            .uuid = {.Char_UUID_16 = 0x180F},
-            .uuid_size = 2,
-            .index = BleIntercomServiceIndexBattery,
-            .init_method = BleServiceInitMethodRemote,
-            .char_count = COUNT_OF(battery_service_characteristics),
-            .char_descriptors = battery_service_characteristics,
-        },
-    [BleIntercomServiceIndexUart] =
-        {
-            .name = "Nordic UART",
-            .uuid = {.Char_UUID_128 = UART_SERVICE_UUID},
-            .uuid_size = 16,
-            .index = BleIntercomServiceIndexUart,
-            .init_method = BleServiceInitMethodLocal,
-            .char_count = COUNT_OF(nordic_uart_service_characteristics),
-            .char_descriptors = nordic_uart_service_characteristics,
-        },
-};
 
 //==========================================================
 static BleWorker* ble_worker_instance;
@@ -517,19 +354,19 @@ static void ble_hw_config() {
     // ble_add_battery_service(instance);
 
     // //! Set local name
-    status = rsi_bt_set_local_name((uint8_t*)BLE_WORKER_LOCAL_NAME);
+    status = rsi_bt_set_local_name((uint8_t*)advertise_config.local_name.data);
     if(status != RSI_SUCCESS) {
         BLE_LOG_W("Failed to set local name, error code : 0x%08lx", status);
         furi_crash();
     }
 
-    BLE_LOG_I("Flags: %d", advertise_data.flags.data);
-    BLE_LOG_I("Appearance: %04X", advertise_data.appearance.data);
-    BLE_LOG_I("Manufacturer: %04X", advertise_data.manufacturer.data);
-    BLE_LOG_I("Local Name: %s", advertise_data.local_name.data);
+    BLE_LOG_I("Flags: %d", advertise_config.flags.data);
+    BLE_LOG_I("Appearance: %04X", advertise_config.appearance.data);
+    BLE_LOG_I("Manufacturer: %04X", advertise_config.manufacturer.data);
+    BLE_LOG_I("Local Name: %s", advertise_config.local_name.data);
 
     //! set advertise data
-    rsi_ble_set_advertise_data((uint8_t*)&advertise_data, sizeof(advertise_data));
+    rsi_ble_set_advertise_data((uint8_t*)&advertise_config, sizeof(advertise_config));
 
     // ble_adjust_gap_service_data();
     BLE_LOG_I("Wireless Initialization Success");
