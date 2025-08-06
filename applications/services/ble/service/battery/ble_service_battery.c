@@ -9,10 +9,10 @@ typedef enum {
     BleSrvBatteryCharacterIndexBatteryStatus,
 } BleSrvBatteryCharacterIndex;
 
-typedef union {
-    struct {
+typedef union FURI_PACKED {
+    struct FURI_PACKED {
         uint8_t battery_present         : 1;
-        uint8_t ext_source_present      : 2;
+        uint8_t wired_source_present    : 2;
         uint8_t wireless_source_present : 2;
         uint8_t battery_charge_state    : 2;
         uint8_t battery_charge_level    : 2;
@@ -23,10 +23,10 @@ typedef union {
     uint16_t value;
 } BatteryPowerState;
 
-typedef struct {
+typedef struct FURI_PACKED {
     uint8_t flags;
     BatteryPowerState state;
-} /* FURI_PACKED */ BatteryStatusInfo;
+} BatteryStatusInfo;
 
 static bool ble_service_battery_init(void* object) {
     furi_assert(object);
@@ -44,11 +44,11 @@ static bool ble_service_battery_init(void* object) {
 
     battery_status->flags = 0;
     battery_status->state.fields.battery_present = 1;
-    battery_status->state.fields.ext_source_present = 0;
+    battery_status->state.fields.wired_source_present = 1;
     battery_status->state.fields.wireless_source_present = 0;
     battery_status->state.fields.battery_charge_state = 2;
     battery_status->state.fields.battery_charge_level = 1;
-    battery_status->state.fields.charging_type = 0;
+    battery_status->state.fields.charging_type = 2;
     battery_status->state.fields.charging_fault_reason = 0;
 
     instance->chars[BleSrvBatteryCharacterIndexBatteryStatus]->data = battery_status;
