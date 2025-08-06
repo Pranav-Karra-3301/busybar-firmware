@@ -719,48 +719,80 @@ void ble_worker_deinit() {
     free(ble_worker_instance);
 }
 
-void ble_worker_init_service(BleIntercomFrameServiceConfig* config) {
-    furi_assert(config);
+// void* ble_worker_register_service(const Char_UUID_t* uiid, uint8_t uiid_size, uint16_t index) {
+//     UNUSED(service);
+//     BLE_LOG_I("register_service");
 
-    //const BleServiceDescriptor* service_descriptor = &service_config[config->service_index];
-    BleServiceDescriptor* service_descriptor = malloc(sizeof(BleServiceDescriptor));
+//     uuid_t rsi_uiid = {0};
+//     rsi_ble_resp_add_serv_t new_serv_resp = {0};
 
-    memcpy(
-        service_descriptor,
-        &service_config[config->header.service_index],
-        sizeof(BleServiceDescriptor));
+//     ble_prepare_uuid(uiid, uiid_size, &rsi_uiid);
+//     int result = rsi_ble_add_service(rsi_uiid, &new_serv_resp);
+//     if(result != 0) {
+//         BLE_LOG_W("Add service fail: 0x%04X", result);
+//         return NULL;
+//     } else {
+//         return new_serv_resp.serv_handler;
+//     }
+// }
 
-    BLE_LOG_I("Init service: %s", service_descriptor->name);
+// void ble_worker_register_characteristic() {
+//     BLE_LOG_I("Add char %s att handle: %04X", desc->name, handle);
+//     handle = ble_worker_add_char_serv_att(
+//         service_handler, handle, desc->char_properties, handle + 1, uuid);
 
-    BleCharacteristicDescriptor* descriptors =
-        malloc(config->char_count * sizeof(BleCharacteristicDescriptor));
+//     BLE_LOG_I("Add char %s val att handle: %04X", desc->name, handle + 1);
+//     instance->handle = handle + 1;
+//     *out_handle = ble_worker_add_char_val_att(
+//         service_handler,
+//         handle + 1,
+//         uuid,
+//         desc->char_properties,
+//         instance->data,
+//         desc->data_size,
+//         0);
+// }
 
-    //check counts are equal
+bool ble_worker_register_service(BleServiceObject* service) {
+    BLE_LOG_I("register_service");
 
-    for(size_t i = 0; i < config->char_count; i++) {
-        memcpy(
-            &descriptors[i],
-            &service_descriptor->char_descriptors[i],
-            sizeof(BleCharacteristicDescriptor));
+    uuid_t rsi_uiid = {0};
+    rsi_ble_resp_add_serv_t new_serv_resp = {0};
 
-        BLE_LOG_I(
-            "data_size old: %d, new: %d",
-            descriptors[i].data_size,
-            config->chars_config[i].data_size);
+    ble_prepare_uuid(&service->desc->uuid, service->desc->uuid_size, &rsi_uiid);
+    sl_status_t status = rsi_ble_add_service(rsi_uiid, &new_serv_resp);
 
-        descriptors[i].data_size = config->chars_config[i].data_size;
+    bool result = false;
+    if(status == RSI_SUCCESS) {
+        service->service_handler = new_serv_resp.serv_handler;
+
+        uint16_t handle = new_serv_resp.start_handle;
+        for(uint8_t i = 0; i < service->desc->char_count; i++) {
+            BleCharacteristicObject* ch = service->chars[i];
+
+            memset(&rsi_uiid, 0, sizeof(uuid_t));
+            ble_prepare_uuid(&ch->desc->uuid, ch->desc->uuid_size, &rsi_uiid);
+
+            BLE_LOG_I("Add char %s att handle: %04X", ch->desc->name, handle + 1);
+            handle = ble_worker_add_char_serv_att(
+                service->service_handler, handle, ch->desc->char_properties, handle + 1, rsi_uiid);
+
+            BLE_LOG_I("Add char %s val att handle: %04X", ch->desc->name, handle + 1);
+            ch->handle = handle + 1;
+            handle = ble_worker_add_char_val_att(
+                service->service_handler,
+                handle + 1,
+                rsi_uiid,
+                ch->desc->char_properties,
+                ch->data,
+                ch->data_size,
+                0);
+        }
+
+        result = true;
     }
-    service_descriptor->char_descriptors = descriptors;
 
-    BLE_LOG_I("Service descriptor copied");
-
-    BleServiceObject* service = ble_worker_create_service(service_descriptor);
-    ble_worker_instance->services[service->desc->index] = service;
-
-    free(descriptors);
-    free(service_descriptor);
-
-    // ble_print_service_hierarchy(0x001E);
+    return result;
 }
 
 void ble_worker_start() {
