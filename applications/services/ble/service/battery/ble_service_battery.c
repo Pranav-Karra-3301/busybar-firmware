@@ -74,8 +74,8 @@ static const BleCharacteristicDescriptor battery_service_characteristics[] = {
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A19},
         .uuid_size = 2,
+        .char_properties = BLE_ATT_PROPERTY_READ | BLE_ATT_PROPERTY_NOTIFY,
 #endif
-        // .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_NOTIFY,
     },
     {
         .intercom_index = BleSrvBatteryCharacterIndexBatteryStatus,
@@ -85,8 +85,8 @@ static const BleCharacteristicDescriptor battery_service_characteristics[] = {
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2BED},
         .uuid_size = 2,
+        .char_properties = BLE_ATT_PROPERTY_READ | BLE_ATT_PROPERTY_NOTIFY,
 #endif
-        // .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_NOTIFY,
     },
 };
 

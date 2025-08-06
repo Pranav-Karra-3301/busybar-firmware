@@ -85,8 +85,9 @@ static const BleCharacteristicDescriptor device_info_service_characteristics[] =
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A25},
         .uuid_size = 2,
+        .char_properties = BLE_ATT_PROPERTY_READ,
 #endif
-        // .char_properties = RSI_BLE_ATT_PROPERTY_READ,
+
     },
     {
         .intercom_index = BleSrvDeviceInfoCharacterIndexHardwareRevision,
@@ -95,8 +96,8 @@ static const BleCharacteristicDescriptor device_info_service_characteristics[] =
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A27},
         .uuid_size = 2,
+        .char_properties = BLE_ATT_PROPERTY_READ,
 #endif
-        // .char_properties = RSI_BLE_ATT_PROPERTY_READ,
     },
     {
         .intercom_index = BleSrvDeviceInfoCharacterIndexSoftwareRevision,
@@ -105,8 +106,8 @@ static const BleCharacteristicDescriptor device_info_service_characteristics[] =
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A26},
         .uuid_size = 2,
+        .char_properties = BLE_ATT_PROPERTY_READ,
 #endif
-        // .char_properties = RSI_BLE_ATT_PROPERTY_READ,
     },
 };
 
