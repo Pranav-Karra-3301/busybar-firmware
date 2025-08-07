@@ -217,22 +217,18 @@ BleServiceObject* ble_service_alloc(
     return instance;
 }
 
-bool ble_service_run(BleServiceObject* instance, const BleMessage* msg) {
+bool ble_service_process(BleServiceObject* instance, const BleMessage* msg) {
     furi_assert(instance);
     furi_assert(msg);
 
-    FURI_LOG_D(instance->desc->name, "ble_service_run");
+    FURI_LOG_D(instance->desc->name, "ble_service_process");
     bool result = false;
     if(ble_service_lock(instance)) {
         if(msg->type == BleCommandServiceProcessFrame) {
             result = ble_service_process_input_frame(instance);
         } else
             result = execute_handler(instance, msg->type);
-        // if(msg->type == BleCommandServiceInit) {
-        //     FURI_LOG_I(instance->desc->name, "start local");
-        //     ble_service_target_init(instance);
-        //     ble_service_send_intercom_frame(instance);
-        // }
+
         ble_service_unlock(instance);
     }
     return result;
