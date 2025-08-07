@@ -11,7 +11,8 @@ App(
               "service/*.c",
               "service/target/ble_service_target_917.c",
               "service/device_info/*.c",
-              "service/battery/*.c",
+              "service/battery/ble_service_battery.c",
+              "service/battery/ble_service_battery_917.c",
               "service/uart/*.c",      
             ])
 
@@ -28,6 +29,7 @@ App(
              "service/*.c",
              "service/target/ble_service_target_u5.c",
              "service/device_info/*.c",
-             "service/battery/*.c",
+             "service/battery/ble_service_battery.c",
+             "service/battery/ble_service_battery_u5.c",
              "service/uart/*.c",
              ])
