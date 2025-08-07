@@ -173,8 +173,6 @@ static void usb_network_init_netif(void* arg) {
 #if LWIP_IPV6
     netif_create_ip6_linklocal_address(usb_network->netif, 1);
 #endif
-    netif_set_default(usb_network->netif);
-
     while(!netif_is_up(usb_network->netif))
         ;
 
@@ -192,7 +190,8 @@ static void usb_network_init_netif(void* arg) {
         counter++;
     }
 
-    usb_network->dhcp_config.router.addr = PP_HTONL(LWIP_MAKEU32(0, 0, 0, 0));
+    usb_network->dhcp_config.netif = usb_network->netif;
+    usb_network->dhcp_config.router.addr = 0;
     usb_network->dhcp_config.port = 67;
     usb_network->dhcp_config.dns.addr = 0;
     usb_network->dhcp_config.domain = "usb";
@@ -203,14 +202,25 @@ static void usb_network_init_netif(void* arg) {
         ;
 
     mdns_resp_init();
-    mdns_resp_add_netif(netif_default, usb_network_settings_get_hostname());
+    mdns_resp_add_netif(usb_network->netif, usb_network_settings_get_hostname());
     mdns_resp_add_service(
-        netif_default, "httpd", "_http", DNSSD_PROTO_TCP, 80, mdns_srv_txt, NULL);
-    mdns_resp_announce(netif_default);
+        usb_network->netif, "httpd", "_http", DNSSD_PROTO_TCP, 80, mdns_srv_txt, NULL);
+    mdns_resp_announce(usb_network->netif);
 
 #ifdef USB_NET_IPERF
     lwiperf_start_tcp_server_default(NULL, NULL);
 #endif
+}
+
+bool usb_network_is_dhcp_addr(UsbNetwork* usb_network, uint8_t* addr) {
+    furi_assert(usb_network);
+    furi_assert(addr);
+    for(uint8_t i = 0; i < DHCP_ENTRIES_MAX; i++) {
+        if(memcmp(&usb_network->dhcp_entries[i].addr.addr, addr, 4) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void usb_network_thread_init(UsbNetwork* usb_network) {
