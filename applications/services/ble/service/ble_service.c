@@ -21,7 +21,7 @@ static BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristic
     return instance;
 }
 
-/* inline  */ static bool ble_service_lock(BleServiceObject* instance) {
+/* inline  */ bool ble_service_lock(BleServiceObject* instance) {
     if(furi_mutex_acquire(instance->service_lock, 100) != FuriStatusOk) {
         FURI_LOG_W(instance->desc->name, "Service lock failed");
         return false;
@@ -29,7 +29,7 @@ static BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristic
     return true;
 }
 
-/* inline  */ static void ble_service_unlock(BleServiceObject* instance) {
+/* inline  */ void ble_service_unlock(BleServiceObject* instance) {
     if(furi_mutex_release(instance->service_lock) != FuriStatusOk) {
         FURI_LOG_W(instance->desc->name, "Service unlock failed");
     }
@@ -64,7 +64,7 @@ void ble_service_prepare_frame(
     if(data_size && data) memcpy(frame->data, data, data_size);
 }
 
-static void ble_service_send_intercom_frame(BleServiceObject* instance) {
+void ble_service_send_intercom_frame(BleServiceObject* instance) {
     const BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->output;
     const BleIntercomFrameHeader* header = &frame->header;
 

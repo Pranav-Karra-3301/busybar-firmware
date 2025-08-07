@@ -54,3 +54,13 @@ void ble_service_switch_state(
     BleServiceObject* instance,
     BleServiceState new_state/* ,
     bool notify_remote */);
+
+bool ble_service_lock(BleServiceObject* instance);
+void ble_service_unlock(BleServiceObject* instance);
+void ble_service_send_intercom_frame(BleServiceObject* instance);
+
+// void ble_service_target_update_characteristic_data(
+//     BleServiceObject* instance,
+//     uint16_t char_index,
+//     void* new_data,
+//     size_t data_size);
