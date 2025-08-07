@@ -83,10 +83,7 @@ void ble_service_send_intercom_frame(BleServiceObject* instance) {
     furi_assert(tx == frame_size);
 }
 
-void ble_service_switch_state(
-    BleServiceObject* instance,
-    BleServiceState new_state/* ,
-    bool notify_remote */) {
+void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_state) {
     // if(ble_service_switch_state_allowed(instance->state, new_state)) {
 
     FURI_LOG_D(instance->desc->name, "Set new_state: %d", new_state);
