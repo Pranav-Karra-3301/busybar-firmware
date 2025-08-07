@@ -160,6 +160,15 @@ static bool ble_service_process_response(BleServiceObject* instance) {
 
 static bool ble_service_process_notification(BleServiceObject* instance) {
     FURI_LOG_D(instance->desc->name, "Notification frame RX");
+
+    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
+
+    if(frame->header.command == BleCommandServiceNotify) {
+        BleCharacteristicData* ch_data = (BleCharacteristicData*)frame->data;
+        ble_service_target_notify(
+            instance, ch_data->header.index, ch_data->data, ch_data->header.data_size);
+    }
+
     //extract command type from frame
     //check if command available in current state
     //execute target specific command handler -> execute service specific handler
