@@ -36,14 +36,6 @@ typedef enum {
 //Test shit
 ///TODO: rename this to BleCommandType
 typedef enum {
-    ///TODO: remove all these
-    BleRequestTypeEnable,
-    BleRequestTypeDisable,
-    BleRequestTypeInit,
-    BleRequestTypeRead,
-    BleRequestTypeWrite,
-    BleRequestTypeNotify,
-
     //keep these
     BleCommandEnable,
     BleCommandDisable,
