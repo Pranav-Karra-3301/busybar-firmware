@@ -26,10 +26,10 @@ struct BleServiceObject {
     FuriSemaphore* frame_lock;
     size_t frame_size;
     ///TODO: replace this with malloc
-    uint8_t frame_buf[50];
+    uint8_t frame_buf[70];
     //uint8_t* frame_buf;
 
-    uint8_t output[50];
+    uint8_t output[70];
     BleServiceStateChangeCallback state_change_callback;
     void* data_context;
 #if defined(SI917)
