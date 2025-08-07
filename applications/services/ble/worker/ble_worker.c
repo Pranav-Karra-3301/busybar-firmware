@@ -1,3 +1,4 @@
+#include "ble_worker.h"
 #include <furi.h>
 
 #include <sl_status.h>
@@ -11,7 +12,11 @@
 #include "rsi_ble_common_config.h"
 #include "rsi_bt_common_apis.h"
 
+// #include "../ble_common.h"
 #include "ble_advertise_config.h"
+#include "../ble_backend_util.h"
+#include "../service/ble_service_i.h"
+// #include "../service/ble_service_config_types.h"
 
 #define TAG "BleWorker"
 
@@ -47,7 +52,7 @@ typedef enum {
 
 typedef struct {
     FuriThread* thread;
-
+    bool connected;
     uint8_t device_found;
     uint8_t conn_params_updated;
     uint8_t remote_name[31];
@@ -67,11 +72,6 @@ typedef struct {
     rsi_ble_event_write_t app_ble_write_event;
     rsi_ble_event_mtu_t app_ble_mtu_event;
 
-    bool exit;
-
-    ///TODO: replace this with LIST
-    // BleCharacteristicObject* characteristics[10];
-    BleServiceObject* services[3];
 } BleWorker;
 
 //==========================================================
@@ -767,6 +767,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
         service->service_handler = new_serv_resp.serv_handler;
 
         uint16_t handle = new_serv_resp.start_handle;
+        BLE_LOG_I("Serv: 0x%04X", new_serv_resp.start_handle);
         for(uint8_t i = 0; i < service->desc->char_count; i++) {
             BleCharacteristicObject* ch = service->chars[i];
 
@@ -774,14 +775,18 @@ bool ble_worker_register_service(BleServiceObject* service) {
             ble_prepare_uuid(&ch->desc->uuid, ch->desc->uuid_size, &rsi_uiid);
 
             BLE_LOG_I("Add char %s att handle: %04X", ch->desc->name, handle + 1);
-            handle = ble_worker_add_char_serv_att(
-                service->service_handler, handle, ch->desc->char_properties, handle + 1, rsi_uiid);
-
-            BLE_LOG_I("Add char %s val att handle: %04X", ch->desc->name, handle + 1);
-            ch->handle = handle + 1;
-            handle = ble_worker_add_char_val_att(
+            ble_worker_add_char_serv_att(
                 service->service_handler,
                 handle + 1,
+                ch->desc->char_properties,
+                handle + 2,
+                rsi_uiid);
+
+            BLE_LOG_I("Add char %s val att handle: %04X", ch->desc->name, handle + 2);
+            ch->handle = handle + 2;
+            handle = ble_worker_add_char_val_att(
+                service->service_handler,
+                handle + 2,
                 rsi_uiid,
                 ch->desc->char_properties,
                 ch->data,
@@ -815,16 +820,20 @@ void ble_worker_stop() {
     BLE_LOG_I("Stopped");
 }
 
-void ble_worker_set_value(
-    uint16_t service_index,
-    uint16_t char_index,
-    uint16_t data_size,
-    const uint8_t* data) {
-    furi_assert(data);
+void ble_worker_test_after_init() {
+    ble_print_service_hierarchy(0x001E);
+}
 
-    BleServiceObject* service = ble_worker_instance->services[service_index];
-    BleCharacteristicObject* char_obj = service->chars[char_index];
-    BLE_LOG_I("Set Value char_handle: %04X", char_obj->handle);
-    int32_t res = rsi_ble_set_local_att_value(char_obj->handle, data_size, data);
-    BLE_LOG_I("Set res: %lX", res);
+void ble_worker_set_data(uint16_t handle, uint16_t data_size, const uint8_t* data) {
+    BLE_LOG_I("Set_value to 0x%04X", handle);
+    rsi_ble_set_local_att_value(handle, data_size, data);
+}
+
+void ble_worker_notify(uint16_t handle, uint16_t data_size, const uint8_t* data) {
+    rsi_ble_set_local_att_value(handle, data_size, data);
+
+    if(ble_worker_instance->connected) {
+        BLE_LOG_I("Notify value of 0x%04X", handle);
+        rsi_ble_notify_value(ble_worker_instance->remote_dev_address, handle, data_size, data);
+    }
 }
