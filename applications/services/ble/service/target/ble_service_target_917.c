@@ -46,3 +46,14 @@ bool ble_service_target_process_response(BleServiceObject* instance) {
     UNUSED(instance);
     return true;
 }
+
+void ble_service_target_notify(
+    BleServiceObject* instance,
+    uint8_t ch_index,
+    void* data,
+    size_t data_size) {
+    FURI_LOG_I(instance->desc->name, "ble_service_target_notify");
+    BleCharacteristicObject* ch = instance->chars[ch_index];
+    memcpy(ch->data, data, data_size);
+    ble_worker_notify(ch->handle, data_size, data);
+}

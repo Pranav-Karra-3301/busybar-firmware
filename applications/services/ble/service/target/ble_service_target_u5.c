@@ -87,3 +87,14 @@ bool ble_service_target_process_response(BleServiceObject* instance) {
 
     return result;
 }
+
+void ble_service_target_notify(
+    BleServiceObject* instance,
+    uint8_t ch_index,
+    void* data,
+    size_t data_size) {
+    UNUSED(instance);
+    UNUSED(ch_index);
+    UNUSED(data);
+    UNUSED(data_size);
+}
