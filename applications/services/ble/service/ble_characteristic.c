@@ -23,7 +23,7 @@ void ble_characteristic_free(BleCharacteristicObject* instance) {
     free(instance);
 }
 
-void* ble_characteristic_get_data(BleCharacteristicObject* instance) {
+const void* ble_characteristic_get_data(BleCharacteristicObject* instance) {
     furi_assert(instance);
     return instance->data;
 }
