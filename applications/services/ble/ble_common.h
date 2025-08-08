@@ -105,20 +105,18 @@ typedef struct /*FURI_PACKED*/ {
 typedef struct {
     uint8_t index;
     uint8_t data_size;
-} BleCharacteristicInitHeader;
+} BleCharacteristicDataHeader;
 
 typedef struct /*FURI_PACKED*/ {
-    BleCharacteristicInitHeader header;
+    BleCharacteristicDataHeader header;
     uint8_t data[];
-} BleCharacteristicInit;
-
-typedef BleCharacteristicInit BleCharacteristicData;
+} BleCharacteristicData;
 
 typedef uint8_t BleCharacteristicCountType;
 
 typedef struct {
     BleCharacteristicCountType char_count;
-    BleCharacteristicInit chars_config[];
+    BleCharacteristicData chars_config[];
 } BleServiceInitConfig;
 
 typedef struct /*FURI_PACKED*/ {

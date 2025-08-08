@@ -22,7 +22,7 @@ void ble_service_prepare_char_frame(
     frame->header.frame_type = frame_type;
     frame->header.command = command_event;
     frame->header.service_index = instance->desc->index;
-    frame->header.data_size = sizeof(BleCharacteristicInitHeader) + data_size;
+    frame->header.data_size = sizeof(BleCharacteristicDataHeader) + data_size;
 
     BleCharacteristicData* ch_data = (BleCharacteristicData*)frame->data;
     ch_data->header.index = ch_index;
