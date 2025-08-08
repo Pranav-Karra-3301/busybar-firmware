@@ -2,20 +2,12 @@
 
 #define TAG "BleBattery"
 
-///TODO: move this to character separate logic
-static const uint8_t* battery_character_get_data(void* obj) {
-    furi_assert(obj);
-    BleCharacteristicObject* instance = obj;
-    return instance->data;
-}
-
 //==========================================================
 static const BleCharacteristicDescriptor battery_service_characteristics[] = {
     {
         .intercom_index = BleSrvBatteryCharacterIndexBatteryLevel,
         .name = "Battery Level",
-        .data_size = sizeof(uint8_t),
-        .get_data = battery_character_get_data,
+        .max_data_size = sizeof(uint8_t),
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A19},
         .uuid_size = 2,
@@ -25,8 +17,7 @@ static const BleCharacteristicDescriptor battery_service_characteristics[] = {
     {
         .intercom_index = BleSrvBatteryCharacterIndexBatteryStatus,
         .name = "Battery Status",
-        .data_size = sizeof(BatteryStatusInfo),
-        .get_data = battery_character_get_data,
+        .max_data_size = sizeof(BatteryStatusInfo),
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2BED},
         .uuid_size = 2,

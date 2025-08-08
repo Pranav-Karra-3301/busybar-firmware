@@ -7,8 +7,6 @@
 typedef struct {
     PowerEventType event_type;
     FuriThread* thr;
-    BatteryStatusInfo battery_status;
-    uint8_t battery_level;
 } BleBatteryServiceContext;
 
 void ble_service_prepare_char_frame(
@@ -17,7 +15,7 @@ void ble_service_prepare_char_frame(
     uint8_t command_event,
     uint8_t ch_index,
     size_t data_size,
-    void* data) {
+    const void* data) {
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->output;
     frame->header.frame_type = frame_type;
     frame->header.command = command_event;
@@ -53,48 +51,66 @@ static int32_t bat_test_thread(void* context) {
         BLE_LOG_D("Bat_thr");
         if(ble_service_lock(instance)) {
             BleBatteryServiceContext* data_ctx = instance->data_context;
-            BatteryStatusInfo* battery_status = &data_ctx->battery_status;
+            BleCharacteristicObject* ch_bat_lvl =
+                instance->chars[BleSrvBatteryCharacterIndexBatteryLevel];
+            BleCharacteristicObject* ch_bat_status =
+                instance->chars[BleSrvBatteryCharacterIndexBatteryStatus];
+
+            BatteryStatusInfo battery_status = {0};
+            memcpy(
+                &battery_status,
+                ble_characteristic_get_data(ch_bat_status),
+                sizeof(BatteryStatusInfo));
 
             if(data_ctx->event_type == PowerEventBatteryPresent) {
-                battery_status->state.fields.battery_present = 1;
+                battery_status.state.fields.battery_present = 1;
             } else if(data_ctx->event_type == PowerEventBatteryPresent) {
-                battery_status->state.fields.battery_present = 0;
+                battery_status.state.fields.battery_present = 0;
             } else if(data_ctx->event_type == PowerEventChargeAmountUpdate) {
                 PowerInfo info = {0};
                 Power* power = furi_record_open(RECORD_POWER);
                 power_get_info(power, &info);
                 furi_record_close(RECORD_POWER);
                 BLE_LOG_I("Charge: %d charge_enabled: %d", info.charge, info.charge_enabled);
-                data_ctx->battery_level = info.charge;
+                // data_ctx->battery_level = info.charge;
 
-                battery_status->state.fields.wired_source_present = info.is_charging;
-                battery_status->state.fields.wireless_source_present = 0;
-                battery_status->state.fields.battery_charge_state = info.is_charging ? 1 : 2;
-                battery_status->state.fields.battery_charge_level = 1;
-                battery_status->state.fields.charging_type = 2;
-                battery_status->state.fields.charging_fault_reason = 0;
+                battery_status.state.fields.wired_source_present = info.is_charging;
+                battery_status.state.fields.wireless_source_present = 0;
+                battery_status.state.fields.battery_charge_state = info.is_charging ? 1 : 2;
+                battery_status.state.fields.battery_charge_level = 1;
+                battery_status.state.fields.charging_type = 2;
+                battery_status.state.fields.charging_fault_reason = 0;
+
+                ble_characteristic_set_data(ch_bat_lvl, &info.charge, sizeof(info.charge));
+                ble_characteristic_set_data(
+                    ch_bat_status, &battery_status, sizeof(BatteryStatusInfo));
             }
 
             BLE_LOG_D("update_char");
-            BleCharacteristicObject* ch = instance->chars[BleSrvBatteryCharacterIndexBatteryLevel];
+
+            ///TDOO: All this code must be moved to common layers
+            const void* data = ble_characteristic_get_data(ch_bat_lvl);
+            size_t data_size = ble_characteristic_get_data_size(ch_bat_lvl);
 
             ble_service_prepare_char_frame(
                 instance,
                 BleIntercomFrameTypeNotification,
                 BleCommandServiceNotify,
                 BleSrvBatteryCharacterIndexBatteryLevel,
-                ch->data_size,
-                ch->data);
+                data_size,
+                data);
             ble_service_send_intercom_frame(instance);
 
-            ch = instance->chars[BleSrvBatteryCharacterIndexBatteryStatus];
+            data = ble_characteristic_get_data(ch_bat_status);
+            data_size = ble_characteristic_get_data_size(ch_bat_status);
+
             ble_service_prepare_char_frame(
                 instance,
                 BleIntercomFrameTypeNotification,
                 BleCommandServiceNotify,
                 BleSrvBatteryCharacterIndexBatteryStatus,
-                ch->data_size,
-                ch->data);
+                data_size,
+                data);
             ble_service_send_intercom_frame(instance);
 
             ble_service_unlock(instance);
@@ -117,24 +133,23 @@ bool ble_service_battery_init(void* object) {
     PowerInfo info = {0};
     power_get_info(power, &info);
 
-    context->battery_level = info.charge;
-    instance->chars[BleSrvBatteryCharacterIndexBatteryLevel]->data = &context->battery_level;
-    instance->chars[BleSrvBatteryCharacterIndexBatteryLevel]->data_size = sizeof(uint8_t);
+    BleCharacteristicObject* ch = instance->chars[BleSrvBatteryCharacterIndexBatteryLevel];
 
-    BatteryStatusInfo* battery_status = &context->battery_status;
+    ble_characteristic_set_data(ch, &info.charge, sizeof(info.charge));
 
-    battery_status->flags = 0;
-    battery_status->state.fields.battery_present = 1;
-    battery_status->state.fields.wired_source_present = info.is_charging;
-    battery_status->state.fields.wireless_source_present = 0;
-    battery_status->state.fields.battery_charge_state = info.is_charging ? 1 : 2;
-    battery_status->state.fields.battery_charge_level = 1;
-    battery_status->state.fields.charging_type = 2;
-    battery_status->state.fields.charging_fault_reason = 0;
+    BatteryStatusInfo battery_status = {0};
 
-    instance->chars[BleSrvBatteryCharacterIndexBatteryStatus]->data = battery_status;
-    instance->chars[BleSrvBatteryCharacterIndexBatteryStatus]->data_size =
-        sizeof(BatteryStatusInfo);
+    battery_status.flags = 0;
+    battery_status.state.fields.battery_present = 1;
+    battery_status.state.fields.wired_source_present = info.is_charging;
+    battery_status.state.fields.wireless_source_present = 0;
+    battery_status.state.fields.battery_charge_state = info.is_charging ? 1 : 2;
+    battery_status.state.fields.battery_charge_level = 1;
+    battery_status.state.fields.charging_type = 2;
+    battery_status.state.fields.charging_fault_reason = 0;
+
+    ch = instance->chars[BleSrvBatteryCharacterIndexBatteryStatus];
+    ble_characteristic_set_data(ch, &battery_status, sizeof(BatteryStatusInfo));
 
     furi_pubsub_subscribe(power_get_pubsub(power), ble_power_pubsub_message_callback, instance);
 
