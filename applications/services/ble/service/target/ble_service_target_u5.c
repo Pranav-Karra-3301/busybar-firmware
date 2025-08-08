@@ -20,10 +20,10 @@ bool ble_service_target_init(BleServiceObject* instance) {
         size_t total_data_size = 0;
         uint8_t chars_count = instance->desc->char_count;
         for(size_t i = 0; i < chars_count; i++) {
-            total_data_size += instance->chars[i]->data_size;
+            total_data_size += ble_characteristic_get_data_size(instance->chars[i]);
         }
 
-        size_t total_config_size = sizeof(BleCharacteristicInitHeader) * chars_count +
+        size_t total_config_size = sizeof(BleCharacteristicDataHeader) * chars_count +
                                    total_data_size + sizeof(BleCharacteristicCountType);
         BleServiceInitConfig* config = malloc(total_config_size);
 
@@ -32,17 +32,10 @@ bool ble_service_target_init(BleServiceObject* instance) {
         for(size_t i = 0; i < chars_count; i++) {
             BleCharacteristicObject* ch_obj = instance->chars[i];
 
-            BleCharacteristicInit* char_init =
-                (BleCharacteristicInit*)((uint8_t*)config->chars_config + offset);
+            BleCharacteristicData* char_init =
+                (BleCharacteristicData*)((uint8_t*)config->chars_config + offset);
 
-            char_init->header.index = ch_obj->desc->intercom_index;
-            char_init->header.data_size = ch_obj->data_size;
-            FURI_LOG_D(instance->desc->name, "Char size: %d", ch_obj->data_size);
-
-            const uint8_t* data = ch_obj->desc->get_data(ch_obj);
-            memcpy(char_init->data, data, ch_obj->data_size);
-
-            offset += (ch_obj->data_size + sizeof(BleCharacteristicInitHeader));
+            offset += ble_characteristic_fill_update_struct(ch_obj, char_init);
         }
 
         FURI_LOG_D(instance->desc->name, "Config size: %d", total_config_size);
