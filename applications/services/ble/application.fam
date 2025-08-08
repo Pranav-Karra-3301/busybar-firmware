@@ -8,6 +8,8 @@ App(
     targets=["f64"],
     requires=["intercom"],
     sources=[ "ble.c",
+              "ble_backend_util.c",
+              "worker/*.c",
               "service/*.c",
               "service/target/ble_service_target_917.c",
               "service/device_info/*.c",
