@@ -14,38 +14,54 @@
     {0x6E, 0x40, 0x00, 0x03, 0xB5, 0xA3, 0xF3, 0x93, 0xE0, 0xA9, 0xE5, 0x0E, 0x24, 0xDC, 0xCA, 0x9E}
 
 typedef enum {
-    BleSrvDeviceInfoCharacterIndexSerialNumber,
-    BleSrvDeviceInfoCharacterIndexHardwareRevision,
-    BleSrvDeviceInfoCharacterIndexSoftwareRevision,
-} BleSrvDeviceInfoCharacterIndex;
+    BleSrvDeviceUartCharacterRx,
+    BleSrvDeviceUartCharacterTx,
+} BleSrvUartCharacterIndex;
 
-static bool ble_service_uart_init(void* instance) {
-    furi_assert(instance);
+static bool ble_service_uart_init(void* object) {
+    furi_assert(object);
     BLE_LOG_W("uart_init");
+    BleServiceObject* instance = object;
+
+    instance->chars[BleSrvDeviceUartCharacterRx]->data = malloc(2);
+    memset(instance->chars[BleSrvDeviceUartCharacterRx]->data, 'B', 2);
+    instance->chars[BleSrvDeviceUartCharacterRx]->data_size = 2;
+
+    instance->chars[BleSrvDeviceUartCharacterTx]->data = malloc(2);
+    memset(instance->chars[BleSrvDeviceUartCharacterTx]->data, 'A', 2);
+    instance->chars[BleSrvDeviceUartCharacterTx]->data_size = 2;
 
     return true;
 }
 
+static const uint8_t* uart_character_get_data(void* obj) {
+    furi_assert(obj);
+    BleCharacteristicObject* instance = obj;
+    return (uint8_t*)(instance->data);
+}
+
 static const BleCharacteristicDescriptor uart_service_characteristics[] = {
     {
-        .intercom_index = 0,
+        .intercom_index = BleSrvDeviceUartCharacterRx,
         .name = "Uart Rx",
-        .data_size = sizeof(2),
+        .data_size = 2,
+        .get_data = uart_character_get_data,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_RX_CHAR_UUID},
         .uuid_size = 16,
+        .char_properties = BLE_ATT_PROPERTY_READ | BLE_ATT_PROPERTY_WRITE,
 #endif
-        // .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_WRITE,
     },
     {
-        .intercom_index = 1,
+        .intercom_index = BleSrvDeviceUartCharacterTx,
         .name = "Uart Tx",
-        .data_size = sizeof(2),
+        .data_size = 2,
+        .get_data = uart_character_get_data,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_TX_CHAR_UUID},
         .uuid_size = 16,
+        .char_properties = BLE_ATT_PROPERTY_READ | BLE_ATT_PROPERTY_NOTIFY,
 #endif
-        // .char_properties = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_NOTIFY,
     },
 };
 
