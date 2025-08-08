@@ -3,24 +3,6 @@
 
 #define TAG "BleServiceBase"
 
-static BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristicDescriptor* desc) {
-    BleCharacteristicObject* instance = malloc(sizeof(BleCharacteristicObject));
-    instance->desc = desc;
-
-    //target_specific_alloc();
-    // {
-    // furi_assert(desc);
-    // furi_assert(service_handler);
-    // furi_assert(desc->data_size);
-    // furi_assert(out_handle);
-
-    // uuid_t uuid = {0};
-    // ble_prepare_uuid(&desc->uuid, desc->uuid_size, &uuid);
-    // }
-
-    return instance;
-}
-
 /* inline  */ bool ble_service_lock(BleServiceObject* instance) {
     if(furi_mutex_acquire(instance->service_lock, 100) != FuriStatusOk) {
         FURI_LOG_W(instance->desc->name, "Service lock failed");

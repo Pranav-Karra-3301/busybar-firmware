@@ -1,18 +1,13 @@
 #pragma once
 
 #include "ble_service.h"
+#include "ble_characteristic.h"
+
 #include <furi.h>
 
 #define BLE_ATT_PROPERTY_READ   0x02
 #define BLE_ATT_PROPERTY_WRITE  0x08
 #define BLE_ATT_PROPERTY_NOTIFY 0x10
-
-typedef struct {
-    const BleCharacteristicDescriptor* desc;
-    uint16_t handle;
-    uint8_t data_size;
-    void* data;
-} BleCharacteristicObject;
 
 struct BleServiceObject {
     BleServiceState state;
