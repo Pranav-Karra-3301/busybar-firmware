@@ -17,6 +17,13 @@ typedef enum {
     BleSrvDeviceInfoCharacterIndexSoftwareRevision,
 } BleSrvDeviceInfoCharacterIndex;
 
+#if defined(SI917)
+static bool ble_service_device_info_init_917(void* object) {
+    UNUSED(object);
+    BLE_LOG_W("device_info_init_917");
+    return true;
+}
+#else
 static void device_info_callback(const char* key, const char* value, bool last, void* context) {
     UNUSED(last);
     UNUSED(value);
@@ -36,7 +43,7 @@ static void device_info_callback(const char* key, const char* value, bool last, 
     furi_string_free(key_str);
 }
 
-static bool ble_service_device_info_init(void* object) {
+static bool ble_service_device_info_init_u5(void* object) {
     furi_assert(object);
 
     BLE_LOG_W("device_info_init");
@@ -69,6 +76,7 @@ static bool ble_service_device_info_init(void* object) {
 
     return true;
 }
+#endif
 
 static const uint8_t* dev_info_character_get_data(void* obj) {
     furi_assert(obj);
@@ -116,12 +124,14 @@ const BleServiceDescriptor ble_service_config_device_info = {
 #if defined(SI917)
     .uuid = {.Char_UUID_16 = 0x180A},
     .uuid_size = 2,
+    .init = ble_service_device_info_init_917,
+#else
+    .init = ble_service_device_info_init_u5,
 #endif
     .index = BleIntercomServiceIndexDeviceInfo,
     .init_method = BleServiceInitMethodRemote,
     .char_count = COUNT_OF(device_info_service_characteristics),
     .char_descriptors = device_info_service_characteristics,
-    .init = ble_service_device_info_init,
     // .run = ble_service_device_info_run,
     // .on_response = ble_service_device_info_on_response,
 };
