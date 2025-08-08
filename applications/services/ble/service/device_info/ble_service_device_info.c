@@ -50,46 +50,41 @@ static bool ble_service_device_info_init_u5(void* object) {
 
     BleServiceObject* instance = object;
 
-    BleDeviceInfoDataContext* device_info = malloc(sizeof(BleDeviceInfoDataContext));
+    BleDeviceInfoDataContext device_info;
 
-    device_info->hw_revision = furi_string_alloc();
-    device_info->sw_revision = furi_string_alloc();
-    device_info->serial_number = furi_string_alloc();
+    furi_hal_info_get(device_info_callback, '_', &device_info);
 
-    furi_hal_info_get(device_info_callback, '_', device_info);
+    BleCharacteristicObject* ch = instance->chars[BleSrvDeviceInfoCharacterIndexSerialNumber];
+    ble_characteristic_set_data(
+        ch,
+        furi_string_get_cstr(device_info.serial_number),
+        furi_string_size(device_info.serial_number));
 
-    instance->data_context = device_info;
+    ch = instance->chars[BleSrvDeviceInfoCharacterIndexHardwareRevision];
+    ble_characteristic_set_data(
+        ch,
+        furi_string_get_cstr(device_info.hw_revision),
+        furi_string_size(device_info.hw_revision));
 
-    instance->chars[BleSrvDeviceInfoCharacterIndexSerialNumber]->data = device_info->serial_number;
-    instance->chars[BleSrvDeviceInfoCharacterIndexSerialNumber]->data_size =
-        furi_string_size(device_info->serial_number);
+    ch = instance->chars[BleSrvDeviceInfoCharacterIndexSoftwareRevision];
+    ble_characteristic_set_data(
+        ch,
+        furi_string_get_cstr(device_info.sw_revision),
+        furi_string_size(device_info.sw_revision));
 
-    instance->chars[BleSrvDeviceInfoCharacterIndexHardwareRevision]->data =
-        device_info->hw_revision;
-    instance->chars[BleSrvDeviceInfoCharacterIndexHardwareRevision]->data_size =
-        furi_string_size(device_info->hw_revision);
-
-    instance->chars[BleSrvDeviceInfoCharacterIndexSoftwareRevision]->data =
-        device_info->sw_revision;
-    instance->chars[BleSrvDeviceInfoCharacterIndexSoftwareRevision]->data_size =
-        furi_string_size(device_info->sw_revision);
+    furi_string_free(device_info.hw_revision);
+    furi_string_free(device_info.sw_revision);
+    furi_string_free(device_info.serial_number);
 
     return true;
 }
 #endif
-
-static const uint8_t* dev_info_character_get_data(void* obj) {
-    furi_assert(obj);
-    BleCharacteristicObject* instance = obj;
-    return (uint8_t*)furi_string_get_cstr(instance->data);
-}
 
 //==========================================================
 static const BleCharacteristicDescriptor device_info_service_characteristics[] = {
     {
         .intercom_index = BleSrvDeviceInfoCharacterIndexSerialNumber,
         .name = "Serial Number",
-        .get_data = dev_info_character_get_data,
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A25},
         .uuid_size = 2,
@@ -99,7 +94,6 @@ static const BleCharacteristicDescriptor device_info_service_characteristics[] =
     {
         .intercom_index = BleSrvDeviceInfoCharacterIndexHardwareRevision,
         .name = "Hardware Revision",
-        .get_data = dev_info_character_get_data,
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A27},
         .uuid_size = 2,
@@ -109,7 +103,6 @@ static const BleCharacteristicDescriptor device_info_service_characteristics[] =
     {
         .intercom_index = BleSrvDeviceInfoCharacterIndexSoftwareRevision,
         .name = "Software Revision",
-        .get_data = dev_info_character_get_data,
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A26},
         .uuid_size = 2,
