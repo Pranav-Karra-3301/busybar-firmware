@@ -95,7 +95,6 @@ static const BleCharacteristicDescriptor device_info_service_characteristics[] =
         .uuid_size = 2,
         .char_properties = BLE_ATT_PROPERTY_READ,
 #endif
-
     },
     {
         .intercom_index = BleSrvDeviceInfoCharacterIndexHardwareRevision,

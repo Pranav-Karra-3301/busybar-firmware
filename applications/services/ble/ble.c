@@ -6,6 +6,8 @@
 #include <intercom/intercom.h>
 #if !defined(SI917)
 #include <api_lock.h>
+#else
+#include "worker/ble_worker.h"
 #endif
 
 #define TAG "BLE"
@@ -25,6 +27,7 @@ struct Ble {
     BleIntercomFrameGeneric mailbox;
 
     FuriEventLoopTimer* heartbear_timer;
+    FuriEventLoopTimer* test_timer;
     FuriMutex* ble_lock;
 
     FuriEventLoop* event_loop;
@@ -63,22 +66,8 @@ static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* 
 
     BleMessage msg;
     if(furi_message_queue_get(ble->message_queue, &msg, FuriWaitForever) == FuriStatusOk) {
-        //BLE_LOG_I("msg %d serv: %d", msg.type, msg.service_index);
-
         BleServiceObject* service = ble->services[msg.service_index];
-        ble_service_run(service, &msg);
-        // if(msg.type == BleCommandServiceRead) {
-        //     FURI_LOG_I("MsgQueue", "msg %d serv: %d", msg.type, msg.service_index);
-
-        //     BleServiceObject* service = ble->services[msg.service_index];
-        //     ble_service_run(service);
-        //     // BleServiceRun run = service->desc->run;
-        //     // if(run) run(service);
-        // } else if(msg.type == BleCommandServiceSetState) {
-        //     if(msg.data[0] == BleServiceStateInitialization) {
-        //         FURI_LOG_I("MsgQueue", "SetState");
-        //     }
-        // }
+        ble_service_process(service, &msg);
     } else
         FURI_LOG_W("MsgQueue", "Projebana cherga");
     // BLE_LOG_W("Projebana cherga");
@@ -144,6 +133,13 @@ static void ble_heartbeat_timer_handler(void* context) {
 }
 
 #if defined(SI917)
+static void test_timer_handler(void* context) {
+    BLE_LOG_W("test_timer");
+    UNUSED(context);
+    ble_worker_test_after_init();
+    ble_worker_start();
+}
+
 static void ble_event_loop_on_start(void* context) {
     UNUSED(context);
     BLE_LOG_W("ble_event_loop_on_start");
@@ -181,10 +177,6 @@ static Ble* ble_alloc() {
         ble_event_loop_msg_queue_handler,
         instance);
 
-#if defined(SI917)
-    furi_event_loop_pend_callback(instance->event_loop, ble_event_loop_on_start, instance);
-#endif
-
     instance->intercom = furi_record_open(RECORD_INTERCOM);
     intercom_set_rx_callback(
         instance->intercom, IntercomChannelBle, ble_backend_intercom_rx_callback, instance);
@@ -192,8 +184,16 @@ static Ble* ble_alloc() {
     for(size_t i = 0; i < BLE_SERVICES_COUNT; i++) {
         instance->services[i] =
             ble_service_alloc(service_config[i], instance->message_queue, instance->intercom);
-        //ble_worker_create_service(&service_config[i], instance->message_queue);
     }
+
+#if defined(SI917)
+    instance->test_timer = furi_event_loop_timer_alloc(
+        instance->event_loop, test_timer_handler, FuriEventLoopTimerTypeOnce, instance);
+
+    furi_event_loop_pend_callback(instance->event_loop, ble_event_loop_on_start, instance);
+    furi_event_loop_timer_start(instance->test_timer, 20000);
+    ble_worker_init();
+#endif
 
     furi_record_create(RECORD_BLE, instance);
 
@@ -224,14 +224,14 @@ static void ble_send_message(Ble* instance, BleMessage* message) {
 bool ble_start(Ble* ble) {
     BleMessage msg;
 
-    msg.type = BleRequestTypeEnable;
+    msg.type = BleCommandEnable;
     ble_send_message(ble, &msg);
     return msg.result;
 }
 
 bool ble_stop(Ble* ble) {
     BleMessage msg;
-    msg.type = BleRequestTypeDisable;
+    msg.type = BleCommandDisable;
     ble_send_message(ble, &msg);
     return msg.result;
 }

@@ -98,16 +98,9 @@ typedef struct {
 
 typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameHeader header;
-    // size_t data_size;
-    //TODO: this can be moved to the data below, so we will send characteristic data only when needed;
     uint16_t char_index;
     uint8_t data[];
 } BleIntercomFrameCharData;
-
-// typedef struct /*FURI_PACKED*/ {
-//     uint8_t intercom_index;
-//     uint8_t data_size;
-// } BleCharSize;
 
 typedef struct {
     uint8_t index;
@@ -118,6 +111,8 @@ typedef struct /*FURI_PACKED*/ {
     BleCharacteristicInitHeader header;
     uint8_t data[];
 } BleCharacteristicInit;
+
+typedef BleCharacteristicInit BleCharacteristicData;
 
 typedef uint8_t BleCharacteristicCountType;
 
