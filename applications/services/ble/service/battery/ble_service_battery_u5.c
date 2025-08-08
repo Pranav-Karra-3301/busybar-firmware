@@ -64,10 +64,10 @@ static int32_t bat_test_thread(void* context) {
                 Power* power = furi_record_open(RECORD_POWER);
                 power_get_info(power, &info);
                 furi_record_close(RECORD_POWER);
-
+                BLE_LOG_I("Charge: %d charge_enabled: %d", info.charge, info.charge_enabled);
                 data_ctx->battery_level = info.charge;
 
-                battery_status->state.fields.wired_source_present = info.charge_enabled;
+                battery_status->state.fields.wired_source_present = info.is_charging;
                 battery_status->state.fields.wireless_source_present = 0;
                 battery_status->state.fields.battery_charge_state = info.is_charging ? 1 : 2;
                 battery_status->state.fields.battery_charge_level = 1;
