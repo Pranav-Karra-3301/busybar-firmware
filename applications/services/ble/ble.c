@@ -37,8 +37,6 @@ struct Ble {
     FuriSemaphore* access_semaphore;
 
     BleServiceObject* services[3];
-    BleIntercomServiceIndex pending_service_index;
-
     BleMessage* current_message;
 };
 
@@ -88,7 +86,7 @@ void ble_custom_event_callback(uint32_t events, void* context) {
                 frame->header.data_size,
                 frame_size);
 
-            BleIntercomServiceIndex index = frame->header.service_index;
+            BleServiceIndex index = frame->header.service_index;
             if(index == BLE_SERVICES_COUNT) {
                 index -= 1;
             }

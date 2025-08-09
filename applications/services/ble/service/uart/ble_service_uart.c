@@ -58,7 +58,7 @@ const BleServiceDescriptor ble_service_config_uart = {
     .uuid = {.Char_UUID_128 = UART_SERVICE_UUID},
     .uuid_size = 16,
 #endif
-    .index = BleIntercomServiceIndexUart,
+    .index = BleServiceIndexUart,
     .init_method = BleServiceInitMethodRemote,
     .char_count = COUNT_OF(uart_service_characteristics),
     .char_descriptors = uart_service_characteristics,

@@ -4,7 +4,7 @@
 #include "uart/ble_service_uart.h"
 
 const BleServiceDescriptor* service_config[] = {
-    [BleIntercomServiceIndexDeviceInfo] = &ble_service_config_device_info,
-    [BleIntercomServiceIndexBattery] = &ble_service_config_battery,
-    [BleIntercomServiceIndexUart] = &ble_service_config_uart,
+    [BleServiceIndexDeviceInfo] = &ble_service_config_device_info,
+    [BleServiceIndexBattery] = &ble_service_config_battery,
+    [BleServiceIndexUart] = &ble_service_config_uart,
 };

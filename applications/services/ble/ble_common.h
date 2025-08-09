@@ -1,7 +1,8 @@
 #pragma once
 
-#include <furi.h>
+#include "service/ble_service_index.h"
 
+#include <furi.h>
 #include <intercom/intercom.h>
 
 #define BLE_DEBUG
@@ -55,17 +56,10 @@ typedef struct {
 } BleMessage;
 //==========================================================================================================
 
-typedef enum {
-    BleIntercomServiceIndexDeviceInfo,
-    BleIntercomServiceIndexBattery,
-    BleIntercomServiceIndexUart,
-} BleIntercomServiceIndex;
-//=============================================
-
 typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameType frame_type;
     BleCommand command;
-    BleIntercomServiceIndex service_index;
+    BleServiceIndex service_index;
     size_t data_size;
 } BleIntercomFrameHeader;
 
