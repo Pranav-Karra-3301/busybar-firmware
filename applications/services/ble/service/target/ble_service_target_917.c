@@ -11,7 +11,7 @@ bool ble_service_target_init(BleServiceObject* instance) {
 
     // if(instance->desc->init(instance))
 
-    const BleServiceInitConfig* service_config = &frame->service_init;
+    const BleIntercomServiceData* service_config = &frame->service_init;
     FURI_LOG_I(instance->desc->name, "Config char_count: %d", service_config->char_count);
     uint8_t offset = 0;
 

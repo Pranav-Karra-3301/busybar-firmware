@@ -117,11 +117,11 @@ typedef uint8_t BleCharacteristicCountType;
 typedef struct {
     BleCharacteristicCountType char_count;
     BleCharacteristicData chars_config[];
-} BleServiceInitConfig;
+} BleIntercomServiceData;
 
 typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameHeader header;
-    BleServiceInitConfig service_init;
+    BleIntercomServiceData service_init;
 } BleIntercomFrameServiceConfig;
 
 //=============================================

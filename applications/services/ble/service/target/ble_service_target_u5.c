@@ -25,7 +25,7 @@ bool ble_service_target_init(BleServiceObject* instance) {
 
         size_t total_config_size = sizeof(BleCharacteristicDataHeader) * chars_count +
                                    total_data_size + sizeof(BleCharacteristicCountType);
-        BleServiceInitConfig* config = malloc(total_config_size);
+        BleIntercomServiceData* config = malloc(total_config_size);
 
         config->char_count = chars_count;
         uint8_t offset = 0;
