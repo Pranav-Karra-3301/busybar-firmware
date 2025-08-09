@@ -33,10 +33,7 @@ typedef enum {
     BleServiceStateError, /*Error occured.*/
 } BleServiceState;
 //==========================================================================================================
-//Test shit
-///TODO: rename this to BleCommandType
 typedef enum {
-    //keep these
     BleCommandEnable,
     BleCommandDisable,
     //-------------------------------------
@@ -45,24 +42,12 @@ typedef enum {
     BleCommandServiceRead,
     BleCommandServiceWrite,
     BleCommandServiceNotify,
-
     //-------------------------------------
-
     BleCommandServiceProcessFrame,
 } BleCommand;
 
-// typedef enum {
-//     BleEventStateChanged,
-// } BleEvent;
-
-// typedef union {
-//     BleCommand command;
-//     BleEvent event;
-// } BleCommandEvent;
-
-///TODO: need to exted this more
 typedef struct {
-    BleCommand type; ///TODO: get rid if this
+    BleCommand type;
     uint16_t service_index;
     uint8_t data[5];
     // FuriApiLock lock;
@@ -95,12 +80,6 @@ typedef struct {
     BleIntercomFrameHeader header;
     BleServiceState state;
 } BleIntercomFrameHeartbeat;
-
-typedef struct /*FURI_PACKED*/ {
-    BleIntercomFrameHeader header;
-    uint16_t char_index;
-    uint8_t data[];
-} BleIntercomFrameCharData;
 
 typedef struct {
     uint8_t index;
