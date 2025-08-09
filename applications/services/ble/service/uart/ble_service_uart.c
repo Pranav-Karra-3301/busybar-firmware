@@ -22,30 +22,16 @@ static bool ble_service_uart_init(void* object) {
     furi_assert(object);
     BLE_LOG_W("uart_init");
     BleServiceObject* instance = object;
-
-    instance->chars[BleSrvDeviceUartCharacterRx]->data = malloc(2);
-    memset(instance->chars[BleSrvDeviceUartCharacterRx]->data, 'B', 2);
-    instance->chars[BleSrvDeviceUartCharacterRx]->data_size = 2;
-
-    instance->chars[BleSrvDeviceUartCharacterTx]->data = malloc(2);
-    memset(instance->chars[BleSrvDeviceUartCharacterTx]->data, 'A', 2);
-    instance->chars[BleSrvDeviceUartCharacterTx]->data_size = 2;
+    UNUSED(instance);
 
     return true;
-}
-
-static const uint8_t* uart_character_get_data(void* obj) {
-    furi_assert(obj);
-    BleCharacteristicObject* instance = obj;
-    return (uint8_t*)(instance->data);
 }
 
 static const BleCharacteristicDescriptor uart_service_characteristics[] = {
     {
         .intercom_index = BleSrvDeviceUartCharacterRx,
         .name = "Uart Rx",
-        .data_size = 2,
-        .get_data = uart_character_get_data,
+        .initial_data_size = 240,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_RX_CHAR_UUID},
         .uuid_size = 16,
@@ -55,8 +41,7 @@ static const BleCharacteristicDescriptor uart_service_characteristics[] = {
     {
         .intercom_index = BleSrvDeviceUartCharacterTx,
         .name = "Uart Tx",
-        .data_size = 2,
-        .get_data = uart_character_get_data,
+        .initial_data_size = 240,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_TX_CHAR_UUID},
         .uuid_size = 16,
@@ -78,6 +63,4 @@ const BleServiceDescriptor ble_service_config_uart = {
     .char_count = COUNT_OF(uart_service_characteristics),
     .char_descriptors = uart_service_characteristics,
     .init = ble_service_uart_init,
-    // .run = ble_service_device_info_run,
-    // .on_response = ble_service_device_info_on_response,
 };
