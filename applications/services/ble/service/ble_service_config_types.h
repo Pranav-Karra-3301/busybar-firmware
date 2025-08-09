@@ -34,7 +34,7 @@ typedef struct {
     uint8_t uuid_size;
     uint8_t char_properties;
 #endif
-    uint8_t max_data_size;
+    uint8_t initial_data_size;
     uint8_t security_permissions;
     const char* name;
     BleCharacterGetData get_data;

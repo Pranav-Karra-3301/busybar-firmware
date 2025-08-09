@@ -7,7 +7,7 @@ static const BleCharacteristicDescriptor battery_service_characteristics[] = {
     {
         .intercom_index = BleSrvBatteryCharacterIndexBatteryLevel,
         .name = "Battery Level",
-        .max_data_size = sizeof(uint8_t),
+        .initial_data_size = sizeof(uint8_t),
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2A19},
         .uuid_size = 2,
@@ -17,7 +17,7 @@ static const BleCharacteristicDescriptor battery_service_characteristics[] = {
     {
         .intercom_index = BleSrvBatteryCharacterIndexBatteryStatus,
         .name = "Battery Status",
-        .max_data_size = sizeof(BatteryStatusInfo),
+        .initial_data_size = sizeof(BatteryStatusInfo),
 #if defined(SI917)
         .uuid = {.Char_UUID_16 = 0x2BED},
         .uuid_size = 2,

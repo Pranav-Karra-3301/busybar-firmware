@@ -5,6 +5,7 @@
 struct BleCharacteristicObject {
     uint16_t handle;
     bool modified;
+    uint8_t max_data_size;
     uint8_t data_size; ///TODO: set data_type of proper size
     void* data;
     const BleCharacteristicDescriptor* descriptor;
@@ -14,6 +15,10 @@ BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristicDescrip
     furi_assert(config);
     BleCharacteristicObject* instance = malloc(sizeof(BleCharacteristicObject));
     instance->descriptor = config;
+    if(config->initial_data_size > 0) {
+        instance->data = malloc(config->initial_data_size);
+        instance->max_data_size = config->initial_data_size;
+    }
     return instance;
 }
 
@@ -41,12 +46,12 @@ void ble_characteristic_set_data(
     furi_assert(data);
     furi_assert(data_size > 0);
 
-    if(instance->data == NULL) {
+    if(instance->data == NULL && instance->descriptor->initial_data_size == 0) {
         instance->data = malloc(data_size);
-        instance->data_size = data_size;
+        instance->max_data_size = data_size;
     }
 
-    furi_assert(instance->data_size >= data_size);
+    furi_assert(instance->max_data_size >= data_size);
     memcpy(instance->data, data, data_size);
     instance->data_size = data_size;
     instance->modified = true;
