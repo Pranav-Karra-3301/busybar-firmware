@@ -639,7 +639,7 @@ static uint16_t ble_worker_add_char_val_att(
     uint16_t handle,
     uuid_t att_type_uuid,
     uint8_t val_prop,
-    uint8_t* data,
+    const uint8_t* data,
     uint8_t data_len,
     uint8_t auth_read) {
     rsi_ble_req_add_att_t new_att = {0};
@@ -770,27 +770,28 @@ bool ble_worker_register_service(BleServiceObject* service) {
         BLE_LOG_I("Serv: 0x%04X", new_serv_resp.start_handle);
         for(uint8_t i = 0; i < service->desc->char_count; i++) {
             BleCharacteristicObject* ch = service->chars[i];
+            const BleCharacteristicDescriptor* ch_config = ble_characteristic_get_config(ch);
 
             memset(&rsi_uiid, 0, sizeof(uuid_t));
-            ble_prepare_uuid(&ch->desc->uuid, ch->desc->uuid_size, &rsi_uiid);
+            ble_prepare_uuid(&ch_config->uuid, ch_config->uuid_size, &rsi_uiid);
 
-            BLE_LOG_I("Add char %s att handle: %04X", ch->desc->name, handle + 1);
+            BLE_LOG_I("Add char %s att handle: %04X", ch_config->name, handle + 1);
             ble_worker_add_char_serv_att(
                 service->service_handler,
                 handle + 1,
-                ch->desc->char_properties,
+                ch_config->char_properties,
                 handle + 2,
                 rsi_uiid);
 
-            BLE_LOG_I("Add char %s val att handle: %04X", ch->desc->name, handle + 2);
-            ch->handle = handle + 2;
+            BLE_LOG_I("Add char %s val att handle: %04X", ch_config->name, handle + 2);
+            ble_characteristic_set_handle(ch, handle + 2);
             handle = ble_worker_add_char_val_att(
                 service->service_handler,
                 handle + 2,
                 rsi_uiid,
-                ch->desc->char_properties,
-                ch->data,
-                ch->data_size,
+                ch_config->char_properties,
+                ble_characteristic_get_data(ch),
+                ble_characteristic_get_data_size(ch),
                 0);
         }
 
