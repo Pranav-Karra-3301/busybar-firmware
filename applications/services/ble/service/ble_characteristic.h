@@ -13,10 +13,12 @@ void ble_characteristic_set_data(
     BleCharacteristicObject* instance,
     const void* data,
     const size_t data_size);
-bool ble_characteristic_modified(BleCharacteristicObject* instance);
+bool ble_characteristic_is_modified(BleCharacteristicObject* instance);
 
 const BleCharacteristicDescriptor*
     ble_characteristic_get_config(BleCharacteristicObject* instance);
+void ble_characteristic_set_handle(BleCharacteristicObject* instance, uint16_t handle);
+uint16_t ble_characteristic_get_handle(BleCharacteristicObject* instance);
 
 uint8_t ble_characteristic_fill_update_struct(
     BleCharacteristicObject* instance,

@@ -3,7 +3,7 @@
 #include <furi.h>
 
 struct BleCharacteristicObject {
-    uint16_t handle;
+    uint16_t handle; ///TODO: maybe add this only to 917
     bool modified;
     uint8_t max_data_size;
     uint8_t data_size; ///TODO: set data_type of proper size
@@ -57,7 +57,7 @@ void ble_characteristic_set_data(
     instance->modified = true;
 }
 
-bool ble_characteristic_modified(BleCharacteristicObject* instance) {
+bool ble_characteristic_is_modified(BleCharacteristicObject* instance) {
     furi_assert(instance);
     return instance->modified;
 }
@@ -66,6 +66,17 @@ const BleCharacteristicDescriptor*
     ble_characteristic_get_config(BleCharacteristicObject* instance) {
     furi_assert(instance);
     return instance->descriptor;
+}
+
+void ble_characteristic_set_handle(BleCharacteristicObject* instance, uint16_t handle) {
+    furi_assert(instance);
+    furi_assert(instance->handle == 0);
+    instance->handle = handle;
+}
+
+uint16_t ble_characteristic_get_handle(BleCharacteristicObject* instance) {
+    furi_assert(instance);
+    return instance->handle;
 }
 
 uint8_t ble_characteristic_fill_update_struct(
