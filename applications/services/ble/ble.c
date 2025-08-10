@@ -13,7 +13,6 @@
 #define TAG "BLE"
 
 typedef enum {
-    BleEventTypeInit,
     BleEventTypeIncomingMessage,
     BleEventTypeFrameReceived,
 } BleEventType;
@@ -36,7 +35,7 @@ struct Ble {
 
     FuriSemaphore* access_semaphore;
 
-    BleServiceObject* services[3];
+    BleServiceObject* services[BLE_SERVICES_COUNT];
     BleMessage* current_message;
 };
 
@@ -67,8 +66,7 @@ static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* 
         BleServiceObject* service = ble->services[msg.service_index];
         ble_service_process(service, &msg);
     } else
-        FURI_LOG_W("MsgQueue", "Projebana cherga");
-    // BLE_LOG_W("Projebana cherga");
+        BLE_LOG_W("MsgQueue is full!");
 }
 
 void ble_custom_event_callback(uint32_t events, void* context) {
@@ -87,9 +85,6 @@ void ble_custom_event_callback(uint32_t events, void* context) {
                 frame_size);
 
             BleServiceIndex index = frame->header.service_index;
-            if(index == BLE_SERVICES_COUNT) {
-                index -= 1;
-            }
             BleServiceObject* service = instance->services[index];
             ble_service_process_mailbox(service, &instance->mailbox);
         } else {
@@ -107,8 +102,7 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
         memcpy(&instance->mailbox, data, data_size);
         furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeFrameReceived);
     } else
-        FURI_LOG_W("RxIntercom", "Projebany pakiet");
-    // BLE_LOG_W("Projebany pakiet");
+        BLE_LOG_W("Packet lost!");
 }
 
 static void ble_heartbeat_timer_handler(void* context) {
