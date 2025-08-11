@@ -99,7 +99,7 @@ void ble_worker_on_adv_report_event(rsi_ble_event_adv_report_t* adv_report) {
         ble_worker_instance->remote_dev_str_addr, (uint8_t*)adv_report->dev_addr);
     memcpy((int8_t*)ble_worker_instance->remote_dev_bd_addr, (uint8_t*)adv_report->dev_addr, 6);
 
-#if (CONNECT_OPTION == CONN_BY_NAME)
+#if(CONNECT_OPTION == CONN_BY_NAME)
     if((ble_worker_instance->device_found == 0) &&
        ((strcmp((const char*)ble_worker_instance->remote_name, RSI_REMOTE_DEVICE_NAME)) == 0)) {
         ble_worker_instance->device_found = 1;
@@ -108,7 +108,7 @@ void ble_worker_on_adv_report_event(rsi_ble_event_adv_report_t* adv_report) {
             furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtAdvReport);
         return;
     }
-#elif (CONNECT_OPTION == CONN_BY_ADDR)
+#elif(CONNECT_OPTION == CONN_BY_ADDR)
     if((!strcmp(RSI_BLE_REMOTE_DEV_ADDR, (char*)ble_worker_instance->remote_dev_str_addr))) {
         ble_worker_instance->device_found = 1;
         furi_thread_flags_set(
@@ -822,7 +822,7 @@ void ble_worker_stop() {
 }
 
 void ble_worker_test_after_init() {
-    ble_print_service_hierarchy(0x001E);
+    ble_print_service_hierarchy(0x0023);
 }
 
 void ble_worker_set_data(uint16_t handle, uint16_t data_size, const uint8_t* data) {

@@ -252,7 +252,7 @@ void ble_service_enqueue_message(
     }
 }
 
-void ble_service_eqnueue_init(BleServiceObject* instance) {
+void ble_service_enqueue_init(BleServiceObject* instance) {
     furi_assert(instance);
     BLE_LOG_D("%s - enqueue init", instance->desc->name);
     if(ble_service_lock(instance)) {
