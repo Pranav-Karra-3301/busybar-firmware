@@ -1,9 +1,6 @@
-#include "ble.h"
-#include "ble_common.h"
-#include "service/ble_service.h"
-#include "service/ble_service_config.h"
+#include "ble_i.h"
+#include "ble_command.h"
 
-#include <intercom/intercom.h>
 #if !defined(SI917)
 #include <api_lock.h>
 #else
