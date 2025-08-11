@@ -159,10 +159,6 @@ static bool ble_service_process_input_frame(BleServiceObject* instance) {
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
     if(frame->header.frame_type == BleIntercomFrameTypeRequest) {
         ble_service_process_request(instance);
-        // if(frame->header.command == BleCommandServiceInit) {
-        //     ble_service_target_init(instance);
-        //     ble_service_send_intercom_frame(instance);
-        // }
     } else if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
         FURI_LOG_W(instance->desc->name, "State: %d", instance->state);
         ble_service_process_response(instance);
