@@ -18,6 +18,7 @@ BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristicDescrip
     if(config->initial_data_size > 0) {
         instance->data = malloc(config->initial_data_size);
         instance->max_data_size = config->initial_data_size;
+        instance->data_size = config->initial_data_size;
     }
     return instance;
 }
