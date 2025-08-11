@@ -150,7 +150,7 @@ static Ble* ble_alloc() {
     instance->mailbox_lock = furi_semaphore_alloc(1, 1);
     instance->access_semaphore = furi_semaphore_alloc(1, 1);
 
-    instance->message_queue = furi_message_queue_alloc(3, sizeof(BleMessage));
+    instance->message_queue = furi_message_queue_alloc(BLE_SERVICES_COUNT, sizeof(BleMessage));
 
     furi_event_loop_set_custom_event_callback(
         instance->event_loop, ble_custom_event_callback, instance);
