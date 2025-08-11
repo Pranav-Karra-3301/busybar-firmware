@@ -66,18 +66,8 @@ void ble_service_send_intercom_frame(BleServiceObject* instance) {
 }
 
 void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_state) {
-    // if(ble_service_switch_state_allowed(instance->state, new_state)) {
-
     BLE_LOG_D("%s - set state: %d", instance->desc->name, new_state);
     instance->state = new_state;
-    ///TODO:Move code below to some other place, because state switching may happen by remote request
-    ///or by internal. In first case we need to send response and in second one - notification
-    // if(notify_remote) {
-    //     BleCommandEvent c = {.event = BleEventStateChanged};
-    //     ble_service_send_intercom_frame(
-    //         instance, BleIntercomFrameTypeNotification, c, sizeof(BleServiceState), &new_state);
-    // }
-    // }
 }
 
 bool execute_handler(BleServiceObject* instance, BleCommand command) {
@@ -106,35 +96,12 @@ static bool ble_service_process_request(BleServiceObject* instance) {
     bool result = false;
 
     result = execute_handler(instance, frame->header.command);
-
-    // if(result) {
-    //     ble_service_prepare_frame(
-    //         instance, BleIntercomFrameTypeResponse, frame->header.command, 0, NULL);
-    // }
-
     return result;
-
-    // ble_service_target_process_request(instance);
-    // ble_service_send_intercom_frame(instance);
-    // BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
-
-    //extract command type from frame
-    //check if command available in current state
-    //execute target specific command handler -> execute service specific handler
-
-    //if(init_result)
-    //ble_service_send_intercom_frame(instance); // send response with result to remote
-    //else error?
 }
 
 static bool ble_service_process_response(BleServiceObject* instance) {
     BLE_LOG_D("%s - process response", instance->desc->name);
     return ble_service_target_process_response(instance);
-    //extract command type from frame
-    //if(command == pending_command)
-    //perform target specific response handler -> execute service specific if present
-    //else
-    //Error wrong packet received;
 }
 
 static bool ble_service_process_notification(BleServiceObject* instance) {
@@ -148,9 +115,6 @@ static bool ble_service_process_notification(BleServiceObject* instance) {
             instance, ch_data->header.index, ch_data->data, ch_data->header.data_size);
     }
 
-    //extract command type from frame
-    //check if command available in current state
-    //execute target specific command handler -> execute service specific handler
     return true;
 }
 
