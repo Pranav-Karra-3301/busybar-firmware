@@ -210,19 +210,11 @@ bool ble_find_characteristic_value_handle_by_uiid(
             }
 
         } else if(expected_type == BleItemTypeCharacteristicDescriptor) {
-            // ble_data_cat_printf(str, value.data, value.data_len, "Descriptor: ", false);
             expected_type = BleItemTypeValue;
 
         } else if(expected_type == BleItemTypeValue) {
-            // ble_data_cat_printf(str, value.data, value.data_len, "Data: ", false);
-            // furi_string_cat_printf(str, "\n");
             expected_type = BleItemTypeService;
         }
-
-        // if(found) {
-        //     *output_handle = handle;
-        //     break;
-        // }
 
         if(!skip_increment) handle++;
     }
