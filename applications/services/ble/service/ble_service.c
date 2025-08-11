@@ -201,7 +201,7 @@ BleServiceObject* ble_service_alloc(
     return instance;
 }
 
-bool ble_service_process(BleServiceObject* instance, const BleMessage* msg) {
+bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* msg) {
     furi_assert(instance);
     furi_assert(msg);
 
@@ -218,7 +218,9 @@ bool ble_service_process(BleServiceObject* instance, const BleMessage* msg) {
     return result;
 }
 
-void ble_service_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* input_frame) {
+void ble_service_process_mailbox(
+    BleServiceObject* instance,
+    const BleIntercomFrameGeneric* input_frame) {
     furi_assert(instance);
     furi_assert(input_frame);
 
@@ -239,9 +241,10 @@ void ble_service_enqueue_message(
     uint8_t data_size) {
     furi_assert(instance);
 
-    BleMessage msg = {.type = command, .service_index = instance->desc->index};
-    furi_assert(data_size <= sizeof(msg.data));
-    memcpy(msg.data, data, data_size);
+    UNUSED(data);
+    UNUSED(data_size);
+
+    BleServiceCommand msg = {.type = command, .service_index = instance->desc->index};
 
     if(furi_message_queue_put(instance->message_queue, &msg, 100) != FuriStatusOk) {
         FURI_LOG_W(instance->desc->name, "Unable to enqueue for processing");

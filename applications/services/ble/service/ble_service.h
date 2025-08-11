@@ -14,6 +14,8 @@ BleServiceObject* ble_service_alloc(
     FuriMessageQueue* dest_queue,
     Intercom* intercom);
 
-bool ble_service_process(BleServiceObject* instance, const BleMessage* msg);
-void ble_service_process_mailbox(BleServiceObject* instance, BleIntercomFrameGeneric* input_frame);
+bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* msg);
+void ble_service_process_mailbox(
+    BleServiceObject* instance,
+    const BleIntercomFrameGeneric* input_frame);
 void ble_service_eqnueue_init(BleServiceObject* instance);

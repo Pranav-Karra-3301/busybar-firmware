@@ -50,10 +50,7 @@ typedef enum {
 typedef struct {
     BleCommand type;
     uint16_t service_index;
-    uint8_t data[5];
-    // FuriApiLock lock;
-    bool result; ///TODO: replace with some more extended status
-} BleMessage;
+} BleServiceCommand;
 //==========================================================================================================
 
 typedef struct /*FURI_PACKED*/ {
