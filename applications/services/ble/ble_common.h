@@ -21,7 +21,6 @@ typedef enum {
     BleIntercomFrameTypeRequest,
     BleIntercomFrameTypeResponse,
     BleIntercomFrameTypeNotification,
-    BleIntercomFrameTypeHeartbeat,
 } BleIntercomFrameType;
 
 typedef enum {
@@ -73,7 +72,7 @@ typedef struct {
 typedef struct {
     BleIntercomFrameHeader header;
     BleServiceState state;
-} BleIntercomFrameHeartbeat;
+} BleIntercomFrameStatus;
 
 typedef struct {
     uint8_t index;
