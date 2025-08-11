@@ -1,25 +1,18 @@
 #include "ble_i.h"
 #include "ble_command.h"
 
-#if !defined(SI917)
-#include <api_lock.h>
-#else
+#if defined(SI917)
 #include "worker/ble_worker.h"
 #endif
 
 #define TAG "BLE"
-
-typedef enum {
-    BleEventTypeIncomingMessage,
-    BleEventTypeFrameReceived,
-} BleEventType;
 
 static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
     Ble* ble = context;
     furi_assert(object == ble->message_queue);
 
-    BleMessage msg;
+    BleServiceCommand msg;
     if(furi_message_queue_get(ble->message_queue, &msg, FuriWaitForever) == FuriStatusOk) {
         BleServiceObject* service = ble->services[msg.service_index];
         ble_service_process(service, &msg);
@@ -30,8 +23,8 @@ static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* 
 void ble_custom_event_callback(uint32_t events, void* context) {
     Ble* instance = context;
 
-    if(events == BleEventTypeFrameReceived) {
-        const BleIntercomFrameGeneric* frame = &instance->mailbox;
+    BleIntercomFrameGeneric* frame = ble_command_preprocess(instance, events);
+    if(frame) {
         size_t frame_size = frame->header.data_size + sizeof(BleIntercomFrameHeader);
         BLE_LOG_D(
             "Rx Frame t: %d c: %d ds: %d fs: %d",
@@ -41,18 +34,18 @@ void ble_custom_event_callback(uint32_t events, void* context) {
             frame_size);
         const BleCommand command = frame->header.command;
         if(command == BleCommandEnable) {
-            ble_command_handler_enable();
+            ble_command_handler_enable(instance, frame);
         } else if(command == BleCommandDisable) {
-            ble_command_handler_disable();
+            ble_command_handler_disable(instance, frame);
         } else if(command == BleCommandGetStatus) {
             ble_command_handler_get_status(instance, (BleIntercomFrameStatus*)frame);
         } else {
             BleServiceIndex index = frame->header.service_index;
             BleServiceObject* service = instance->services[index];
-            ble_service_process_mailbox(service, &instance->mailbox);
+            ble_service_process_mailbox(service, frame);
         }
-        furi_semaphore_release(instance->mailbox_lock);
     }
+    ble_command_postprocess(instance, events, true);
 }
 
 static void ble_backend_intercom_rx_callback(const void* data, size_t data_size, void* context) {
@@ -84,13 +77,13 @@ static void ble_init_timer_handler(void* context) {
     }
 }
 
-#if !defined(SI917)
-static void ble_event_loop_on_start(void* context) {
-    BLE_LOG_W("ble_event_loop_on_start");
-    Ble* instance = context;
-    furi_event_loop_timer_start(instance->init_timer, 1000);
-}
-#endif
+// #if !defined(SI917)
+// static void ble_event_loop_on_start(void* context) {
+//     BLE_LOG_W("ble_event_loop_on_start");
+//     Ble* instance = context;
+//     furi_event_loop_timer_start(instance->init_timer, 1000);
+// }
+// #endif
 
 static Ble* ble_alloc() {
     Ble* instance = malloc(sizeof(Ble));
@@ -99,7 +92,8 @@ static Ble* ble_alloc() {
     instance->mailbox_lock = furi_semaphore_alloc(1, 1);
     instance->access_semaphore = furi_semaphore_alloc(1, 1);
 
-    instance->message_queue = furi_message_queue_alloc(BLE_SERVICES_COUNT, sizeof(BleMessage));
+    instance->message_queue =
+        furi_message_queue_alloc(BLE_SERVICES_COUNT, sizeof(BleServiceCommand));
 
     furi_event_loop_set_custom_event_callback(
         instance->event_loop, ble_custom_event_callback, instance);
@@ -124,9 +118,9 @@ static Ble* ble_alloc() {
     }
 
 #if defined(SI917)
-    ble_worker_init();
+    // ble_worker_init();
 #else
-    furi_event_loop_pend_callback(instance->event_loop, ble_event_loop_on_start, instance);
+    // furi_event_loop_pend_callback(instance->event_loop, ble_event_loop_on_start, instance);
 #endif
 
     furi_record_create(RECORD_BLE, instance);
@@ -141,31 +135,4 @@ int32_t ble_srv(void* arg) {
     furi_event_loop_run(instance->event_loop);
 
     return 0;
-}
-
-static void ble_send_message(Ble* instance, BleMessage* message) {
-    // message->lock = api_lock_alloc_locked();
-
-    // furi_check(
-    //     furi_semaphore_acquire(instance->access_semaphore, FuriWaitForever) == FuriStatusOk);
-
-    instance->current_message = message;
-    furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeIncomingMessage);
-
-    // api_lock_wait_unlock_and_free(message->lock);
-}
-
-bool ble_start(Ble* ble) {
-    BleMessage msg;
-
-    msg.type = BleCommandEnable;
-    ble_send_message(ble, &msg);
-    return msg.result;
-}
-
-bool ble_stop(Ble* ble) {
-    BleMessage msg;
-    msg.type = BleCommandDisable;
-    ble_send_message(ble, &msg);
-    return msg.result;
 }

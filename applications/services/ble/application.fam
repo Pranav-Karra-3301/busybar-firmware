@@ -29,6 +29,7 @@ App(
     targets=["f20"],
     requires=["intercom"],
     sources=["ble.c", 
+             "ble_api.c", 
              "ble_command_u5.c",
              "service/*.c",
              "service/target/ble_service_target_u5.c",

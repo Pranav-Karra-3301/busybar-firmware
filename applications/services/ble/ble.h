@@ -3,7 +3,7 @@
 #include <furi.h>
 
 /**
- * @brief Intercom FURI record identifier.
+ * @brief BLE FURI record identifier.
  */
 #define RECORD_BLE "ble"
 
