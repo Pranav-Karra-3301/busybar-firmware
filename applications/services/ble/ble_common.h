@@ -36,6 +36,7 @@ typedef enum {
 typedef enum {
     BleCommandEnable,
     BleCommandDisable,
+    BleCommandGetStatus,
     //-------------------------------------
     BleCommandServiceInit,
 
