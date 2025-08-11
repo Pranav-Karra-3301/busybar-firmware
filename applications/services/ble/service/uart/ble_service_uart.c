@@ -35,7 +35,7 @@ typedef enum {
 
 static bool ble_service_uart_init(void* object) {
     furi_assert(object);
-    BLE_LOG_W("uart_init");
+    BLE_LOG_D("uart_init");
     BleServiceObject* instance = object;
     UNUSED(instance);
 

@@ -377,7 +377,7 @@ static int32_t ble_worker_thread_callback(void* context) {
 
     sl_status_t status = 0;
 
-    FURI_LOG_D(TAG, "Worker Start");
+    FURI_LOG_D(TAG, "Worker Thread Start");
     while(true) {
         uint32_t events =
             furi_thread_flags_wait(BLE_USART_ECHO_ALL_EVENTS, FuriFlagWaitAny, FuriWaitForever);

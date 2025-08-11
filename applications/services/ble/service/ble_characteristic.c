@@ -2,6 +2,8 @@
 #include "ble_characteristic.h"
 #include <furi.h>
 
+#define TAG "BleChar"
+
 struct BleCharacteristicObject {
     uint16_t handle; ///TODO: maybe add this only to 917
     bool modified;
@@ -88,7 +90,7 @@ uint8_t ble_characteristic_fill_update_struct(
 
     output->header.index = instance->descriptor->intercom_index;
     output->header.data_size = instance->data_size;
-    FURI_LOG_D(instance->descriptor->name, "Char size: %d", instance->data_size);
+    BLE_LOG_D("%s - char size: %d", instance->descriptor->name, instance->data_size);
 
     memcpy(output->data, instance->data, instance->data_size);
     instance->modified = false;

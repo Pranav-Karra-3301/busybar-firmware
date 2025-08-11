@@ -29,7 +29,7 @@ void ble_service_prepare_char_frame(
 }
 
 static void ble_power_pubsub_message_callback(const void* message, void* context) {
-    BLE_LOG_W("Battery event!");
+    BLE_LOG_D("Battery event!");
 
     BleServiceObject* instance = context;
     const PowerEvent* event = message;
@@ -40,7 +40,6 @@ static void ble_power_pubsub_message_callback(const void* message, void* context
         furi_thread_flags_set(furi_thread_get_id(data_ctx->thr), 1);
         ble_service_unlock(instance);
     }
-    BLE_LOG_W("Battery event exit!");
 }
 
 static int32_t bat_test_thread(void* context) {
@@ -48,7 +47,7 @@ static int32_t bat_test_thread(void* context) {
 
     while(1) {
         furi_thread_flags_wait(1, FuriFlagWaitAny, FuriWaitForever);
-        BLE_LOG_D("Bat_thr");
+
         if(ble_service_lock(instance)) {
             BleBatteryServiceContext* data_ctx = instance->data_context;
             BleCharacteristicObject* ch_bat_lvl =
@@ -71,7 +70,7 @@ static int32_t bat_test_thread(void* context) {
                 Power* power = furi_record_open(RECORD_POWER);
                 power_get_info(power, &info);
                 furi_record_close(RECORD_POWER);
-                BLE_LOG_I("Charge: %d charge_enabled: %d", info.charge, info.charge_enabled);
+                BLE_LOG_D("Charge: %d charge_enabled: %d", info.charge, info.charge_enabled);
                 // data_ctx->battery_level = info.charge;
 
                 battery_status.state.fields.wired_source_present = info.is_charging;
@@ -85,8 +84,6 @@ static int32_t bat_test_thread(void* context) {
                 ble_characteristic_set_data(
                     ch_bat_status, &battery_status, sizeof(BatteryStatusInfo));
             }
-
-            BLE_LOG_D("update_char");
 
             ///TDOO: All this code must be moved to common layers
             const void* data = ble_characteristic_get_data(ch_bat_lvl);
@@ -122,7 +119,7 @@ static int32_t bat_test_thread(void* context) {
 bool ble_service_battery_init(void* object) {
     furi_assert(object);
 
-    BLE_LOG_W("battery_init");
+    BLE_LOG_D("battery_init");
 
     BleServiceObject* instance = object;
 

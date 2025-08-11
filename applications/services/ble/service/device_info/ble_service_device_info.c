@@ -46,7 +46,7 @@ static void device_info_callback(const char* key, const char* value, bool last, 
 static bool ble_service_device_info_init_u5(void* object) {
     furi_assert(object);
 
-    BLE_LOG_W("device_info_init");
+    BLE_LOG_D("device_info_init");
 
     BleServiceObject* instance = object;
 

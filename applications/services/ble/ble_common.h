@@ -5,17 +5,16 @@
 #include <furi.h>
 #include <intercom/intercom.h>
 
-#define BLE_DEBUG
+// #define BLE_DEBUG
 
 #ifdef BLE_DEBUG
 #define BLE_LOG_D(...) FURI_LOG_D(TAG, __VA_ARGS__)
-#define BLE_LOG_I(...) FURI_LOG_I(TAG, __VA_ARGS__)
-#define BLE_LOG_W(...) FURI_LOG_W(TAG, __VA_ARGS__)
 #else
 #define BLE_LOG_D(...)
-#define BLE_LOG_I(...)
-#define BLE_LOG_W(...)
 #endif
+
+#define BLE_LOG_I(...) FURI_LOG_I(TAG, __VA_ARGS__)
+#define BLE_LOG_W(...) FURI_LOG_W(TAG, __VA_ARGS__)
 
 typedef enum {
     BleIntercomFrameTypeRequest,

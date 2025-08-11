@@ -47,7 +47,7 @@ void ble_command_handler_disable(Ble* instance, BleIntercomFrameGeneric* frame) 
 
 void ble_command_handler_get_status(Ble* instance, BleIntercomFrameStatus* frame) {
     if(frame->header.frame_type == BleIntercomFrameTypeRequest) {
-        BLE_LOG_W("Skip status request");
+        BLE_LOG_D("GetStatus request");
 
         frame->header.frame_type = BleIntercomFrameTypeRequest;
         frame->header.command = BleCommandGetStatus;
@@ -58,7 +58,7 @@ void ble_command_handler_get_status(Ble* instance, BleIntercomFrameStatus* frame
         furi_assert(tx == frame_size);
     } else {
         if(instance->state == BleServiceStateReset && frame->state == BleServiceStateReset) {
-            BLE_LOG_I("Enqueue services start...");
+            BLE_LOG_D("Enqueue services start...");
             for(size_t i = 0; i < BLE_SERVICES_COUNT; i++) {
                 ble_service_eqnueue_init(instance->services[i]);
             }
@@ -66,6 +66,7 @@ void ble_command_handler_get_status(Ble* instance, BleIntercomFrameStatus* frame
             furi_event_loop_timer_stop(instance->init_timer);
         }
 
+        ///TODO: Temporary fix, in order to unblock ble_start()
         instance->current_message->result = true;
         api_lock_unlock(instance->current_message->lock);
     }
