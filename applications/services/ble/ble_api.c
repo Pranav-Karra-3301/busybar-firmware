@@ -12,6 +12,7 @@ static void ble_send_message(Ble* instance, BleMessage* message) {
 }
 
 bool ble_start(Ble* ble) {
+    ///TODO: Move this into separate request in future
     BleMessage msg = {0};
     msg.header.frame_type = BleIntercomFrameTypeRequest;
     msg.header.command = BleCommandGetStatus;
@@ -19,7 +20,9 @@ bool ble_start(Ble* ble) {
     ble_send_message(ble, &msg);
 
     if(msg.result) {
-        furi_delay_ms(2000);
+        ///TODO: get rid of this delay. Now it guarantees that
+        ///BLE on 917 will be fully configured before next request
+        furi_delay_ms(100);
         msg.header.frame_type = BleIntercomFrameTypeRequest;
         msg.header.command = BleCommandEnable;
         msg.header.data_size = 0;
