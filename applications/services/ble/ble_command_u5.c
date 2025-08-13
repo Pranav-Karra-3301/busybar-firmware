@@ -45,12 +45,12 @@ void ble_command_handler_disable(Ble* instance, BleIntercomFrameGeneric* frame) 
     }
 }
 
-void ble_command_handler_get_status(Ble* instance, BleIntercomFrameStatus* frame) {
+void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame) {
     if(frame->header.frame_type == BleIntercomFrameTypeRequest) {
         BLE_LOG_D("GetStatus request");
 
         frame->header.frame_type = BleIntercomFrameTypeRequest;
-        frame->header.command = BleCommandGetStatus;
+        frame->header.command = BleCommandGetState;
         frame->header.data_size = 0;
 
         size_t frame_size = sizeof(BleIntercomFrameHeader);

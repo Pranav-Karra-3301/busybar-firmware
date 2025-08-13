@@ -34,7 +34,7 @@ void ble_command_handler_disable(Ble* instance, BleIntercomFrameGeneric* frame) 
     }
 }
 
-void ble_command_handler_get_status(Ble* instance, BleIntercomFrameStatus* frame) {
+void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame) {
     if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
         BLE_LOG_W("No need response");
     } else {
@@ -42,8 +42,6 @@ void ble_command_handler_get_status(Ble* instance, BleIntercomFrameStatus* frame
         frame->header.frame_type = BleIntercomFrameTypeResponse;
         frame->header.data_size = sizeof(BleServiceState);
         frame->state = instance->state;
-
-        ble_worker_init();
 
         size_t frame_size = sizeof(BleIntercomFrameStatus);
         size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);

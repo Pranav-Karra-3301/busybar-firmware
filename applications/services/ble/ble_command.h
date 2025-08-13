@@ -10,4 +10,4 @@ void ble_command_handler_enable(Ble* instance, BleIntercomFrameGeneric* frame);
 
 void ble_command_handler_disable(Ble* instance, BleIntercomFrameGeneric* frame);
 
-void ble_command_handler_get_status(Ble* instance, BleIntercomFrameStatus* frame);
+void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame);
