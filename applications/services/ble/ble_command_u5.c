@@ -82,17 +82,12 @@ void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame)
         size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
         furi_assert(tx == frame_size);
     } else {
-        if(instance->state == BleServiceStateReset && frame->state == BleServiceStateReset) {
-            BLE_LOG_D("Enqueue services start...");
-            for(size_t i = 0; i < BLE_SERVICES_COUNT; i++) {
-                ble_service_enqueue_init(instance->services[i]);
-            }
-            instance->state = BleServiceStateInitialization;
-            furi_event_loop_timer_stop(instance->init_timer);
-        }
+        BLE_LOG_D("Local state: %d remote state: %d", instance->state, frame->state);
 
         ///TODO: Temporary fix, in order to unblock ble_start()
         instance->current_message->result = true;
+        BleServiceState* state = (BleServiceState*)instance->current_message->data;
+        *state = instance->state;
         api_lock_unlock(instance->current_message->lock);
     }
 }
