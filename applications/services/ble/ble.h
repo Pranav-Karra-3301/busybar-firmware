@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ble_state.h"
 #include <furi.h>
 
 /**
