@@ -11,7 +11,7 @@ typedef void (
 
 BleServiceObject* ble_service_alloc(
     const BleServiceDescriptor* service_config,
-    FuriMessageQueue* dest_queue,
+    FuriMessageQueue* message_queue,
     Intercom* intercom);
 
 bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* msg);
