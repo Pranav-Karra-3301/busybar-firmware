@@ -173,10 +173,10 @@ bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* ms
     BLE_LOG_D("%s - ble_service_process", instance->desc->name);
     bool result = false;
     if(ble_service_lock(instance)) {
-        if(msg->type == BleCommandServiceProcessFrame) {
+        if(msg->command == BleCommandServiceProcessFrame) {
             result = ble_service_process_input_frame(instance);
         } else
-            result = execute_handler(instance, msg->type);
+            result = execute_handler(instance, msg->command);
 
         ble_service_unlock(instance);
     }
@@ -195,21 +195,15 @@ void ble_service_process_mailbox(
 
     if(ble_service_lock_input_frame(instance)) {
         memcpy(instance->frame_buf, input_frame, fs);
-        ble_service_enqueue_message(instance, BleCommandServiceProcessFrame, NULL, 0);
+        ble_service_enqueue_message(instance, BleCommandServiceProcessFrame, 0);
     }
 }
 
-void ble_service_enqueue_message(
-    BleServiceObject* instance,
-    BleCommand command,
-    void* data,
-    uint8_t data_size) {
+void ble_service_enqueue_message(BleServiceObject* instance, BleCommand command, uint8_t ch_index) {
     furi_assert(instance);
 
-    UNUSED(data);
-    UNUSED(data_size);
-
-    BleServiceCommand msg = {.type = command, .service_index = instance->desc->index};
+    BleServiceCommand msg = {
+        .command = command, .service_index = instance->desc->index, .char_index = ch_index};
 
     if(furi_message_queue_put(instance->message_queue, &msg, 100) != FuriStatusOk) {
         BLE_LOG_W("%s - unable to enqueue for processing", instance->desc->name);

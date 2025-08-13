@@ -32,11 +32,7 @@ struct BleServiceObject {
 #endif
 };
 
-void ble_service_enqueue_message(
-    BleServiceObject* instance,
-    BleCommand command,
-    void* data,
-    uint8_t data_size);
+void ble_service_enqueue_message(BleServiceObject* instance, BleCommand command, uint8_t ch_index);
 
 void ble_service_prepare_frame(
     BleServiceObject* instance,

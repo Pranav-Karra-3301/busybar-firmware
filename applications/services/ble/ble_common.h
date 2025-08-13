@@ -39,8 +39,9 @@ typedef enum {
 } BleCommand;
 
 typedef struct {
-    BleCommand type;
+    BleCommand command;
     uint16_t service_index;
+    uint16_t char_index;
 } BleServiceCommand;
 //==========================================================================================================
 
