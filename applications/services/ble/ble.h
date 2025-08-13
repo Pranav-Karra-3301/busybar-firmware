@@ -8,6 +8,8 @@
  */
 #define RECORD_BLE "ble"
 
+#define BLE_AUTO_INIT
+
 typedef struct Ble Ble;
 
 bool ble_init(Ble* ble);

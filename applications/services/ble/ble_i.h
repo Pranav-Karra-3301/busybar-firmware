@@ -34,8 +34,6 @@ struct Ble {
     FuriSemaphore* mailbox_lock;
     BleIntercomFrameGeneric mailbox;
 
-    FuriEventLoopTimer* init_timer;
-    // FuriEventLoopTimer* test_timer;
     FuriMutex* ble_lock;
 
     FuriEventLoop* event_loop;
@@ -46,6 +44,7 @@ struct Ble {
 
     BleServiceObject* services[BLE_SERVICES_COUNT];
 #if !defined(SI917)
+    FuriTimer* init_timer;
     BleMessage* current_message;
 #endif
 };

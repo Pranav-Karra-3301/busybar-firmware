@@ -61,31 +61,13 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
         BLE_LOG_W("Packet lost!");
 }
 
-static void ble_init_timer_handler(void* context) {
+#if !defined(SI917) && defined(BLE_AUTO_INIT)
+static void ble_init_timer_callback(void* context) {
+    BLE_LOG_D("ble_init_timer_callback");
     Ble* instance = context;
-    BLE_LOG_D("GetStatus");
-    if(furi_semaphore_acquire(instance->mailbox_lock, 100) == FuriStatusOk) {
-        BleIntercomFrameStatus* frame = (BleIntercomFrameStatus*)&instance->mailbox;
-
-        frame->header.frame_type = BleIntercomFrameTypeRequest;
-        frame->header.command = BleCommandGetStatus;
-        frame->header.data_size = 0;
-
-        size_t frame_size = sizeof(BleIntercomFrameHeader);
-        size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
-        furi_assert(tx == frame_size);
-
-        furi_semaphore_release(instance->mailbox_lock);
-    }
+    ble_init(instance);
 }
-
-// #if !defined(SI917)
-// static void ble_event_loop_on_start(void* context) {
-//     BLE_LOG_W("ble_event_loop_on_start");
-//     Ble* instance = context;
-//     furi_event_loop_timer_start(instance->init_timer, 1000);
-// }
-// #endif
+#endif
 
 static Ble* ble_alloc() {
     Ble* instance = malloc(sizeof(Ble));
@@ -99,9 +81,6 @@ static Ble* ble_alloc() {
 
     furi_event_loop_set_custom_event_callback(
         instance->event_loop, ble_custom_event_callback, instance);
-
-    instance->init_timer = furi_event_loop_timer_alloc(
-        instance->event_loop, ble_init_timer_handler, FuriEventLoopTimerTypePeriodic, instance);
 
     furi_event_loop_subscribe_message_queue(
         instance->event_loop,
@@ -119,12 +98,10 @@ static Ble* ble_alloc() {
             ble_service_alloc(service_config[i], instance->message_queue, instance->intercom);
     }
 
-#if defined(SI917)
-    // ble_worker_init();
-#else
-    // furi_event_loop_pend_callback(instance->event_loop, ble_event_loop_on_start, instance);
+#if !defined(SI917) && defined(BLE_AUTO_INIT)
+    instance->init_timer = furi_timer_alloc(ble_init_timer_callback, FuriTimerTypeOnce, instance);
+    furi_timer_start(instance->init_timer, 1000);
 #endif
-
     furi_record_create(RECORD_BLE, instance);
 
     return instance;
