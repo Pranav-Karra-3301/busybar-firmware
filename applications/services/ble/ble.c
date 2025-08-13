@@ -32,13 +32,16 @@ void ble_custom_event_callback(uint32_t events, void* context) {
             frame->header.data_size,
             frame->header.data_size + sizeof(BleIntercomFrameHeader));
         const BleCommand command = frame->header.command;
-        if(command == BleCommandEnable) {
+        if(command == BleCommandInit) {
+            ble_command_handler_init(instance, frame);
+        } else if(command == BleCommandDeinit) {
+        } else if(command == BleCommandEnable) {
             ble_command_handler_enable(instance, frame);
         } else if(command == BleCommandDisable) {
             ble_command_handler_disable(instance, frame);
-        } else if(command == BleCommandGetStatus) {
-            ble_command_handler_get_status(instance, (BleIntercomFrameStatus*)frame);
-        } else {
+        } else if(command == BleCommandGetState) {
+            ble_command_handler_get_state(instance, (BleIntercomFrameStatus*)frame);
+        } else if(events == BleEventTypeFrameReceived) {
             BleServiceIndex index = frame->header.service_index;
             BleServiceObject* service = instance->services[index];
             ble_service_process_mailbox(service, frame);
