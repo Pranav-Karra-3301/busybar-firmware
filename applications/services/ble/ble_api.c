@@ -11,28 +11,83 @@ static void ble_send_message(Ble* instance, BleMessage* message) {
     api_lock_wait_unlock_and_free(message->lock);
 }
 
-bool ble_start(Ble* ble) {
-    ///TODO: Move this into separate request in future
+bool ble_init(Ble* ble) {
+    furi_assert(ble);
+
+    BleServiceState state = ble_get_state(ble);
+
+    bool result = false;
+    if(state == BleServiceStateReset) {
+        BleMessage msg = {0};
+        msg.header.frame_type = BleIntercomFrameTypeRequest;
+        msg.header.command = BleCommandInit;
+        msg.header.data_size = 0;
+        ble_send_message(ble, &msg);
+        result = msg.result;
+    } else if(state == BleServiceStateReady) {
+        ///TODO: possibly this should be done by actually executing command and
+        /// if state is Ready then just do nothing and return true;
+        /// But for now let's left it as it is
+        result = true;
+    } else {
+        BLE_LOG_W("No init, wrong state: %d", state);
+    }
+
+    return result;
+}
+
+bool ble_deinit(Ble* ble) {
+    furi_assert(ble);
+
+    bool result = false;
     BleMessage msg = {0};
     msg.header.frame_type = BleIntercomFrameTypeRequest;
-    msg.header.command = BleCommandGetStatus;
+    msg.header.command = BleCommandDeinit;
     msg.header.data_size = 0;
     ble_send_message(ble, &msg);
+    result = msg.result;
 
-    if(msg.result) {
-        ///TODO: get rid of this delay. Now it guarantees that
-        ///BLE on 917 will be fully configured before next request
-        furi_delay_ms(100);
+    return result;
+}
+
+BleServiceState ble_get_state(Ble* ble) {
+    furi_assert(ble);
+    size_t msg_size = sizeof(BleMessage) + sizeof(BleServiceState);
+    BLE_LOG_I("Alloc BleMessage: %d", msg_size);
+
+    BleMessage* msg = malloc(msg_size);
+    msg->header.frame_type = BleIntercomFrameTypeRequest;
+    msg->header.command = BleCommandGetState;
+    msg->header.data_size = sizeof(BleServiceState);
+
+    ble_send_message(ble, msg);
+    BleServiceState state = msg->result ? *((BleServiceState*)msg->data) : BleServiceStateError;
+    free(msg);
+
+    return state;
+}
+
+bool ble_start(Ble* ble) {
+    furi_assert(ble);
+    BleServiceState state = ble_get_state(ble);
+
+    bool result = false;
+    if(state == BleServiceStateReady) {
+        BleMessage msg = {0};
         msg.header.frame_type = BleIntercomFrameTypeRequest;
         msg.header.command = BleCommandEnable;
         msg.header.data_size = 0;
         ble_send_message(ble, &msg);
+        result = msg.result;
+    } else {
+        BLE_LOG_W("No start, wrong state: %d", state);
     }
 
-    return msg.result;
+    return result;
 }
 
 bool ble_stop(Ble* ble) {
+    furi_assert(ble);
     BleMessage msg = {0};
     msg.header.frame_type = BleIntercomFrameTypeRequest;
     msg.header.command = BleCommandDisable;
