@@ -8,6 +8,21 @@ BleIntercomFrameGeneric* ble_command_preprocess(Ble* instance, uint32_t events) 
     return &instance->mailbox;
 }
 
+void ble_command_handler_init(Ble* instance, BleIntercomFrameGeneric* frame) {
+    if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
+        BLE_LOG_D("BleCommandInit response");
+    } else {
+        BLE_LOG_D("BleCommandInit request");
+
+        ble_worker_init();
+
+        frame->header.frame_type = BleIntercomFrameTypeResponse;
+        size_t frame_size = sizeof(BleIntercomFrameHeader) + frame->header.data_size;
+        size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
+        furi_assert(tx == frame_size);
+    }
+}
+
 void ble_command_handler_enable(Ble* instance, BleIntercomFrameGeneric* frame) {
     if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
         BLE_LOG_D("BleCommandEnable response");

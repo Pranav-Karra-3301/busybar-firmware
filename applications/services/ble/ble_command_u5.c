@@ -15,6 +15,31 @@ void ble_command_postprocess(Ble* instance, uint32_t events, bool result) {
     }
 }
 
+void ble_command_handler_init(Ble* instance, BleIntercomFrameGeneric* frame) {
+    if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
+        BLE_LOG_D("BleCommandInit response");
+
+        for(size_t i = 0; i < BLE_SERVICES_COUNT; i++) {
+            ble_service_enqueue_init(instance->services[i]);
+        }
+
+        ///TODO: need to wait untill all services will call on_state changed callback
+        ///And after that change state to Ready and release message
+        ///But for now let's keep it as it is.
+        // instance->state = BleServiceStateInitialization;
+        instance->state = BleServiceStateReady;
+        instance->current_message->result = true;
+        api_lock_unlock(instance->current_message->lock);
+    } else {
+        BLE_LOG_D("BleCommandInit request");
+
+        frame->header.frame_type = BleIntercomFrameTypeRequest;
+        size_t frame_size = sizeof(BleIntercomFrameHeader) + frame->header.data_size;
+        size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
+        furi_assert(tx == frame_size);
+    }
+}
+
 void ble_command_handler_enable(Ble* instance, BleIntercomFrameGeneric* frame) {
     if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
         BLE_LOG_D("BleCommandEnable response");

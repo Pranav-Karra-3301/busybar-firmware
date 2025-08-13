@@ -25,6 +25,8 @@ typedef enum {
 
 //==========================================================================================================
 typedef enum {
+    BleCommandInit,
+    BleCommandDeinit,
     BleCommandEnable,
     BleCommandDisable,
     BleCommandGetState,
