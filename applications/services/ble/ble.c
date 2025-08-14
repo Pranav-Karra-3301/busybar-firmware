@@ -61,6 +61,13 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
         BLE_LOG_W("Packet lost!");
 }
 
+static void ble_service_state_change_callback(void* context) {
+    furi_assert(context);
+    Ble* instance = context;
+    BLE_LOG_W("ble_service_state_change_callback");
+    furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeServiceStateChanged);
+}
+
 #if !defined(SI917) && defined(BLE_AUTO_INIT)
 static void ble_init_timer_callback(void* context) {
     BLE_LOG_D("ble_init_timer_callback");
@@ -94,8 +101,12 @@ static Ble* ble_alloc() {
         instance->intercom, IntercomChannelBle, ble_backend_intercom_rx_callback, instance);
 
     for(size_t i = 0; i < BLE_SERVICES_COUNT; i++) {
-        instance->services[i] =
-            ble_service_alloc(service_config[i], instance->message_queue, instance->intercom);
+        instance->services[i] = ble_service_alloc(
+            service_config[i],
+            instance->message_queue,
+            instance->intercom,
+            ble_service_state_change_callback,
+            instance);
     }
 
 #if !defined(SI917) && defined(BLE_AUTO_INIT)

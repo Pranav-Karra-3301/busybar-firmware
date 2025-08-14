@@ -22,8 +22,9 @@ typedef struct {
 #endif
 
 typedef enum {
-    BleEventTypeIncomingMessage,
-    BleEventTypeFrameReceived,
+    BleEventTypeIncomingMessage = (1 << 0),
+    BleEventTypeFrameReceived = (1 << 1),
+    BleEventTypeServiceStateChanged = (1 << 2),
 } BleEventType;
 
 struct Ble {

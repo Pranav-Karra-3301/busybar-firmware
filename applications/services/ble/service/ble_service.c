@@ -138,9 +138,14 @@ static bool ble_service_process_input_frame(BleServiceObject* instance) {
 BleServiceObject* ble_service_alloc(
     const BleServiceDescriptor* service_config,
     FuriMessageQueue* message_queue,
-    Intercom* intercom) {
+    Intercom* intercom,
+    BleServiceStateChangeCallback state_callback,
+    BleServiceStateChangeCallbackContext* ctx) {
     furi_assert(service_config);
     furi_assert(message_queue);
+    furi_assert(intercom);
+    furi_assert(state_callback);
+    furi_assert(ctx);
 
     BleServiceObject* instance = malloc(sizeof(BleServiceObject));
     BLE_LOG_D("%s - alloc service", service_config->name);
@@ -149,6 +154,8 @@ BleServiceObject* ble_service_alloc(
     instance->desc = service_config;
     instance->intercom = intercom;
     instance->message_queue = message_queue;
+    instance->state_change_callback = state_callback;
+    instance->state_callback_context = ctx;
     instance->frame_lock = furi_semaphore_alloc(1, 1);
     instance->service_lock = furi_mutex_alloc(FuriMutexTypeNormal);
 
