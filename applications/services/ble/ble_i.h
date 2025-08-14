@@ -29,19 +29,14 @@ typedef enum {
 
 struct Ble {
     BleServiceState state;
-
-    FuriMessageQueue* message_queue;
-
+    FuriMutex* ble_lock;
     FuriSemaphore* mailbox_lock;
     BleIntercomFrameGeneric mailbox;
 
-    FuriMutex* ble_lock;
-
+    FuriMessageQueue* message_queue;
     FuriEventLoop* event_loop;
     Intercom* intercom;
     //--------------------------
-
-    FuriSemaphore* access_semaphore;
 
     BleServiceObject* services[BLE_SERVICES_COUNT];
 #if !defined(SI917)

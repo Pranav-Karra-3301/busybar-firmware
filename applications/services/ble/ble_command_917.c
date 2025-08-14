@@ -66,7 +66,7 @@ void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame)
 
 void ble_command_postprocess(Ble* instance, uint32_t events, bool result) {
     UNUSED(result);
-    if(events == BleEventTypeFrameReceived) {
+    if(events & BleEventTypeFrameReceived) {
         furi_semaphore_release(instance->mailbox_lock);
     }
 }

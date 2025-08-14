@@ -42,35 +42,41 @@ static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* 
 void ble_custom_event_callback(uint32_t events, void* context) {
     Ble* instance = context;
 
+    if(furi_mutex_acquire(instance->ble_lock, 100) == FuriStatusOk) {
         if(events & BleEventTypeServiceStateChanged) {
             ble_update_state_from_services(instance);
         }
 
-    BleIntercomFrameGeneric* frame = ble_command_preprocess(instance, events);
-    if(frame) {
-        BLE_LOG_D(
-            "Rx Frame t: %d c: %d ds: %d fs: %d",
-            frame->header.frame_type,
-            frame->header.command,
-            frame->header.data_size,
-            frame->header.data_size + sizeof(BleIntercomFrameHeader));
-        const BleCommand command = frame->header.command;
-        if(command == BleCommandInit) {
-            ble_command_handler_init(instance, frame);
-        } else if(command == BleCommandDeinit) {
-        } else if(command == BleCommandEnable) {
-            ble_command_handler_enable(instance, frame);
-        } else if(command == BleCommandDisable) {
-            ble_command_handler_disable(instance, frame);
-        } else if(command == BleCommandGetState) {
-            ble_command_handler_get_state(instance, (BleIntercomFrameStatus*)frame);
-        } else if(events == BleEventTypeFrameReceived) {
-            BleServiceIndex index = frame->header.service_index;
-            BleServiceObject* service = instance->services[index];
-            ble_service_process_mailbox(service, frame);
+        if((events & BleEventTypeFrameReceived) || (events & BleEventTypeIncomingMessage)) {
+            BleIntercomFrameGeneric* frame = ble_command_preprocess(instance, events);
+            if(frame) {
+                BLE_LOG_D(
+                    "Rx Frame t: %d c: %d ds: %d fs: %d",
+                    frame->header.frame_type,
+                    frame->header.command,
+                    frame->header.data_size,
+                    frame->header.data_size + sizeof(BleIntercomFrameHeader));
+                const BleCommand command = frame->header.command;
+                if(command == BleCommandInit) {
+                    ble_command_handler_init(instance, frame);
+                } else if(command == BleCommandDeinit) {
+                } else if(command == BleCommandEnable) {
+                    ble_command_handler_enable(instance, frame);
+                } else if(command == BleCommandDisable) {
+                    ble_command_handler_disable(instance, frame);
+                } else if(command == BleCommandGetState) {
+                    ble_command_handler_get_state(instance, (BleIntercomFrameStatus*)frame);
+                } else if(events & BleEventTypeFrameReceived) {
+                    BleServiceIndex index = frame->header.service_index;
+                    BleServiceObject* service = instance->services[index];
+                    ble_service_process_mailbox(service, frame);
+                }
+            }
+            ble_command_postprocess(instance, events, true);
         }
-    }
-    ble_command_postprocess(instance, events, true);
+        furi_mutex_release(instance->ble_lock);
+    } else
+        BLE_LOG_W("Unable to lock BLE");
 }
 
 static void ble_backend_intercom_rx_callback(const void* data, size_t data_size, void* context) {
@@ -104,7 +110,7 @@ static Ble* ble_alloc() {
     instance->state = BleServiceStateReset;
     instance->event_loop = furi_event_loop_alloc();
     instance->mailbox_lock = furi_semaphore_alloc(1, 1);
-    instance->access_semaphore = furi_semaphore_alloc(1, 1);
+    instance->ble_lock = furi_mutex_alloc(FuriMutexTypeNormal);
 
     instance->message_queue =
         furi_message_queue_alloc(BLE_SERVICES_COUNT, sizeof(BleServiceCommand));

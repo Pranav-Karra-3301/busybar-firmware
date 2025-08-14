@@ -3,9 +3,14 @@
 #define TAG "BLE_U5"
 
 BleIntercomFrameGeneric* ble_command_preprocess(Ble* instance, uint32_t events) {
-    return (events == BleEventTypeFrameReceived) ?
-               &instance->mailbox :
-               (BleIntercomFrameGeneric*)&instance->current_message->header;
+    if(events & BleEventTypeFrameReceived)
+        return &instance->mailbox;
+    else if(events & BleEventTypeIncomingMessage)
+        return (BleIntercomFrameGeneric*)&instance->current_message->header;
+    else {
+        BLE_LOG_W("Unknown event");
+        return NULL;
+    }
 }
 
 void ble_command_postprocess(Ble* instance, uint32_t events, bool result) {
@@ -26,8 +31,7 @@ void ble_command_handler_init(Ble* instance, BleIntercomFrameGeneric* frame) {
         ///TODO: need to wait untill all services will call on_state changed callback
         ///And after that change state to Ready and release message
         ///But for now let's keep it as it is.
-        // instance->state = BleServiceStateInitialization;
-        instance->state = BleServiceStateReady;
+        instance->state = BleServiceStateInitialization;
         instance->current_message->result = true;
         api_lock_unlock(instance->current_message->lock);
     } else {
