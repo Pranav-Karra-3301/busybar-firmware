@@ -7,6 +7,25 @@
 
 #define TAG "BLE"
 
+static void ble_update_state_from_services(Ble* instance) {
+    BLE_LOG_D("ble_update_state_from_services");
+
+    uint8_t services_in_states[BleServiceStateCount] = {0};
+    for(uint8_t i = 0; i < BLE_SERVICES_COUNT; i++) {
+        BleServiceObject* service = instance->services[i];
+        BleServiceState state = ble_service_get_state(service);
+        services_in_states[state]++;
+    }
+
+    if(services_in_states[BleServiceStateError] > 0) {
+        BLE_LOG_W("Some service has an error");
+        instance->state = BleServiceStateError;
+    } else if(services_in_states[BleServiceStateReady] == BLE_SERVICES_COUNT) {
+        BLE_LOG_I("All services are ready");
+        instance->state = BleServiceStateReady;
+    }
+}
+
 static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
     Ble* ble = context;
@@ -22,6 +41,10 @@ static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* 
 
 void ble_custom_event_callback(uint32_t events, void* context) {
     Ble* instance = context;
+
+        if(events & BleEventTypeServiceStateChanged) {
+            ble_update_state_from_services(instance);
+        }
 
     BleIntercomFrameGeneric* frame = ble_command_preprocess(instance, events);
     if(frame) {

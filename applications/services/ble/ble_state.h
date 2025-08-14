@@ -8,4 +8,6 @@ typedef enum {
     BleServiceStateAdvertising, /*User enabled ble, device start advertising.*/
     BleServiceStateConnected, /*Remote device connected to bsb over ble*/
     BleServiceStateError, /*Error occured.*/
+
+    BleServiceStateCount, /*Total amount of states. Used in some cyclic operations*/
 } BleServiceState;

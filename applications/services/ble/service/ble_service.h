@@ -21,4 +21,7 @@ bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* ms
 void ble_service_process_mailbox(
     BleServiceObject* instance,
     const BleIntercomFrameGeneric* input_frame);
+
+BleServiceState ble_service_get_state(BleServiceObject* instance);
+
 void ble_service_enqueue_init(BleServiceObject* instance);

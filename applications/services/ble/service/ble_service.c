@@ -68,6 +68,9 @@ void ble_service_send_intercom_frame(BleServiceObject* instance) {
 void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_state) {
     BLE_LOG_D("%s - set state: %d", instance->desc->name, new_state);
     instance->state = new_state;
+
+    if(instance->state_change_callback && instance->state_callback_context)
+        instance->state_change_callback(instance->state_callback_context);
 }
 
 bool execute_handler(BleServiceObject* instance, BleCommand command) {
@@ -195,6 +198,7 @@ void ble_service_process_mailbox(
     const BleIntercomFrameGeneric* input_frame) {
     furi_assert(instance);
     furi_assert(input_frame);
+    BLE_LOG_D("ble_service_process_mailbox");
 
     size_t fs = input_frame->header.data_size + sizeof(BleIntercomFrameHeader);
 
@@ -204,6 +208,12 @@ void ble_service_process_mailbox(
         memcpy(instance->frame_buf, input_frame, fs);
         ble_service_enqueue_message(instance, BleCommandServiceProcessFrame, 0);
     }
+}
+
+BleServiceState ble_service_get_state(BleServiceObject* instance) {
+    furi_assert(instance);
+    ///TODO: Think of taking service_lock here
+    return instance->state;
 }
 
 void ble_service_enqueue_message(BleServiceObject* instance, BleCommand command, uint8_t ch_index) {
@@ -221,7 +231,22 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
     furi_assert(instance);
     BLE_LOG_D("%s - enqueue init", instance->desc->name);
     if(ble_service_lock(instance)) {
-        ble_service_enqueue_message(instance, BleCommandServiceInit, NULL, 0);
+        ble_service_enqueue_message(instance, BleCommandServiceInit, 0);
+        ble_service_unlock(instance);
+    }
+}
+
+void ble_service_enqueue_write(
+    BleServiceObject* instance,
+    uint8_t ch_index,
+    void* data,
+    size_t data_size) {
+    if(ble_service_lock(instance)) {
+        BleCharacteristicObject* ch = instance->chars[ch_index];
+
+        ble_characteristic_set_data(ch, data, data_size);
+        ble_service_enqueue_message(instance, BleCommandServiceWrite, ch_index);
+
         ble_service_unlock(instance);
     }
 }
