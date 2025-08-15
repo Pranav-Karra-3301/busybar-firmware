@@ -34,6 +34,7 @@ App(
         "status_lights",
         "light_sensor",
         "supervisor",
+        "ble",
         "network",
     ],
     targets=["f20", "f21"],
@@ -60,6 +61,7 @@ App(
         #"wifi",
         "status_lights",
         "cli_intercom",
+        "ble"
     ],
     targets=["f64"],
 )
