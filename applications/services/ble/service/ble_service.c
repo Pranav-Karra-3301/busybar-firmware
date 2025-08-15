@@ -31,24 +31,21 @@ static void ble_service_unlock_input_frame(BleServiceObject* instance) {
     }
 }
 
-void ble_service_prepare_frame(
+void ble_service_prepare_send_intercom_frame(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
-    uint8_t command_event,
+    BleCommand command,
     size_t data_size,
     void* data) {
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->output;
-    frame->header.frame_type = frame_type;
-    frame->header.command = command_event;
-    frame->header.service_index = instance->desc->index;
-    frame->header.data_size = data_size;
+    BleIntercomFrameHeader* header = &frame->header;
+
+    header->frame_type = frame_type;
+    header->command = command;
+    header->service_index = instance->desc->index;
+    header->data_size = data_size;
     ///TODO: need more checks if there_is_enough memory in buffer
     if(data_size && data) memcpy(frame->data, data, data_size);
-}
-
-void ble_service_send_intercom_frame(BleServiceObject* instance) {
-    const BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->output;
-    const BleIntercomFrameHeader* header = &frame->header;
 
     size_t frame_size = header->data_size + sizeof(BleIntercomFrameHeader);
 
@@ -73,66 +70,17 @@ void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_st
         instance->state_change_callback(instance->state_callback_context);
 }
 
-bool execute_handler(BleServiceObject* instance, BleCommand command) {
-    bool result = false;
-    switch(command) {
-    case BleCommandServiceInit:
-        result = ble_service_target_init(instance);
-        break;
-    case BleCommandServiceRead:
-        break;
-    case BleCommandServiceWrite:
-        break;
-    case BleCommandServiceNotify:
-        break;
-    default:
-        break;
-    }
-
-    ble_service_send_intercom_frame(instance);
-    return result;
-}
-
-static bool ble_service_process_request(BleServiceObject* instance) {
-    BLE_LOG_D("%s - process request", instance->desc->name);
-    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
-    bool result = false;
-
-    result = execute_handler(instance, frame->header.command);
-    return result;
-}
-
-static bool ble_service_process_response(BleServiceObject* instance) {
-    BLE_LOG_D("%s - process response", instance->desc->name);
-    return ble_service_target_process_response(instance);
-}
-
-static bool ble_service_process_notification(BleServiceObject* instance) {
-    BLE_LOG_D("%s - notification frame RX", instance->desc->name);
-
-    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
-
-    if(frame->header.command == BleCommandServiceNotify) {
-        BleCharacteristicData* ch_data = (BleCharacteristicData*)frame->data;
-        ble_service_target_notify(
-            instance, ch_data->header.index, ch_data->data, ch_data->header.data_size);
-    }
-
-    return true;
-}
-
 static bool ble_service_process_input_frame(BleServiceObject* instance) {
     BLE_LOG_D("%s - process_input_frame", instance->desc->name);
 
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
-    if(frame->header.frame_type == BleIntercomFrameTypeRequest) {
-        ble_service_process_request(instance);
-    } else if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
-        BLE_LOG_D("%s - state: %d", instance->desc->name, instance->state);
-        ble_service_process_response(instance);
-    } else if(frame->header.frame_type == BleIntercomFrameTypeNotification) {
-        ble_service_process_notification(instance);
-    }
+
+    ble_service_target_execute(
+        instance,
+        frame->header.frame_type,
+        frame->header.command,
+        frame->header.data_size,
+        frame->data);
 
     ble_service_unlock_input_frame(instance);
     return true;
@@ -186,7 +134,8 @@ bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* ms
         if(msg->command == BleCommandServiceProcessFrame) {
             result = ble_service_process_input_frame(instance);
         } else
-            result = execute_handler(instance, msg->command);
+            result = ble_service_target_execute(
+                instance, BleIntercomFrameTypeRequest, msg->command, 0, NULL);
 
         ble_service_unlock(instance);
     }

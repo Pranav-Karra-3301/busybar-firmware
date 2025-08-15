@@ -3,17 +3,26 @@
 
 #define TAG "BleService917"
 
-bool ble_service_target_init(BleServiceObject* instance) {
+static bool
+    ble_service_command_allowed_by_state(const BleCommand command, const BleServiceState state) {
+    UNUSED(state);
+    UNUSED(command);
+    return true;
+}
+
+static bool ble_service_target_init(BleServiceObject* instance, size_t data_size, void* data) {
     BLE_LOG_D("%s - ble_service_target_init", instance->desc->name);
 
     BleServiceState state = BleServiceStateReady;
 
-    const BleIntercomFrameServiceConfig* frame =
-        (BleIntercomFrameServiceConfig*)instance->frame_buf;
+    // const BleIntercomFrameServiceConfig* frame =
+    //     (BleIntercomFrameServiceConfig*)instance->frame_buf;
 
     // if(instance->desc->init(instance))
 
-    const BleIntercomServiceData* service_config = &frame->service_init;
+    if(data_size == 0) return false;
+
+    const BleIntercomServiceData* service_config = data;
     BLE_LOG_D("%s - config char_count: %d", instance->desc->name, service_config->char_count);
     uint8_t offset = 0;
 
@@ -37,17 +46,15 @@ bool ble_service_target_init(BleServiceObject* instance) {
         ble_service_switch_state(instance, state);
     }
 
-    ble_service_prepare_frame(
+    ble_service_prepare_send_intercom_frame(
         instance, BleIntercomFrameTypeResponse, BleCommandServiceInit, 0, NULL);
+    // ble_service_prepare_frame(
+    //     instance, BleIntercomFrameTypeResponse, BleCommandServiceInit, 0, NULL);
 
     return true;
 }
 
-bool ble_service_target_process_response(BleServiceObject* instance) {
-    UNUSED(instance);
-    return true;
-}
-
+///TODO: Deal with character index!!!
 void ble_service_target_notify(
     BleServiceObject* instance,
     uint8_t ch_index,
@@ -58,4 +65,59 @@ void ble_service_target_notify(
     ble_characteristic_set_data(ch, data, data_size);
     const uint16_t handle = ble_characteristic_get_handle(ch);
     ble_worker_notify(handle, data_size, data);
+}
+
+static bool ble_service_command_handler_init(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    size_t data_size,
+    void* data) {
+    bool result = false;
+    if(frame_type == BleIntercomFrameTypeRequest) {
+        BLE_LOG_D("Init request");
+        result = ble_service_target_init(instance, data_size, data);
+        // ble_service_send_intercom_frame(instance);
+    } else {
+        BLE_LOG_D("Init response");
+    }
+    return result;
+}
+
+///TODO: Deal with character index!!!
+// static bool
+//     ble_service_command_handler_notify(BleServiceObject* instance, BleIntercomFrameGeneric* frame) {
+//     BleCharacteristicData* ch_data = (BleCharacteristicData*)frame->data;
+//     ble_service_target_notify(
+//         instance, ch_data->header.index, ch_data->data, ch_data->header.data_size);
+//     return true;
+// }
+
+bool ble_service_target_execute(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    BleCommand command,
+    size_t data_size,
+    void* data) {
+    BLE_LOG_D("%s - target_execute: %d", instance->desc->name, command);
+
+    bool result = false;
+    if(ble_service_command_allowed_by_state(command, instance->state)) {
+        switch(command) {
+        case BleCommandServiceInit:
+            result = ble_service_command_handler_init(instance, frame_type, data_size, data);
+            break;
+        case BleCommandServiceRead:
+            break;
+        case BleCommandServiceWrite:
+            break;
+        ///TODO: think of completely remove Notify command!
+        // case BleCommandServiceNotify:
+        //     result = ble_service_command_handler_notify(instance, frame);
+        //     break;
+        default:
+            break;
+        }
+    }
+
+    return result;
 }

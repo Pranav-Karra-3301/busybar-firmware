@@ -9,13 +9,10 @@ static bool
     return true;
 }
 
-bool ble_service_target_init(BleServiceObject* instance) {
+static bool ble_service_target_init(BleServiceObject* instance) {
     BLE_LOG_D("%s - ble_service_target_init", instance->desc->name);
 
     bool result = false;
-    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
-
-    if(!ble_service_command_allowed_by_state(frame->header.command, instance->state)) return false;
     /* need to create some data to put in here */
     if(instance->desc->init(instance)) {
         BLE_LOG_D("%s - request start remote", instance->desc->name);
@@ -43,12 +40,18 @@ bool ble_service_target_init(BleServiceObject* instance) {
 
         BLE_LOG_D("%s - config size: %d", instance->desc->name, total_config_size);
 
-        ble_service_prepare_frame(
+        ble_service_prepare_send_intercom_frame(
             instance,
             BleIntercomFrameTypeRequest,
             BleCommandServiceInit,
             total_config_size,
             config);
+        // ble_service_prepare_frame(
+        //     instance,
+        //     BleIntercomFrameTypeRequest,
+        //     BleCommandServiceInit,
+        //     total_config_size,
+        //     config);
 
         free(config);
         result = true;
@@ -57,40 +60,52 @@ bool ble_service_target_init(BleServiceObject* instance) {
     return result;
 }
 
-static bool ble_service_on_init_response(BleServiceObject* instance) {
-    ble_service_switch_state(instance, BleServiceStateReady);
-    return true;
-}
-
-bool ble_service_target_process_response(BleServiceObject* instance) {
-    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
-    const BleCommand command = frame->header.command;
+static bool ble_service_command_handler_init(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    size_t data_size,
+    void* data) {
+    UNUSED(data);
+    UNUSED(data_size);
 
     bool result = false;
-    switch(command) {
-    case BleCommandServiceInit:
-        result = ble_service_on_init_response(instance);
-        break;
-    case BleCommandServiceRead:
-        break;
-    case BleCommandServiceWrite:
-        break;
-    case BleCommandServiceNotify:
-        break;
-    default:
-        break;
+    if(frame_type == BleIntercomFrameTypeRequest) {
+        BLE_LOG_D("Init request");
+        result = ble_service_target_init(instance);
+        // ble_service_send_intercom_frame(instance);
+    } else {
+        BLE_LOG_D("Init response");
+        ble_service_switch_state(instance, BleServiceStateReady);
+        result = true;
     }
-
     return result;
 }
 
-void ble_service_target_notify(
+bool ble_service_target_execute(
     BleServiceObject* instance,
-    uint8_t ch_index,
-    void* data,
-    size_t data_size) {
-    UNUSED(instance);
-    UNUSED(ch_index);
-    UNUSED(data);
-    UNUSED(data_size);
+    BleIntercomFrameType frame_type,
+    BleCommand command,
+    size_t data_size,
+    void* data) {
+    BLE_LOG_D("%s - target_execute: %d", instance->desc->name, command);
+
+    bool result = false;
+    if(ble_service_command_allowed_by_state(command, instance->state)) {
+        switch(command) {
+        case BleCommandServiceInit:
+            result = ble_service_command_handler_init(instance, frame_type, data_size, data);
+            break;
+        case BleCommandServiceRead:
+            break;
+        case BleCommandServiceWrite:
+            break;
+        // case BleCommandServiceNotify:
+        //     result = ble_service_command_handler_notify(instance, frame_type, data_size, data);
+        //     break;
+        default:
+            break;
+        }
+    }
+
+    return result;
 }
