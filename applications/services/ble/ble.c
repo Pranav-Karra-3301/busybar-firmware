@@ -20,9 +20,14 @@ static void ble_update_state_from_services(Ble* instance) {
     if(services_in_states[BleServiceStateError] > 0) {
         BLE_LOG_W("Some service has an error");
         instance->state = BleServiceStateError;
-    } else if(services_in_states[BleServiceStateReady] == BLE_SERVICES_COUNT) {
-        BLE_LOG_I("All services are ready");
-        instance->state = BleServiceStateReady;
+    } else {
+        for(uint8_t i = 0; i < BLE_SERVICES_COUNT; i++) {
+            if(services_in_states[i] == BLE_SERVICES_COUNT) {
+                BLE_LOG_I("State changed to: %d", i);
+                instance->state = i;
+                break;
+            }
+        }
     }
 }
 
