@@ -76,7 +76,10 @@ void ble_custom_event_callback(uint32_t events, void* context) {
                     ble_service_process_mailbox(service, frame);
                 }
             }
-            ble_command_postprocess(instance, events, true);
+
+            if(events & BleEventTypeFrameReceived) {
+                furi_semaphore_release(instance->mailbox_lock);
+            }
         }
         furi_mutex_release(instance->ble_lock);
     } else

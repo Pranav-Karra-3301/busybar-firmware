@@ -13,13 +13,6 @@ BleIntercomFrameGeneric* ble_command_preprocess(Ble* instance, uint32_t events) 
     }
 }
 
-void ble_command_postprocess(Ble* instance, uint32_t events, bool result) {
-    UNUSED(result);
-    if(events == BleEventTypeFrameReceived) {
-        furi_semaphore_release(instance->mailbox_lock);
-    }
-}
-
 void ble_command_handler_init(Ble* instance, BleIntercomFrameGeneric* frame) {
     if(frame->header.frame_type == BleIntercomFrameTypeResponse) {
         BLE_LOG_D("BleCommandInit response");
