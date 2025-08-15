@@ -764,7 +764,10 @@ bool ble_worker_register_service(BleServiceObject* service) {
 
     bool result = false;
     if(status == RSI_SUCCESS) {
+        ///TODO: it's not very good that worker knows inner kitchen of ble_service object
+        /// Possibly need to close all of this parts behind some methods
         service->service_handler = new_serv_resp.serv_handler;
+        service->handle = new_serv_resp.start_handle;
 
         uint16_t handle = new_serv_resp.start_handle;
         BLE_LOG_I("Serv: 0x%04X", new_serv_resp.start_handle);

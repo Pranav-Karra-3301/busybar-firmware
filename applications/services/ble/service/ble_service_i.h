@@ -31,6 +31,7 @@ struct BleServiceObject {
     void* data_context;
 #if defined(SI917)
     void* service_handler;
+    uint16_t handle;
 #endif
 };
 
