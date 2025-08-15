@@ -714,45 +714,6 @@ void ble_worker_init() {
     //---------------------------------------
 }
 
-///TODO: Optional, maybe not needed but will add for now
-void ble_worker_deinit() {
-    free(ble_worker_instance);
-}
-
-// void* ble_worker_register_service(const Char_UUID_t* uiid, uint8_t uiid_size, uint16_t index) {
-//     UNUSED(service);
-//     BLE_LOG_I("register_service");
-
-//     uuid_t rsi_uiid = {0};
-//     rsi_ble_resp_add_serv_t new_serv_resp = {0};
-
-//     ble_prepare_uuid(uiid, uiid_size, &rsi_uiid);
-//     int result = rsi_ble_add_service(rsi_uiid, &new_serv_resp);
-//     if(result != 0) {
-//         BLE_LOG_W("Add service fail: 0x%04X", result);
-//         return NULL;
-//     } else {
-//         return new_serv_resp.serv_handler;
-//     }
-// }
-
-// void ble_worker_register_characteristic() {
-//     BLE_LOG_I("Add char %s att handle: %04X", desc->name, handle);
-//     handle = ble_worker_add_char_serv_att(
-//         service_handler, handle, desc->char_properties, handle + 1, uuid);
-
-//     BLE_LOG_I("Add char %s val att handle: %04X", desc->name, handle + 1);
-//     instance->handle = handle + 1;
-//     *out_handle = ble_worker_add_char_val_att(
-//         service_handler,
-//         handle + 1,
-//         uuid,
-//         desc->char_properties,
-//         instance->data,
-//         desc->data_size,
-//         0);
-// }
-
 bool ble_worker_register_service(BleServiceObject* service) {
     BLE_LOG_I("register_service");
 

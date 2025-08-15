@@ -59,7 +59,6 @@ void ble_custom_event_callback(uint32_t events, void* context) {
                 const BleCommand command = frame->header.command;
                 if(command == BleCommandInit) {
                     ble_command_handler_init(instance, frame);
-                } else if(command == BleCommandDeinit) {
                 } else if(command == BleCommandEnable) {
                     ble_command_handler_enable(instance, frame);
                 } else if(command == BleCommandDisable) {

@@ -3,8 +3,6 @@
 
 void ble_worker_init();
 
-// void ble_worker_init_service(BleIntercomFrameServiceConfig* config);
-
 bool ble_worker_register_service(BleServiceObject* service);
 
 void ble_worker_set_value(

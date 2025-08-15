@@ -36,20 +36,6 @@ bool ble_init(Ble* ble) {
     return result;
 }
 
-bool ble_deinit(Ble* ble) {
-    furi_assert(ble);
-
-    bool result = false;
-    BleMessage msg = {0};
-    msg.header.frame_type = BleIntercomFrameTypeRequest;
-    msg.header.command = BleCommandDeinit;
-    msg.header.data_size = 0;
-    ble_send_message(ble, &msg);
-    result = msg.result;
-
-    return result;
-}
-
 BleServiceState ble_get_state(Ble* ble) {
     furi_assert(ble);
     size_t msg_size = sizeof(BleMessage) + sizeof(BleServiceState);

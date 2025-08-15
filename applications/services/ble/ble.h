@@ -14,8 +14,6 @@ typedef struct Ble Ble;
 
 bool ble_init(Ble* ble);
 
-bool ble_deinit(Ble* ble);
-
 BleServiceState ble_get_state(Ble* ble);
 
 bool ble_start(Ble* ble);
