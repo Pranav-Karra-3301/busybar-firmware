@@ -28,7 +28,7 @@ struct BleServiceObject {
     BleServiceStateChangeCallback state_change_callback;
     BleServiceStateChangeCallbackContext* state_callback_context;
 
-    void* data_context;
+    void* context;
 #if defined(SI917)
     void* service_handler;
     uint16_t handle;
