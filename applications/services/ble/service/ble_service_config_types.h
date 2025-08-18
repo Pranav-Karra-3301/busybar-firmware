@@ -22,11 +22,11 @@ typedef enum {
 } BleServiceInitMethod;
 
 typedef bool (*BleServiceInit)(void* instance);
-typedef void (*BleServiceRead)(void* data, uint8_t data_size);
-typedef void (*BleServiceWrite)(void* data, uint8_t data_size);
-typedef void (*BleServiceNotify)(void* data, uint8_t data_size);
+typedef bool (*BleServiceRun)(void* instance);
 
-// typedef const uint8_t* (*BleCharacterGetData)(void* instance);
+// typedef void (*BleServiceRead)(void* data, uint8_t data_size);
+// typedef void (*BleServiceWrite)(void* data, uint8_t data_size);
+// typedef void (*BleServiceNotify)(void* data, uint8_t data_size);
 
 typedef struct {
     uint16_t intercom_index;
@@ -54,7 +54,9 @@ typedef struct {
     const char* name;
 
     BleServiceInit init;
-    BleServiceRead read;
-    BleServiceWrite write;
-    BleServiceNotify notify;
+    BleServiceRun run;
+
+    // BleServiceRead read;
+    // BleServiceWrite write;
+    // BleServiceNotify notify;
 } BleServiceDescriptor;

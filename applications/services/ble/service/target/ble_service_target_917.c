@@ -106,6 +106,9 @@ bool ble_service_target_execute(
         case BleCommandServiceInit:
             result = ble_service_command_handler_init(instance, frame_type, data_size, data);
             break;
+        case BleCommandServiceRun:
+            BLE_LOG_W("Run not implemented on 917");
+            break;
         case BleCommandServiceRead:
             break;
         case BleCommandServiceWrite:

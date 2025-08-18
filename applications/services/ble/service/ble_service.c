@@ -185,6 +185,12 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
     }
 }
 
+void ble_service_enqueue_run(BleServiceObject* instance) {
+    furi_assert(instance);
+    BLE_LOG_D("%s - enqueue run", instance->desc->name);
+    ble_service_enqueue_message(instance, BleCommandServiceRun, 0);
+}
+
 void ble_service_enqueue_write(
     BleServiceObject* instance,
     uint8_t ch_index,
