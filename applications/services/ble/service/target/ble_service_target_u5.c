@@ -81,6 +81,52 @@ static bool ble_service_command_handler_init(
     return result;
 }
 
+static bool ble_service_update_request(BleServiceObject* instance, size_t data_size, void* data) {
+    if(data_size == 0) {
+        BLE_LOG_W("Data_size == 0");
+        return false;
+    }
+
+    const BleIntercomServiceData* service_config = data;
+    // BLE_LOG_D("%s - char_count: %d", instance->desc->name, service_config->char_count);
+    uint8_t offset = 0;
+
+    for(size_t i = 0; i < service_config->char_count; i++) {
+        const BleCharacteristicData* char_init =
+            (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
+        size_t data_size = char_init->header.data_size;
+
+        // BLE_LOG_D(
+        //     "%s - char: %d data_size: %d",
+        //     instance->desc->name,
+        //     char_init->header.index,
+        //     data_size);
+
+        BleCharacteristicObject* ch = instance->chars[char_init->header.index];
+        const char* name = ble_characteristic_get_config(ch)->name;
+        ble_characteristic_set_data(ch, char_init->data, data_size);
+
+        ///TODO: Data formatting must be more informative
+        BLE_LOG_I("Ch: %s new data: %s", name, (const char*)char_init->data);
+
+        offset += (data_size + sizeof(BleCharacteristicDataHeader));
+    }
+    return true;
+}
+
+static bool ble_service_command_handler_update(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    size_t data_size,
+    void* data) {
+    if(frame_type == BleIntercomFrameTypeRequest) {
+        return ble_service_update_request(instance, data_size, data);
+    } else {
+        return false;
+        // return ble_service_update_response(instance, data_size, data);
+    }
+}
+
 static bool ble_service_command_handler_run(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
@@ -161,7 +207,7 @@ bool ble_service_target_execute(
             ble_service_command_handler_run(instance, frame_type, data_size, data);
             break;
         case BleCommandServiceUpdate:
-            BLE_LOG_D("BleCommandServiceUpdate");
+            ble_service_command_handler_update(instance, frame_type, data_size, data);
             break;
         case BleCommandServiceRead:
             break;
