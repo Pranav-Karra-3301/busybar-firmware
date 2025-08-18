@@ -83,6 +83,55 @@ static bool ble_service_command_handler_init(
     return result;
 }
 
+static bool ble_service_update_request(BleServiceObject* instance, size_t data_size, void* data) {
+    if(data_size == 0) return false;
+
+    const BleIntercomServiceData* service_config = data;
+    // BLE_LOG_D("%s - char_count: %d", instance->desc->name, service_config->char_count);
+    uint8_t offset = 0;
+
+    for(size_t i = 0; i < service_config->char_count; i++) {
+        const BleCharacteristicData* char_init =
+            (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
+        size_t data_size = char_init->header.data_size;
+
+        // BLE_LOG_D(
+        //     "%s - char: %d data_size: %d",
+        //     instance->desc->name,
+        //     char_init->header.index,
+        //     data_size);
+
+        BleCharacteristicObject* ch = instance->chars[char_init->header.index];
+        ble_characteristic_set_data(ch, char_init->data, data_size);
+
+        ///TODO: maybe past this inside characteristic_set_data function
+        /// but in such case we need separate set functions for targets,
+        /// or we can do define macro magic
+        const uint16_t handle = ble_characteristic_get_handle(ch);
+        ble_worker_notify(handle, data_size, ble_characteristic_get_data(ch));
+
+        offset += (data_size + sizeof(BleCharacteristicDataHeader));
+    }
+
+    ble_service_prepare_send_intercom_frame(
+        instance, BleIntercomFrameTypeResponse, BleCommandServiceUpdate, 0, NULL);
+
+    return true;
+}
+
+static bool ble_service_command_handler_update(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    size_t data_size,
+    void* data) {
+    if(frame_type == BleIntercomFrameTypeRequest) {
+        return ble_service_update_request(instance, data_size, data);
+    } else {
+        return false;
+        // return ble_service_update_response(instance, data_size, data);
+    }
+}
+
 ///TODO: Deal with character index!!!
 // static bool
 //     ble_service_command_handler_notify(BleServiceObject* instance, BleIntercomFrameGeneric* frame) {
@@ -108,6 +157,9 @@ bool ble_service_target_execute(
             break;
         case BleCommandServiceRun:
             BLE_LOG_W("Run not implemented on 917");
+            break;
+        case BleCommandServiceUpdate:
+            result = ble_service_command_handler_update(instance, frame_type, data_size, data);
             break;
         case BleCommandServiceRead:
             break;

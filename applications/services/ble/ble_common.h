@@ -32,6 +32,7 @@ typedef enum {
     //-------------------------------------
     BleCommandServiceInit,
     BleCommandServiceRun,
+    BleCommandServiceUpdate,
 
     BleCommandServiceRead,
     BleCommandServiceWrite,

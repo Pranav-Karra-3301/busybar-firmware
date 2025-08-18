@@ -160,6 +160,9 @@ bool ble_service_target_execute(
         case BleCommandServiceRun:
             ble_service_command_handler_run(instance, frame_type, data_size, data);
             break;
+        case BleCommandServiceUpdate:
+            BLE_LOG_D("BleCommandServiceUpdate");
+            break;
         case BleCommandServiceRead:
             break;
         case BleCommandServiceWrite:
