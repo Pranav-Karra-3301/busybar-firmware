@@ -133,6 +133,68 @@ static bool ble_service_command_handler_update(
     }
 }
 
+static bool ble_service_command_handler_run(
+    BleServiceObject* instance,
+    BleIntercomFrameType frame_type,
+    size_t data_size,
+    void* data) {
+    BLE_LOG_D("ble_service_command_handler_run");
+
+    UNUSED(frame_type);
+    UNUSED(data_size);
+    UNUSED(data);
+
+    bool result = false;
+    do {
+        // if(instance->desc->run == NULL) {
+        //     BLE_LOG_W("No run for %s service", instance->desc->name);
+        //     break;
+        // }
+
+        // if(!instance->desc->run(instance)) {
+        //     BLE_LOG_W("%s - run error", instance->desc->name);
+        //     break;
+        // }
+
+        ///TOODO: collect all updated characteristics and throw them
+        ///to remote
+        size_t total_data_size = 0;
+        const uint8_t chars_count_max = instance->desc->char_count;
+        uint8_t chars_count = 0;
+        for(size_t i = 0; i < chars_count_max; i++) {
+            if(!ble_characteristic_is_modified(instance->chars[i])) continue;
+            total_data_size += ble_characteristic_get_data_size(instance->chars[i]);
+            chars_count++;
+        }
+
+        size_t total_size = sizeof(BleCharacteristicDataHeader) * chars_count + total_data_size +
+                            sizeof(BleCharacteristicCountType);
+        BleIntercomServiceData* config = malloc(total_size);
+
+        config->char_count = chars_count;
+        uint8_t offset = 0;
+        for(size_t i = 0; i < chars_count_max; i++) {
+            BleCharacteristicObject* ch_obj = instance->chars[i];
+
+            if(!ble_characteristic_is_modified(ch_obj)) continue;
+            BleCharacteristicData* char_init =
+                (BleCharacteristicData*)((uint8_t*)config->chars_config + offset);
+
+            offset += ble_characteristic_fill_update_struct(ch_obj, char_init);
+        }
+
+        BLE_LOG_D("%s - config size: %d", instance->desc->name, total_size);
+
+        ble_service_prepare_send_intercom_frame(
+            instance, BleIntercomFrameTypeRequest, BleCommandServiceUpdate, total_size, config);
+
+        free(config);
+
+        result = true;
+    } while(false);
+    return result;
+}
+
 ///TODO: Deal with character index!!!
 // static bool
 //     ble_service_command_handler_notify(BleServiceObject* instance, BleIntercomFrameGeneric* frame) {
@@ -157,7 +219,7 @@ bool ble_service_target_execute(
             result = ble_service_command_handler_init(instance, frame_type, data_size, data);
             break;
         case BleCommandServiceRun:
-            BLE_LOG_W("Run not implemented on 917");
+            ble_service_command_handler_run(instance, frame_type, data_size, data);
             break;
         case BleCommandServiceUpdate:
             result = ble_service_command_handler_update(instance, frame_type, data_size, data);
