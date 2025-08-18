@@ -759,16 +759,19 @@ bool ble_worker_register_service(BleServiceObject* service) {
                 handle + 2,
                 rsi_uiid);
 
-            BLE_LOG_I("Add char %s val att handle: %04X", ch_config->name, handle + 2);
-            ble_characteristic_set_handle(ch, handle + 2);
+            uint16_t value_handle = handle + 2;
+            BLE_LOG_I("Add char %s val att handle: %04X", ch_config->name, value_handle);
+            ble_characteristic_set_handle(ch, value_handle);
             handle = ble_worker_add_char_val_att(
                 service->service_handler,
-                handle + 2,
+                value_handle,
                 rsi_uiid,
                 ch_config->char_properties,
                 ble_characteristic_get_data(ch),
                 ble_characteristic_get_data_size(ch),
                 0);
+            BleServiceEntry entry = {.service = service, .char_index = ch_config->intercom_index};
+            BleServiceEntryDict_set_at(ble_worker_instance->service_dict, value_handle, entry);
         }
 
         result = true;
