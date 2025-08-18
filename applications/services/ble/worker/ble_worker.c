@@ -12,11 +12,11 @@
 #include "rsi_ble_common_config.h"
 #include "rsi_bt_common_apis.h"
 
-// #include "../ble_common.h"
 #include "ble_advertise_config.h"
 #include "../ble_backend_util.h"
 #include "../service/ble_service_i.h"
-// #include "../service/ble_service_config_types.h"
+
+#include <m-dict.h>
 
 #define TAG "BleWorker"
 
@@ -51,6 +51,15 @@ typedef enum {
      BLEWorkerEvtWrite | BLEWorkerEvtDataTransmit | BLEWorkerEvtMtu)
 
 typedef struct {
+    ///TODO: for now this is ok, for future maybe it is worth to make each characteristic
+    /// know its own service.
+    BleServiceObject* service;
+    uint16_t char_index;
+} BleServiceEntry;
+
+DICT_DEF2(BleServiceEntryDict, uint16_t, M_DEFAULT_OPLIST, BleServiceEntry, M_POD_OPLIST)
+
+typedef struct {
     FuriThread* thread;
     bool connected;
     uint8_t device_found;
@@ -72,6 +81,7 @@ typedef struct {
     rsi_ble_event_write_t app_ble_write_event;
     rsi_ble_event_mtu_t app_ble_mtu_event;
 
+    BleServiceEntryDict_t service_dict;
 } BleWorker;
 
 //==========================================================
@@ -696,6 +706,8 @@ void ble_worker_init() {
 
     ble_worker_instance->thread =
         furi_thread_alloc_ex("BleWorker", 2048, ble_worker_thread_callback, ble_worker_instance);
+
+    BleServiceEntryDict_init(ble_worker_instance->service_dict);
 
     ble_hw_config();
 
