@@ -15,12 +15,10 @@ static bool ble_service_target_init(BleServiceObject* instance, size_t data_size
 
     BleServiceState state = BleServiceStateReady;
 
-    // const BleIntercomFrameServiceConfig* frame =
-    //     (BleIntercomFrameServiceConfig*)instance->frame_buf;
-
-    // if(instance->desc->init(instance))
-
-    if(data_size == 0) return false;
+    if(data_size == 0) {
+        BLE_LOG_W("Data_size == 0");
+        return false;
+    }
 
     const BleIntercomServiceData* service_config = data;
     BLE_LOG_D("%s - config char_count: %d", instance->desc->name, service_config->char_count);
@@ -84,7 +82,10 @@ static bool ble_service_command_handler_init(
 }
 
 static bool ble_service_update_request(BleServiceObject* instance, size_t data_size, void* data) {
-    if(data_size == 0) return false;
+    if(data_size == 0) {
+        BLE_LOG_W("Data_size == 0");
+        return false;
+    }
 
     const BleIntercomServiceData* service_config = data;
     // BLE_LOG_D("%s - char_count: %d", instance->desc->name, service_config->char_count);
