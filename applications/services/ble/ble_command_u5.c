@@ -79,6 +79,7 @@ void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame)
         size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
         furi_assert(tx == frame_size);
     } else {
+        BLE_LOG_D("GetStatus response");
         BLE_LOG_D("Local state: %d remote state: %d", instance->state, frame->state);
 
         ///TODO: Temporary fix, in order to unblock ble_start()

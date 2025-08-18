@@ -104,7 +104,7 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
         ble_characteristic_set_data(ch, char_init->data, data_size);
 
-        ///TODO: maybe past this inside characteristic_set_data function
+        ///TODO: maybe pass this inside characteristic_set_data function
         /// but in such case we need separate set functions for targets,
         /// or we can do define macro magic
         const uint16_t handle = ble_characteristic_get_handle(ch);

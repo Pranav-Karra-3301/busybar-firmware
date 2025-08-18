@@ -56,9 +56,10 @@ void ble_custom_event_callback(uint32_t events, void* context) {
             BleIntercomFrameGeneric* frame = ble_command_preprocess(instance, events);
             if(frame) {
                 BLE_LOG_D(
-                    "Rx Frame t: %d c: %d ds: %d fs: %d",
+                    "Rx Frame t: %d c: %d s: %d ds: %d fs: %d",
                     frame->header.frame_type,
                     frame->header.command,
+                    frame->header.service_index,
                     frame->header.data_size,
                     frame->header.data_size + sizeof(BleIntercomFrameHeader));
                 const BleCommand command = frame->header.command;
