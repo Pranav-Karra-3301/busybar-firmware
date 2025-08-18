@@ -33,6 +33,7 @@ void ble_characteristic_free(BleCharacteristicObject* instance) {
 
 const void* ble_characteristic_get_data(BleCharacteristicObject* instance) {
     furi_assert(instance);
+    instance->modified = false;
     return instance->data;
 }
 
