@@ -200,8 +200,17 @@ void ble_service_enqueue_write(
         BleCharacteristicObject* ch = instance->chars[ch_index];
 
         ble_characteristic_set_data(ch, data, data_size);
-        ble_service_enqueue_message(instance, BleCommandServiceWrite, ch_index);
 
+void ble_service_register_update_callback(
+    BleServiceObject* instance,
+    uint16_t index,
+    BleDataUpdatedCallback cb,
+    void* ctx) {
+    furi_assert(instance);
+    furi_assert(index < instance->desc->char_count);
+    if(ble_service_lock(instance)) {
+        BleCharacteristicObject* ch = instance->chars[index];
+        ble_characteristic_register_update_callback(ch, cb, ctx);
         ble_service_unlock(instance);
     }
 }

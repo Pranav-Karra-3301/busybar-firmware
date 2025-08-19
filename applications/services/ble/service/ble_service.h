@@ -25,3 +25,8 @@ void ble_service_process_mailbox(
 BleServiceState ble_service_get_state(BleServiceObject* instance);
 
 void ble_service_enqueue_init(BleServiceObject* instance);
+void ble_service_register_update_callback(
+    BleServiceObject* instance,
+    uint16_t index,
+    BleDataUpdatedCallback cb,
+    void* ctx);
