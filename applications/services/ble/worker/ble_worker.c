@@ -543,12 +543,15 @@ static int32_t ble_worker_thread_callback(void* context) {
                 BLE_LOG_I("Handle: %04X", handle);
                 BleServiceEntry* entry =
                     BleServiceEntryDict_get(ble_worker_instance->service_dict, handle);
-                BleServiceObject* service = entry->service;
-                if(ble_service_lock(service)) {
-                    BleCharacteristicObject* ch = service->chars[entry->char_index];
-                    ble_characteristic_set_data(ch, data, data_size);
-                    ble_service_enqueue_run(service);
-                    ble_service_unlock(service);
+                if(entry) {
+                    BLE_LOG_D("Entry present");
+                    BleServiceObject* service = entry->service;
+                    if(ble_service_lock(service)) {
+                        BleCharacteristicObject* ch = service->chars[entry->char_index];
+                        ble_characteristic_set_data(ch, data, data_size);
+                        ble_service_enqueue_run(service);
+                        ble_service_unlock(service);
+                    }
                 }
             }
             //TO DO: send ERR or write response
