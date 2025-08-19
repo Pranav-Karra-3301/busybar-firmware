@@ -191,15 +191,25 @@ void ble_service_enqueue_run(BleServiceObject* instance) {
     ble_service_enqueue_message(instance, BleCommandServiceRun, 0);
 }
 
-void ble_service_enqueue_write(
+void ble_service_write_data(
     BleServiceObject* instance,
-    uint8_t ch_index,
-    void* data,
-    size_t data_size) {
-    if(ble_service_lock(instance)) {
-        BleCharacteristicObject* ch = instance->chars[ch_index];
+    uint8_t index,
+    const void* data,
+    const size_t data_size) {
+    furi_assert(instance);
+    furi_assert(index < instance->desc->char_count);
+    furi_assert(data);
+    furi_assert(data_size > 0);
 
+    ///TODO: check if characteristic is is writeable
+
+    if(ble_service_lock(instance)) {
+        BleCharacteristicObject* ch = instance->chars[index];
         ble_characteristic_set_data(ch, data, data_size);
+        ble_service_enqueue_run(instance);
+        ble_service_unlock(instance);
+    }
+}
 
 void ble_service_register_update_callback(
     BleServiceObject* instance,
