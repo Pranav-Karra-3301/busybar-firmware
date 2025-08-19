@@ -5,11 +5,15 @@
 #define TAG "BleChar"
 
 struct BleCharacteristicObject {
-    uint16_t handle; ///TODO: maybe add this only to 917
     bool modified;
     uint8_t max_data_size;
     uint8_t data_size; ///TODO: set data_type of proper size
+    uint16_t handle; ///TODO: maybe add this only to 917
     void* data;
+
+    BleDataUpdatedCallback update_cb;
+    void* update_ctx;
+
     const BleCharacteristicDescriptor* descriptor;
 };
 
@@ -59,6 +63,9 @@ void ble_characteristic_set_data(
     memcpy(instance->data, data, data_size);
     instance->data_size = data_size;
     instance->modified = true;
+    if(instance->update_cb) {
+        instance->update_cb(data_size, instance->data, instance->update_ctx);
+    }
 }
 
 bool ble_characteristic_is_modified(BleCharacteristicObject* instance) {
@@ -96,4 +103,20 @@ uint8_t ble_characteristic_fill_update_struct(
     memcpy(output->data, instance->data, instance->data_size);
     instance->modified = false;
     return (instance->data_size + sizeof(BleCharacteristicDataHeader));
+}
+
+void ble_characteristic_register_update_callback(
+    BleCharacteristicObject* instance,
+    BleDataUpdatedCallback callback,
+    void* ctx) {
+    furi_assert(instance);
+
+    if(callback) {
+        instance->update_cb = callback;
+        instance->update_ctx = ctx;
+    } else {
+        BLE_LOG_D("Reset update callback");
+        instance->update_cb = NULL;
+        instance->update_ctx = NULL;
+    }
 }

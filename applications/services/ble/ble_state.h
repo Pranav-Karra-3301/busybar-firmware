@@ -1,5 +1,7 @@
 #pragma once
 
+#include <furi.h>
+
 typedef enum {
     BleServiceStateReset, /*Service was just created. Will move to BleServiceStateInitialization when it will create all inner objects*/
     BleServiceStateInitialization, /* Service performs initialization sequence for all inner ble services. 
@@ -11,3 +13,5 @@ typedef enum {
 
     BleServiceStateCount, /*Total amount of states. Used in some cyclic operations*/
 } BleServiceState;
+
+typedef void (*BleDataUpdatedCallback)(size_t data_size, void* data, void* context);

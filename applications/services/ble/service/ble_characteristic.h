@@ -23,3 +23,8 @@ uint16_t ble_characteristic_get_handle(BleCharacteristicObject* instance);
 uint8_t ble_characteristic_fill_update_struct(
     BleCharacteristicObject* instance,
     BleCharacteristicData* output);
+
+void ble_characteristic_register_update_callback(
+    BleCharacteristicObject* instance,
+    BleDataUpdatedCallback callback,
+    void* ctx);
