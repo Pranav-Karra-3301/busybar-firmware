@@ -81,3 +81,28 @@ bool ble_stop(Ble* ble) {
     ble_send_message(ble, &msg);
     return msg.result;
 }
+
+void ble_uart_tx_data(Ble* ble, BleUartChannel channel, const void* data, const size_t data_size) {
+    furi_assert(ble);
+    furi_assert(channel < BleUartChannelCount);
+
+    BleServiceIndex index = (channel == BleUartChannelHM10) ? BleServiceIndexHm10Uart :
+                                                              BleServiceIndexNordicUart;
+    BleServiceObject* service = ble->services[index];
+
+    ble_service_write_data(service, 1, data, data_size);
+}
+
+void ble_uart_set_rx_callback(
+    Ble* ble,
+    BleUartChannel channel,
+    BleDataUpdatedCallback rx_cb,
+    void* ctx) {
+    furi_assert(ble);
+    furi_assert(channel < BleUartChannelCount);
+
+    BleServiceIndex index = (channel == BleUartChannelHM10) ? BleServiceIndexHm10Uart :
+                                                              BleServiceIndexNordicUart;
+    BleServiceObject* service = ble->services[index];
+    ble_service_register_update_callback(service, 0, rx_cb, ctx);
+}
