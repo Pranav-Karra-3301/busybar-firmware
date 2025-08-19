@@ -73,7 +73,7 @@ const BleServiceDescriptor ble_service_config_nordic_uart = {
     .uuid = {.Char_UUID_128 = UART_SERVICE_UUID},
     .uuid_size = 16,
 #endif
-    .index = BleServiceIndexUart,
+    .index = BleServiceIndexNordicUart,
     .init_method = BleServiceInitMethodRemote,
     .char_count = COUNT_OF(nordic_uart_service_characteristics),
     .char_descriptors = nordic_uart_service_characteristics,
@@ -114,7 +114,7 @@ const BleServiceDescriptor ble_service_config_hm10_uart = {
     .uuid = {.Char_UUID_128 = HM10_UART_SERVICE_UUID},
     .uuid_size = 16,
 #endif
-    .index = BleServiceIndexSilabsUart,
+    .index = BleServiceIndexHm10Uart,
     .init_method = BleServiceInitMethodRemote,
     .char_count = COUNT_OF(hm10_uart_service_characteristics),
     .char_descriptors = hm10_uart_service_characteristics,
