@@ -195,15 +195,6 @@ static bool ble_service_command_handler_run(
     return result;
 }
 
-///TODO: Deal with character index!!!
-// static bool
-//     ble_service_command_handler_notify(BleServiceObject* instance, BleIntercomFrameGeneric* frame) {
-//     BleCharacteristicData* ch_data = (BleCharacteristicData*)frame->data;
-//     ble_service_target_notify(
-//         instance, ch_data->header.index, ch_data->data, ch_data->header.data_size);
-//     return true;
-// }
-
 bool ble_service_target_execute(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,

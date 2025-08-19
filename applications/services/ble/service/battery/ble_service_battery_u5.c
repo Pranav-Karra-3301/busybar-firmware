@@ -48,8 +48,6 @@ static void ble_service_battery_update(BleServiceObject* instance) {
 
 bool ble_service_battery_init(void* object) {
     furi_assert(object);
-    BLE_LOG_D("battery_init");
-
     BleServiceObject* instance = object;
 
     BleBatteryServiceContext* context = malloc(sizeof(BleBatteryServiceContext));
@@ -67,7 +65,6 @@ bool ble_service_battery_init(void* object) {
 
 bool ble_service_battery_run(void* object) {
     furi_assert(object);
-    BLE_LOG_D("ble_service_battery_run");
     BleServiceObject* instance = object;
 
     ble_service_battery_update(instance);
