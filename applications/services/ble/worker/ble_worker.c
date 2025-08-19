@@ -13,7 +13,7 @@
 #include "rsi_bt_common_apis.h"
 
 #include "ble_advertise_config.h"
-#include "../ble_backend_util.h"
+#include "ble_worker_util.h"
 #include "../service/ble_service_i.h"
 
 #include <m-dict.h>
@@ -61,6 +61,7 @@ DICT_DEF2(BleServiceEntryDict, uint16_t, M_DEFAULT_OPLIST, BleServiceEntry, M_PO
 
 typedef struct {
     FuriThread* thread;
+    ///TODO: this can be removed
     bool connected;
     uint8_t device_found;
     uint8_t conn_params_updated;
