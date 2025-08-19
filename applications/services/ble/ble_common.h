@@ -6,7 +6,7 @@
 #include <furi.h>
 #include <intercom/intercom.h>
 
-// #define BLE_DEBUG
+#define BLE_DEBUG
 
 #ifdef BLE_DEBUG
 #define BLE_LOG_D(...) FURI_LOG_D(TAG, __VA_ARGS__)
@@ -33,10 +33,6 @@ typedef enum {
     BleCommandServiceInit,
     BleCommandServiceRun,
     BleCommandServiceUpdate,
-
-    BleCommandServiceRead,
-    BleCommandServiceWrite,
-    BleCommandServiceNotify,
     //-------------------------------------
     BleCommandServiceProcessFrame,
 } BleCommand;

@@ -204,13 +204,6 @@ bool ble_service_target_execute(
         case BleCommandServiceUpdate:
             ble_service_command_handler_update(instance, frame_type, data_size, data);
             break;
-        case BleCommandServiceRead:
-            break;
-        case BleCommandServiceWrite:
-            break;
-        // case BleCommandServiceNotify:
-        //     result = ble_service_command_handler_notify(instance, frame_type, data_size, data);
-        //     break;
         default:
             break;
         }

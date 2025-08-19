@@ -224,14 +224,6 @@ bool ble_service_target_execute(
         case BleCommandServiceUpdate:
             result = ble_service_command_handler_update(instance, frame_type, data_size, data);
             break;
-        case BleCommandServiceRead:
-            break;
-        case BleCommandServiceWrite:
-            break;
-        ///TODO: think of completely remove Notify command!
-        // case BleCommandServiceNotify:
-        //     result = ble_service_command_handler_notify(instance, frame);
-        //     break;
         default:
             break;
         }
