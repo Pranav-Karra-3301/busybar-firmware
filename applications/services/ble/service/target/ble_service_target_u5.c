@@ -140,12 +140,7 @@ static bool ble_service_command_handler_run(
 
     bool result = false;
     do {
-        if(instance->desc->run == NULL) {
-            BLE_LOG_W("No run for %s service", instance->desc->name);
-            break;
-        }
-
-        if(!instance->desc->run(instance)) {
+        if(instance->desc->run && !instance->desc->run(instance)) {
             BLE_LOG_W("%s - run error", instance->desc->name);
             break;
         }
