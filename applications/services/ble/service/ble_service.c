@@ -5,7 +5,7 @@
 
 bool ble_service_lock(BleServiceObject* instance) {
     if(furi_mutex_acquire(instance->service_lock, 100) != FuriStatusOk) {
-        BLE_LOG_W("%s - service lock failed", instance->desc->name);
+        BLE_LOG_W("%s - service lock failed", instance->config->name);
         return false;
     }
     return true;
@@ -13,13 +13,13 @@ bool ble_service_lock(BleServiceObject* instance) {
 
 void ble_service_unlock(BleServiceObject* instance) {
     if(furi_mutex_release(instance->service_lock) != FuriStatusOk) {
-        BLE_LOG_W("%s - service unlock failed", instance->desc->name);
+        BLE_LOG_W("%s - service unlock failed", instance->config->name);
     }
 }
 
 static bool ble_service_lock_input_frame(BleServiceObject* instance) {
     if(furi_semaphore_acquire(instance->frame_lock, 100) != FuriStatusOk) {
-        BLE_LOG_W("%s - frame lock failed", instance->desc->name);
+        BLE_LOG_W("%s - frame lock failed", instance->config->name);
         return false;
     }
     return true;
@@ -27,7 +27,7 @@ static bool ble_service_lock_input_frame(BleServiceObject* instance) {
 
 static void ble_service_unlock_input_frame(BleServiceObject* instance) {
     if(furi_semaphore_release(instance->frame_lock) != FuriStatusOk) {
-        BLE_LOG_W("%s - frame unlock failed", instance->desc->name);
+        BLE_LOG_W("%s - frame unlock failed", instance->config->name);
     }
 }
 
@@ -42,7 +42,7 @@ void ble_service_prepare_send_intercom_frame(
 
     header->frame_type = frame_type;
     header->command = command;
-    header->service_index = instance->desc->index;
+    header->service_index = instance->config->index;
     header->data_size = data_size;
     ///TODO: need more checks if there_is_enough memory in buffer
     if(data_size && data) memcpy(frame->data, data, data_size);
@@ -51,7 +51,7 @@ void ble_service_prepare_send_intercom_frame(
 
     BLE_LOG_D(
         "%s - TX frame t: %d c: %d ds: %d fs: %d",
-        instance->desc->name,
+        instance->config->name,
         header->frame_type,
         header->command,
         header->data_size,
@@ -63,7 +63,7 @@ void ble_service_prepare_send_intercom_frame(
 }
 
 void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_state) {
-    BLE_LOG_D("%s - set state: %d", instance->desc->name, new_state);
+    BLE_LOG_D("%s - set state: %d", instance->config->name, new_state);
     instance->state = new_state;
 
     if(instance->state_change_callback && instance->state_callback_context)
@@ -71,7 +71,7 @@ void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_st
 }
 
 static bool ble_service_process_input_frame(BleServiceObject* instance) {
-    BLE_LOG_D("%s - process_input_frame", instance->desc->name);
+    BLE_LOG_D("%s - process_input_frame", instance->config->name);
 
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
 
@@ -102,7 +102,7 @@ BleServiceObject* ble_service_alloc(
     BLE_LOG_D("%s - alloc service", service_config->name);
 
     instance->state = BleServiceStateReset;
-    instance->desc = service_config;
+    instance->config = service_config;
     instance->intercom = intercom;
     instance->message_queue = message_queue;
     instance->state_change_callback = state_callback;
@@ -128,7 +128,7 @@ bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* ms
     furi_assert(instance);
     furi_assert(msg);
 
-    BLE_LOG_D("%s - ble_service_process", instance->desc->name);
+    BLE_LOG_D("%s - ble_service_process", instance->config->name);
     bool result = false;
     if(ble_service_lock(instance)) {
         if(msg->command == BleCommandServiceProcessFrame) {
@@ -169,16 +169,16 @@ void ble_service_enqueue_message(BleServiceObject* instance, BleCommand command,
     furi_assert(instance);
 
     BleServiceCommand msg = {
-        .command = command, .service_index = instance->desc->index, .char_index = ch_index};
+        .command = command, .service_index = instance->config->index, .char_index = ch_index};
 
     if(furi_message_queue_put(instance->message_queue, &msg, 100) != FuriStatusOk) {
-        BLE_LOG_W("%s - unable to enqueue for processing", instance->desc->name);
+        BLE_LOG_W("%s - unable to enqueue for processing", instance->config->name);
     }
 }
 
 void ble_service_enqueue_init(BleServiceObject* instance) {
     furi_assert(instance);
-    BLE_LOG_D("%s - enqueue init", instance->desc->name);
+    BLE_LOG_D("%s - enqueue init", instance->config->name);
     if(ble_service_lock(instance)) {
         ble_service_enqueue_message(instance, BleCommandServiceInit, 0);
         ble_service_unlock(instance);
@@ -187,7 +187,7 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
 
 void ble_service_enqueue_run(BleServiceObject* instance) {
     furi_assert(instance);
-    BLE_LOG_D("%s - enqueue run", instance->desc->name);
+    BLE_LOG_D("%s - enqueue run", instance->config->name);
     ble_service_enqueue_message(instance, BleCommandServiceRun, 0);
 }
 
@@ -197,7 +197,7 @@ void ble_service_write_data(
     const void* data,
     const size_t data_size) {
     furi_assert(instance);
-    furi_assert(index < instance->desc->char_count);
+    furi_assert(index < instance->config->char_count);
     furi_assert(data);
     furi_assert(data_size > 0);
 
@@ -217,7 +217,7 @@ void ble_service_register_update_callback(
     BleDataUpdatedCallback cb,
     void* ctx) {
     furi_assert(instance);
-    furi_assert(index < instance->desc->char_count);
+    furi_assert(index < instance->config->char_count);
     if(ble_service_lock(instance)) {
         BleCharacteristicObject* ch = instance->chars[index];
         ble_characteristic_register_update_callback(ch, cb, ctx);

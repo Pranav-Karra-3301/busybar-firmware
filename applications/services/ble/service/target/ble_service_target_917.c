@@ -11,7 +11,7 @@ static bool
 }
 
 static bool ble_service_target_init(BleServiceObject* instance, size_t data_size, void* data) {
-    BLE_LOG_D("%s - ble_service_target_init", instance->desc->name);
+    BLE_LOG_D("%s - ble_service_target_init", instance->config->name);
 
     BleServiceState state = BleServiceStateReady;
 
@@ -21,7 +21,7 @@ static bool ble_service_target_init(BleServiceObject* instance, size_t data_size
     }
 
     const BleIntercomServiceData* service_config = data;
-    BLE_LOG_D("%s - config char_count: %d", instance->desc->name, service_config->char_count);
+    BLE_LOG_D("%s - config char_count: %d", instance->config->name, service_config->char_count);
     uint8_t offset = 0;
 
     for(size_t i = 0; i < service_config->char_count; i++) {
@@ -31,7 +31,7 @@ static bool ble_service_target_init(BleServiceObject* instance, size_t data_size
 
         BLE_LOG_D(
             "%s - char: %d data_size: %d",
-            instance->desc->name,
+            instance->config->name,
             char_init->header.index,
             data_size);
         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
@@ -58,7 +58,7 @@ void ble_service_target_notify(
     uint8_t ch_index,
     void* data,
     size_t data_size) {
-    BLE_LOG_D("%s - ble_service_target_notify", instance->desc->name);
+    BLE_LOG_D("%s - ble_service_target_notify", instance->config->name);
     BleCharacteristicObject* ch = instance->chars[ch_index];
     ble_characteristic_set_data(ch, data, data_size);
     const uint16_t handle = ble_characteristic_get_handle(ch);
@@ -159,7 +159,7 @@ static bool ble_service_command_handler_run(
         ///TOODO: collect all updated characteristics and throw them
         ///to remote
         size_t total_data_size = 0;
-        const uint8_t chars_count_max = instance->desc->char_count;
+        const uint8_t chars_count_max = instance->config->char_count;
         uint8_t chars_count = 0;
         for(size_t i = 0; i < chars_count_max; i++) {
             if(!ble_characteristic_is_modified(instance->chars[i])) continue;
@@ -183,7 +183,7 @@ static bool ble_service_command_handler_run(
             offset += ble_characteristic_fill_update_struct(ch_obj, char_init);
         }
 
-        BLE_LOG_D("%s - config size: %d", instance->desc->name, total_size);
+        BLE_LOG_D("%s - config size: %d", instance->config->name, total_size);
 
         ble_service_prepare_send_intercom_frame(
             instance, BleIntercomFrameTypeRequest, BleCommandServiceUpdate, total_size, config);
@@ -201,7 +201,7 @@ bool ble_service_target_execute(
     BleCommand command,
     size_t data_size,
     void* data) {
-    BLE_LOG_D("%s - target_execute: %d", instance->desc->name, command);
+    BLE_LOG_D("%s - target_execute: %d", instance->config->name, command);
 
     bool result = false;
     if(ble_service_command_allowed_by_state(command, instance->state)) {

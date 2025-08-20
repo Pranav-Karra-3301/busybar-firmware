@@ -752,7 +752,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
     uuid_t rsi_uiid = {0};
     rsi_ble_resp_add_serv_t new_serv_resp = {0};
 
-    ble_prepare_uuid(&service->desc->uuid, service->desc->uuid_size, &rsi_uiid);
+    ble_prepare_uuid(&service->config->uuid, service->config->uuid_size, &rsi_uiid);
     sl_status_t status = rsi_ble_add_service(rsi_uiid, &new_serv_resp);
 
     bool result = false;
@@ -764,7 +764,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
 
         uint16_t handle = new_serv_resp.start_handle;
         BLE_LOG_I("Serv: 0x%04X", new_serv_resp.start_handle);
-        for(uint8_t i = 0; i < service->desc->char_count; i++) {
+        for(uint8_t i = 0; i < service->config->char_count; i++) {
             BleCharacteristicObject* ch = service->chars[i];
             const BleCharacteristicDescriptor* ch_config = ble_characteristic_get_config(ch);
 
