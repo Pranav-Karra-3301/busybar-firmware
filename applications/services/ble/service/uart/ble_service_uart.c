@@ -46,7 +46,7 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
     {
         .intercom_index = BleSrvDeviceUartCharacterRx,
         .name = "Uart Rx",
-        .initial_data_size = 5,
+        .initial_data_size = 240,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_RX_CHAR_UUID},
         .uuid_size = 16,
@@ -56,7 +56,7 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
     {
         .intercom_index = BleSrvDeviceUartCharacterTx,
         .name = "Uart Tx",
-        .initial_data_size = 5,
+        .initial_data_size = 240,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_TX_CHAR_UUID},
         .uuid_size = 16,
