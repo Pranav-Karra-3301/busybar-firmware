@@ -31,12 +31,35 @@ static void ble_service_unlock_input_frame(BleServiceObject* instance) {
     }
 }
 
+static inline void
+    ble_service_frame_buf_check_alloc(BleServiceObject* instance, size_t new_frame_size) {
+    if(new_frame_size > instance->frame_size) {
+        free(instance->frame_buf);
+        instance->frame_buf = malloc(new_frame_size);
+        instance->frame_size = new_frame_size;
+        BLE_LOG_I("%s - buf_size: %d", instance->config->name, new_frame_size);
+    }
+}
+
+static inline void
+    ble_service_output_buf_check_alloc(BleServiceObject* instance, size_t new_frame_size) {
+    if(new_frame_size > instance->output_size) {
+        free(instance->output);
+        instance->output = malloc(new_frame_size);
+        instance->output_size = new_frame_size;
+        BLE_LOG_I("%s - out_size: %d", instance->config->name, new_frame_size);
+    }
+}
+
 void ble_service_prepare_send_intercom_frame(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
     BleCommand command,
     size_t data_size,
     void* data) {
+    size_t frame_size = data_size + sizeof(BleIntercomFrameHeader);
+    ble_service_output_buf_check_alloc(instance, frame_size);
+
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->output;
     BleIntercomFrameHeader* header = &frame->header;
 
@@ -46,8 +69,6 @@ void ble_service_prepare_send_intercom_frame(
     header->data_size = data_size;
     ///TODO: need more checks if there_is_enough memory in buffer
     if(data_size && data) memcpy(frame->data, data, data_size);
-
-    size_t frame_size = header->data_size + sizeof(BleIntercomFrameHeader);
 
     BLE_LOG_D(
         "%s - TX frame t: %d c: %d ds: %d fs: %d",
@@ -118,8 +139,8 @@ BleServiceObject* ble_service_alloc(
             instance->chars[config->intercom_index] = ble_char;
         }
     }
-    ///TODO: testcode remove when frame_buf will be allocated dynamically
-    instance->frame_size = sizeof(instance->frame_buf);
+    instance->frame_size = 0;
+    instance->output_size = 0;
 
     return instance;
 }
@@ -151,9 +172,8 @@ void ble_service_process_mailbox(
 
     size_t fs = input_frame->header.data_size + sizeof(BleIntercomFrameHeader);
 
-    furi_assert(fs <= instance->frame_size);
-
     if(ble_service_lock_input_frame(instance)) {
+        ble_service_frame_buf_check_alloc(instance, fs);
         memcpy(instance->frame_buf, input_frame, fs);
         ble_service_enqueue_message(instance, BleCommandServiceProcessFrame, 0);
     }
