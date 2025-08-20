@@ -22,9 +22,6 @@ struct BleServiceObject {
     size_t frame_size;
     uint8_t* frame_buf;
 
-    size_t output_size;
-    uint8_t* output;
-
     BleServiceStateChangeCallback state_change_callback;
     BleServiceStateChangeCallbackContext* state_callback_context;
 

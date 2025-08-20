@@ -41,16 +41,6 @@ static inline void
     }
 }
 
-static inline void
-    ble_service_output_buf_check_alloc(BleServiceObject* instance, size_t new_frame_size) {
-    if(new_frame_size > instance->output_size) {
-        free(instance->output);
-        instance->output = malloc(new_frame_size);
-        instance->output_size = new_frame_size;
-        BLE_LOG_I("%s - out_size: %d", instance->config->name, new_frame_size);
-    }
-}
-
 void ble_service_prepare_send_intercom_frame(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
@@ -58,9 +48,9 @@ void ble_service_prepare_send_intercom_frame(
     size_t data_size,
     void* data) {
     size_t frame_size = data_size + sizeof(BleIntercomFrameHeader);
-    ble_service_output_buf_check_alloc(instance, frame_size);
+    ble_service_frame_buf_check_alloc(instance, frame_size);
 
-    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->output;
+    BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
     BleIntercomFrameHeader* header = &frame->header;
 
     header->frame_type = frame_type;
@@ -79,7 +69,7 @@ void ble_service_prepare_send_intercom_frame(
         frame_size);
 
     size_t tx =
-        intercom_tx(instance->intercom, IntercomChannelBle, instance->output, frame_size, 100);
+        intercom_tx(instance->intercom, IntercomChannelBle, instance->frame_buf, frame_size, 100);
     furi_assert(tx == frame_size);
 }
 
@@ -140,7 +130,6 @@ BleServiceObject* ble_service_alloc(
         }
     }
     instance->frame_size = 0;
-    instance->output_size = 0;
 
     return instance;
 }
