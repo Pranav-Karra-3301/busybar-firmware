@@ -33,6 +33,7 @@ static void ble_service_unlock_input_frame(BleServiceObject* instance) {
 
 static inline void
     ble_service_frame_buf_check_alloc(BleServiceObject* instance, size_t new_frame_size) {
+    furi_check(new_frame_size < MAX_BLE_INTERCOM_FRAME_SIZE);
     if(new_frame_size > instance->frame_size) {
         free(instance->frame_buf);
         instance->frame_buf = malloc(new_frame_size);
