@@ -10,12 +10,17 @@
 #include <gui/scene_manager.h>
 #include <gui/modules/nav_bar.h>
 #include <gui/modules/flex_layout.h>
+#include <l10n/l10n.h>
+#include <l10n/keys/settings.h>
 
 typedef struct SettingsApp {
     FuriEventLoop* event_loop;
     FuriMessageQueue* input_queue;
     FuriMessageQueue* event_queue;
     SceneManager* scene_manager;
+
+    L10nSrv* l10n_service;
+    L10nContext* l10n;
 
     Gui* gui;
     Audio* audio;

@@ -54,11 +54,13 @@ static void settings_scene_start_on_enter(void* context) {
         gui_layer_add_input_callback(layer, settings_scene_start_input_callback, instance);
 
         data->front_card = app_title_card_alloc(instance->front_scene_window);
-        app_title_card_set_text(data->front_card, "SETTINGS");
+        app_title_card_set_text(
+            data->front_card, l10n_get(instance->l10n, L10N_KEY_SETTINGS_TITLE_FRONT));
         app_title_card_set_image(data->front_card, SETTINGS_IMG_PATH("settings_front_13x13.bin"));
 
         data->back_card = app_title_card_alloc(instance->back_scene_window);
-        app_title_card_set_text(data->back_card, "SETTINGS");
+        app_title_card_set_text(
+            data->back_card, l10n_get(instance->l10n, L10N_KEY_SETTINGS_TITLE_BACK));
         app_title_card_set_image(data->back_card, SETTINGS_IMG_PATH("settings_back_18x18.bin"));
 
         widget_set_visible(nav_bar_get_base(instance->back_nav_bar), false);
