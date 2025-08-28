@@ -2,6 +2,8 @@
  * Size: 8 px
  * Bpp: 1
  * Opts: --font /home/portasynthinca3/Downloads/BSB_Tiny5-Regular.ttf --bpp 1 --size 8 --no-compress --symbols ▶▹◃∞ --range 32-127,1040-1103 --format lvgl -o lib/lvgl_addons/fonts/lv_font_tiny5_8.c
+ * IMPORTANT: After regenerating, change `base_line` in the struct at the bottom
+ * of this file: base_line = 1 + (line_height - 7)
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -754,7 +756,7 @@ lv_font_t lv_font_tiny5_8 = {
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
     .line_height = 9,          /*The maximum line height required by the font*/
-    .base_line = 1,             /*Baseline measured from the bottom of the line*/
+    .base_line = 3,             /*Baseline measured from the bottom of the line*/
 #if !(LVGL_VERSION_MAJOR == 6 && LVGL_VERSION_MINOR == 0)
     .subpx = LV_FONT_SUBPX_NONE,
 #endif
