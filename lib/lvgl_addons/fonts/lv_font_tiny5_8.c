@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 8 px
  * Bpp: 1
- * Opts: --font /home/portasynthinca3/Downloads/Tiny5/Tiny5-Regular.ttf --bpp 1 --size 8 --no-compress --symbols ▶▹◃∞ --range 32-127,1040-1103 --format lvgl -o lib/lvgl_addons/fonts/lv_font_tiny5_8.c
+ * Opts: --font /home/portasynthinca3/Downloads/BSB_Tiny5-Regular.ttf --bpp 1 --size 8 --no-compress --symbols ▶▹◃∞ --range 32-127,1040-1103 --format lvgl -o lib/lvgl_addons/fonts/lv_font_tiny5_8.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -536,7 +536,7 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
     {.bitmap_index = 26, .adv_w = 32, .box_w = 1, .box_h = 1, .ofs_x = 0, .ofs_y = 0},
     {.bitmap_index = 27, .adv_w = 48, .box_w = 2, .box_h = 5, .ofs_x = 0, .ofs_y = 0},
     {.bitmap_index = 29, .adv_w = 64, .box_w = 3, .box_h = 5, .ofs_x = 0, .ofs_y = 0},
-    {.bitmap_index = 31, .adv_w = 64, .box_w = 2, .box_h = 5, .ofs_x = 0, .ofs_y = 0},
+    {.bitmap_index = 31, .adv_w = 48, .box_w = 2, .box_h = 5, .ofs_x = 0, .ofs_y = 0},
     {.bitmap_index = 33, .adv_w = 64, .box_w = 3, .box_h = 5, .ofs_x = 0, .ofs_y = 0},
     {.bitmap_index = 35, .adv_w = 64, .box_w = 3, .box_h = 5, .ofs_x = 0, .ofs_y = 0},
     {.bitmap_index = 37, .adv_w = 64, .box_w = 3, .box_h = 5, .ofs_x = 0, .ofs_y = 0},
