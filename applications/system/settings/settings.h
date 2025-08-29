@@ -11,7 +11,7 @@
 #include <gui/modules/nav_bar.h>
 #include <gui/modules/flex_layout.h>
 #include <l10n/l10n.h>
-#include <l10n/keys/settings.h>
+#include <l10n_keys/settings.h>
 
 typedef struct SettingsApp {
     FuriEventLoop* event_loop;

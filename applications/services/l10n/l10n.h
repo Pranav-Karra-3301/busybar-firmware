@@ -57,16 +57,15 @@ typedef enum {
 /**
  * @brief Creates a translation context
  * 
- * Tries to load the translation table for the app with the globally set locale.
- * If that fails, tries to load the en-US locale.
- * 
  * @param[in] service Localization handle
- * @param[in] app_id Application id
+ * @param[in] app_id_or_path Application id (when `L10nSourceFlash`) or path to
+ *                           directory containing the locale files (when
+ *                           `L10nSourceStorage`)
  * @param[in] source Where to get the templates from
  * 
  * @returns Translation context
  */
-L10nContext* l10n_context_open(L10nSrv* service, const char* app_id, L10nSource source);
+L10nContext* l10n_context_open(L10nSrv* service, const char* app_id_or_path, L10nSource source);
 
 /**
  * @brief Closes a translation context

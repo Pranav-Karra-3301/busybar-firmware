@@ -70,7 +70,8 @@ static SettingsApp* settings_alloc(void) {
         scene_manager_alloc(settings_scenes, COUNT_OF(settings_scenes), instance);
 
     instance->l10n_service = furi_record_open(RECORD_L10N);
-    instance->l10n = l10n_context_open(instance->l10n_service, "settings", L10nSourceFlash);
+    instance->l10n =
+        l10n_context_open(instance->l10n_service, SETTINGS_ASSETS_PATH("l10n"), L10nSourceStorage);
 
     instance->gui = furi_record_open(RECORD_GUI);
     instance->audio = furi_record_open(RECORD_AUDIO);

@@ -125,11 +125,10 @@ L10nLocale l10n_get_global_locale(L10nSrv* service) {
 
 static const L10nTable* l10n_table_try_get_from_storage_by_id(
     Storage* storage,
-    const char* app_id,
+    const char* asset_path,
     const char* locale_name) {
     const L10nTable* table = NULL;
-    FuriString* path =
-        furi_string_alloc_printf(EXT_PATH("apps_assets") "/%s/l10n/%s", app_id, locale_name);
+    FuriString* path = furi_string_alloc_printf("%s/%s", asset_path, locale_name);
     File* file = storage_file_alloc(storage);
 
     do {
@@ -145,19 +144,22 @@ static const L10nTable* l10n_table_try_get_from_storage_by_id(
     return table;
 }
 
-static const L10nTable*
-    l10n_table_try_get(Storage* storage, L10nSource source, const char* app_id, L10nLocale locale) {
+static const L10nTable* l10n_table_try_get(
+    Storage* storage,
+    L10nSource source,
+    const char* app_id_or_path,
+    L10nLocale locale) {
     if(source == L10nSourceFlash) {
-        return l10n_table_alloc_builtin(app_id, locale);
+        return l10n_table_alloc_builtin(app_id_or_path, locale);
     } else if(source == L10nSourceStorage) {
         const char* name = l10n_locale_info(locale)->iso_name;
-        return l10n_table_try_get_from_storage_by_id(storage, app_id, name);
+        return l10n_table_try_get_from_storage_by_id(storage, app_id_or_path, name);
     } else {
         furi_crash();
     }
 }
 
-L10nContext* l10n_context_open(L10nSrv* service, const char* app_id, L10nSource source) {
+L10nContext* l10n_context_open(L10nSrv* service, const char* app_id_or_path, L10nSource source) {
     L10nLocale locale = service->locale;
     Storage* storage = service->storage;
 
@@ -171,7 +173,7 @@ L10nContext* l10n_context_open(L10nSrv* service, const char* app_id, L10nSource 
 
     bool has_at_least_one_locale = false;
     for(size_t i = 0; i < COUNT_OF(locales); i++) {
-        context->tables[i] = l10n_table_try_get(storage, source, app_id, locales[i]);
+        context->tables[i] = l10n_table_try_get(storage, source, app_id_or_path, locales[i]);
         if(context->tables[i]) has_at_least_one_locale = true;
     }
 
