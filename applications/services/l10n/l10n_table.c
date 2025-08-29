@@ -15,18 +15,18 @@ const L10nTable* l10n_table_alloc_builtin(const char* app_id, L10nLocale locale)
 }
 
 static size_t l10n_table_get_entry_cnt_from_file(File* file) {
-    size_t newline_cnt = 0;
+    size_t zero_byte_cnt = 0;
 
     storage_file_seek(file, 0, true);
     char buffer[READ_BUFFER_SZ];
     size_t read_this_time = 0;
     while((read_this_time = storage_file_read(file, buffer, sizeof(buffer)))) {
         for(size_t i = 0; i < read_this_time; i++) {
-            if(buffer[i] == '\n') newline_cnt++;
+            if(buffer[i] == '\0') zero_byte_cnt++;
         }
     }
 
-    return newline_cnt;
+    return zero_byte_cnt;
 }
 
 const L10nTable* l10n_table_alloc_from_storage(File* file) {
@@ -42,18 +42,15 @@ const L10nTable* l10n_table_alloc_from_storage(File* file) {
 
     storage_file_seek(file, 0, true);
     furi_check(storage_file_read(file, all_templates, data_size) == data_size);
+    furi_check(data_size);
+    furi_check(all_templates[data_size - 1] == '\0');
 
-    // replace all LFs with null terminators,
-    // remember pointers to all resulting strings
-    char* current_template_start = all_templates;
+    size_t pos = 0;
     size_t current_idx = 0;
-    for(size_t i = 0; i < data_size; i++) {
-        char* current_char = &all_templates[i];
-        if(*current_char != '\n') continue;
-
-        *current_char = '\0';
-        entries[current_idx] = current_template_start;
-        current_template_start = current_char + 1;
+    while(pos < data_size) {
+        char* template = &all_templates[pos];
+        entries[current_idx] = template;
+        pos += strlen(template) + 1;
         current_idx++;
     }
 

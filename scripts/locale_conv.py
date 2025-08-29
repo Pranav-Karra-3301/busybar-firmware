@@ -45,7 +45,8 @@ class Main(App):
         target.write("// IMPORTANT: generated! do not edit\n\n")
         target.write("#include <l10n/l10n_common.h>\n\n")
         for i, row in enumerate(rows):
-            target.write(f"// {DEFAULT_LOCALE}: \"{row[DEFAULT_LOCALE]}\"\n")
+            comment = row[DEFAULT_LOCALE].replace("\n", "\\n")
+            target.write(f"// {DEFAULT_LOCALE}: \"{comment}\"\n")
             target.write(f"#define L10N_KEY_{app_name}_{key_as_snake(row['key'])} ((L10nKey){i})\n")
 
     def gen_internal_tables(self, app_name: str, rows: List[Dict[str, str]], target: TextIOWrapper) -> bool:
@@ -62,7 +63,7 @@ class Main(App):
 
             target.write(f"static const char* const {templates_name}[{len(rows)}] = {{\n")
             for row in rows:
-                k, v = row["key"], row[locale]
+                k, v = row["key"], row[locale].replace("\n", "\\n")
                 target.write(f"    [L10N_KEY_{app_name}_{key_as_snake(k)}] = \"{v}\",\n")
             target.write("};\n")
 
@@ -119,7 +120,7 @@ class Main(App):
         for locale in locales:
             with open(base / locale, "w", encoding="utf-8") as target:
                 for row in rows:
-                    target.write(f"{row[locale]}\n")
+                    target.write(f"{row[locale]}\0")
 
         return 0
 

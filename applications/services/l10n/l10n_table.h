@@ -32,15 +32,6 @@ const L10nTable* l10n_table_alloc_builtin(const char* app_id, L10nLocale locale)
 /**
  * @brief Creates a translation table from a file in storage
  * 
- * The file is simply an LF-separated list of strings:
- * ```
- * Hello
- * World
- * Foo
- * ```
- * For the file above, the template `Hello` will be at index 0, `World` will
- * be at index 1, and so on.
- * 
  * @param[in] file File to get the data from
  * 
  * @returns Allocated translation table. NULL if not found.
