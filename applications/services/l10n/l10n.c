@@ -204,10 +204,9 @@ const char* l10n_get(L10nContext* context, L10nKey key, ...) {
         template = l10n_table_get(table, key);
         if(template) break;
     }
-    furi_check(template);
 
-    // TODO: format template
-    strcpy(context->buffer, template);
+    furi_check(template);
+    vsnprintf(context->buffer, sizeof(context->buffer), template, args);
 
     va_end(args);
     return context->buffer;

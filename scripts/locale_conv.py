@@ -4,7 +4,7 @@ from io import TextIOWrapper
 from typing import List, Dict, Tuple
 from pathlib import Path
 from os import path
-import sys
+import re
 import csv
 
 from flipper.app import App
@@ -32,6 +32,7 @@ def table_name(app: str, locale: str) -> str:
     return f"L10N_{app.upper()}_{locale_as_snake(locale)}_TABLE"
 
 DEFAULT_LOCALE = "en-US"
+PLACEHOLDER_REGEX = r"%(s|d|zu)"
 
 class Main(App):
     def init(self):
@@ -40,20 +41,70 @@ class Main(App):
         self.parser.add_argument("target")
         self.parser.set_defaults(func=self.main)
 
+    def validate_csv(self, rows: List[Dict[str, str]]) -> bool:
+        if len(rows) == 0:
+            self.logger.error(f"source must have at least one non-header row")
+            return False
+            
+        for i, row in enumerate(rows):
+            if "key" not in row:
+                self.logger.error(f"row number {i} has no key")
+                return False
+
+            if DEFAULT_LOCALE not in row:
+                self.logger.error(f"key {row['key']} has no value for default locale ({DEFAULT_LOCALE})")
+                return False
+            
+        placeholders_by_locale = {}
+        for locale, template in row.items():
+            if locale == "key":
+                continue
+            placeholders = re.findall(PLACEHOLDER_REGEX, template)
+            placeholders_by_locale[locale] = placeholders
+
+        expected_placeholders = placeholders_by_locale[DEFAULT_LOCALE]
+        for placeholders in placeholders_by_locale.values():
+            if placeholders != expected_placeholders:
+                self.logger.error(f"Placeholder mismatch between locales for key \"{row['key']}\": {placeholders_by_locale}")
+                return False
+
+        return True
+
     def gen_key_header(self, app_name: str, rows: List[Dict[str, str]], target: TextIOWrapper) -> bool:
         app_name = app_name.upper()
         target.write("// IMPORTANT: generated! do not edit\n\n")
         target.write("#include <l10n/l10n_common.h>\n\n")
         for i, row in enumerate(rows):
-            comment = row[DEFAULT_LOCALE].replace("\n", "\\n")
-            target.write(f"// {DEFAULT_LOCALE}: \"{comment}\"\n")
-            target.write(f"#define L10N_KEY_{app_name}_{key_as_snake(row['key'])} ((L10nKey){i})\n")
+            en_us_for_comment = row[DEFAULT_LOCALE].replace("\n", "\\n")
+            comment = f"// {DEFAULT_LOCALE}: {en_us_for_comment}\n"
+            placeholders = re.findall(PLACEHOLDER_REGEX, row[DEFAULT_LOCALE])
+
+            if placeholders:
+                target.write(comment)
+                target.write(f"#define L10N_RAW_KEY_{app_name}_{key_as_snake(row['key'])} ((L10nKey){i})\n")
+                PLACEHOLDER_PREFIXES = {
+                    "s": "str_",
+                    "d": "int_",
+                    "zu": "size_t_",
+                }
+                placeholders = [f"{PLACEHOLDER_PREFIXES[type]}{i}" for i, type in enumerate(placeholders)]
+                macro_args = ", ".join(placeholders)
+                macro_expansion = ", ".join([f"((L10nKey){i})"] + [f"({p})" for p in placeholders])
+                target.write(comment)
+                target.write(f"#define L10N_KEY_{app_name}_{key_as_snake(row['key'])}({macro_args}) {macro_expansion}\n")
+
+            else:
+                target.write(comment)
+                target.write(f"#define L10N_KEY_{app_name}_{key_as_snake(row['key'])} ((L10nKey){i})\n")
+
+            target.write("\n")
+
+        return True
 
     def gen_internal_tables(self, app_name: str, rows: List[Dict[str, str]], target: TextIOWrapper) -> bool:
         target.write("// IMPORTANT: generated! do not edit\n\n")
         target.write("#include <l10n/l10n_generated.h>\n")
         target.write("#include <l10n/l10n_table_i.h>\n")
-        target.write(f"#include <l10n_keys/{app_name}.h>\n\n")
 
         app_name = app_name.upper()
         locales = list(rows[0].keys())
@@ -63,8 +114,8 @@ class Main(App):
 
             target.write(f"static const char* const {templates_name}[{len(rows)}] = {{\n")
             for row in rows:
-                k, v = row["key"], row[locale].replace("\n", "\\n")
-                target.write(f"    [L10N_KEY_{app_name}_{key_as_snake(k)}] = \"{v}\",\n")
+                v = row[locale].replace("\n", "\\n").replace("\"", "\\\"")
+                target.write(f"    \"{v}\",\n")
             target.write("};\n")
 
             target.write(f"const L10nTable {table_name(app_name, locale)} = {{\n")
@@ -72,6 +123,8 @@ class Main(App):
             target.write(f"    .entry_cnt = {len(rows)},\n")
             target.write("    .is_owned = false,\n")
             target.write("};\n\n")
+
+        return True
 
     def gen_index(self, args) -> int:
         # FIXME:
@@ -103,13 +156,15 @@ class Main(App):
             target.write("};\n")
             target.write(f"const size_t L10N_APP_LIST_COUNT = {len(entries)};\n")
 
-        return 0
+        return True
 
     def gen_external_tables(self, args) -> int:
         rows = []
         with open(args.source, "r", encoding="utf-8") as source:
             reader = csv.DictReader(source)
             rows = list(reader)
+        if not self.validate_csv(rows):
+            return False
 
         locales = list(rows[0].keys())
         locales.remove("key")
@@ -122,48 +177,36 @@ class Main(App):
                 for row in rows:
                     target.write(f"{row[locale]}\0")
 
-        return 0
+        return True
 
-    def gen_one_to_one(self, args) -> int:
+    def gen_one_to_one(self, args) -> bool:
         rows = []
         with open(args.source, "r", encoding="utf-8") as source:
             reader = csv.DictReader(source)
             rows = list(reader)
+        if not self.validate_csv(rows):
+            return False
 
         app_name = Path(args.source).stem
 
-        for i, row in enumerate(rows):
-            if len(rows) == 0:
-                self.logger.error(f"source must have at least one non-header row")
-                return 1
-
-            if "key" not in row:
-                self.logger.error(f"row number {i} has no key")
-                return 1
-
-            if DEFAULT_LOCALE not in row:
-                self.logger.error(f"key {row['key']} has no value for default locale ({DEFAULT_LOCALE})")
-                return 1
-
-        success = False
         with open(args.target, "w", encoding="utf-8") as target:
             functions = {
                 "key_header": self.gen_key_header,
                 "internal_tables": self.gen_internal_tables,
-                "external_tables": self.gen_external_tables,
             }
-            success = functions[args.format](app_name, rows, target)
-
-        return 1 if success else 0
+            return functions[args.format](app_name, rows, target)
 
     def main(self):
         args = self.parser.parse_args()
+        success = None
         if args.format == "internal_index":
-            return self.gen_index(args)
+            success = self.gen_index(args)
         elif args.format == "external_tables":
-            return self.gen_external_tables(args)
+            success = self.gen_external_tables(args)
         else:
-            return self.gen_one_to_one(args)
+            success = self.gen_one_to_one(args)
+
+        return 0 if success else 128
 
 if __name__ == "__main__":
     Main()()

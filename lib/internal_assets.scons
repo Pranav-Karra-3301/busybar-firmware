@@ -43,7 +43,6 @@ def process_locales():
         app_name = splitext(locale_file.name)[0]
         app_tables = libenv.File(f"{app_name}_l10n_tables.c")
         sources.append(libenv.LocaleConverter(app_tables, locale_file, LOCALE_FORMAT="internal_tables"))
-        libenv.Depends(app_tables, key_dir.File(f"{app_name}.h"))
 
     # FIXME:
     sources.append(libenv.LocaleConverter(libenv.File(f"internal_l10n_index.c"), internal_apps[0], LOCALE_FORMAT="internal_index"))
