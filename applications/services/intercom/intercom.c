@@ -1,6 +1,10 @@
 #include "intercom_i.h"
 
+#include <l10n/l10n.h>
+#include <l10n_keys/intercom.h>
+
 #define TAG "IntercomSrv"
+#define APP_ID "intercom"
 
 #define INTERCOM_TX_TIMEOUT_MS                 (1000UL)
 #define INTERCOM_INITIAL_SYNC_RETRY_LOCKOUT_MS (500UL)
@@ -48,6 +52,10 @@ struct Intercom {
     FuriEventLoopTimer* tx_timer;
     FuriHalSerialHandle* serial;
     FuriPubSub* pubsub;
+
+    L10nSrv* l10n_srv;
+    L10nContext* l10n;
+
     bool is_initial_sync_done;
     bool error_handling_disabled;
     IntercomChannelData channels[IntercomChannelMax];
@@ -131,8 +139,10 @@ static void intercom_dump_frame(const IntercomFrame* frame) {
     furi_string_free(tmp);
 }
 
-static void intercom_unrecoverable_error(Intercom* instance, const char* message) {
+static void intercom_unrecoverable_error(Intercom* instance, L10nKey l10n_key) {
     while(true) {
+        const char* message = l10n_get(instance->l10n, l10n_key);
+
         IntercomEvent pubsub_message = {
             .type = IntercomEventTypeError,
             .message = message,
@@ -160,14 +170,14 @@ static void intercom_error_handler(IntercomError error, void* context) {
 #endif
 
     if(error == IntercomErrorSync) {
-        intercom_unrecoverable_error(instance, "Externally requested sync failed");
+        intercom_unrecoverable_error(instance, L10N_KEY_INTERCOM_ERROR_SYNC);
     } else if(error == IntercomErrorFraming) {
         intercom_dump_frame(&instance->rx_frame);
-        intercom_unrecoverable_error(instance, "Corrupted frame received");
+        intercom_unrecoverable_error(instance, L10N_KEY_INTERCOM_ERROR_FRAMING);
     } else if(error == IntercomErrorTransmit) {
-        intercom_unrecoverable_error(instance, "Other side has died");
+        intercom_unrecoverable_error(instance, L10N_KEY_INTERCOM_ERROR_TRANSMIT);
     } else {
-        intercom_unrecoverable_error(instance, "Unknown error");
+        intercom_unrecoverable_error(instance, L10N_KEY_INTERCOM_ERROR_UNKNOWN);
     }
 }
 
@@ -313,6 +323,9 @@ static Intercom* intercom_alloc(void) {
     instance->serial = furi_hal_serial_control_acquire(INTERCOM_SERIAL);
     instance->pubsub = furi_pubsub_alloc();
     intercom_error_handling_enable(instance);
+
+    instance->l10n_srv = furi_record_open(RECORD_L10N);
+    instance->l10n = l10n_context_open(instance->l10n_srv, APP_ID, L10nSourceFlash);
 
     furi_event_loop_set_custom_event_callback(
         instance->event_loop, intercom_custom_event_callback, instance);
