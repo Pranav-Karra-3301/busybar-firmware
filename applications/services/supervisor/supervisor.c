@@ -9,7 +9,7 @@
 #include <l10n/l10n.h>
 #include <l10n_keys/supervisor.h>
 
-#define TAG "Supervisor"
+#define TAG    "Supervisor"
 #define APP_ID "supervisor"
 
 #define SUPERVISOR_BATTERY_LOW_TIMEOUT_MS 5000
@@ -71,7 +71,8 @@ typedef enum {
     SupervisorWarningDisplayDynamic,
 } SupervisorWarningDisplay;
 
-typedef void (*SupervisorWarningFormatCallback)(SupervisorGui* gui, FuriString* front, FuriString* back);
+typedef void (
+    *SupervisorWarningFormatCallback)(SupervisorGui* gui, FuriString* front, FuriString* back);
 
 typedef struct {
     SupervisorWarningDisplay type;
@@ -109,100 +110,128 @@ static void supervisor_make_filesystem(Supervisor* supervisor);
 static void supervisor_format_backup(Supervisor* supervisor);
 static void supervisor_format_external(Supervisor* supervisor);
 
-static void supervisor_battery_critical_message_format(SupervisorGui* gui, FuriString* front, FuriString* back) {
+static void supervisor_battery_critical_message_format(
+    SupervisorGui* gui,
+    FuriString* front,
+    FuriString* back) {
     furi_assert(gui);
     furi_assert(front);
     furi_assert(back);
     L10nContext* l10n = gui->l10n;
-    furi_string_set_str(front, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_BATTERY_CRITICAL_FRONT(gui->battery_remaining_s)));
-    furi_string_set_str(back, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_BATTERY_CRITICAL_BACK(gui->battery_remaining_s)));
+    furi_string_set_str(
+        front,
+        l10n_get(
+            l10n, L10N_KEY_SUPERVISOR_WARNING_BATTERY_CRITICAL_FRONT(gui->battery_remaining_s)));
+    furi_string_set_str(
+        back,
+        l10n_get(
+            l10n, L10N_KEY_SUPERVISOR_WARNING_BATTERY_CRITICAL_BACK(gui->battery_remaining_s)));
 }
 
-static void supervisor_intercom_error_message_format(SupervisorGui* gui, FuriString* front, FuriString* back) {
+static void supervisor_intercom_error_message_format(
+    SupervisorGui* gui,
+    FuriString* front,
+    FuriString* back) {
     furi_assert(gui);
     furi_assert(front);
     furi_assert(back);
     L10nContext* l10n = gui->l10n;
     furi_string_set_str(front, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_INTERCOM_FRONT));
-    furi_string_set_str(back, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_INTERCOM_BACK(furi_string_get_cstr(gui->intercom_error))));
+    furi_string_set_str(
+        back,
+        l10n_get(
+            l10n,
+            L10N_KEY_SUPERVISOR_WARNING_INTERCOM_BACK(furi_string_get_cstr(gui->intercom_error))));
 }
 
 static const SupervisorWarning supervisor_warnings[] = {
     [SupervisorWarningTypeStorageNoPartitions] =
         {
-            .message = {
-                .type = SupervisorWarningDisplayFixed,
-                .fixed = {
-                    .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_PARTITIONS_FRONT,
-                    .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_PARTITIONS_BACK,
+            .message =
+                {
+                    .type = SupervisorWarningDisplayFixed,
+                    .fixed =
+                        {
+                            .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_PARTITIONS_FRONT,
+                            .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_PARTITIONS_BACK,
+                        },
                 },
-            },
             .input_locked = true,
             .ok_callback = supervisor_make_filesystem,
         },
     [SupervisorWarningTypeStorageNoBackup] =
         {
-            .message = {
-                .type = SupervisorWarningDisplayFixed,
-                .fixed = {
-                    .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_BACKUP_FRONT,
-                    .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_BACKUP_BACK,
+            .message =
+                {
+                    .type = SupervisorWarningDisplayFixed,
+                    .fixed =
+                        {
+                            .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_BACKUP_FRONT,
+                            .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_BACKUP_BACK,
+                        },
                 },
-            },
             .input_locked = true,
             .ok_callback = supervisor_format_backup,
         },
     [SupervisorWarningTypeStorageNoExternal] =
         {
-            .message = {
-                .type = SupervisorWarningDisplayFixed,
-                .fixed = {
-                    .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_EXTERNAL_FRONT,
-                    .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_EXTERNAL_BACK,
+            .message =
+                {
+                    .type = SupervisorWarningDisplayFixed,
+                    .fixed =
+                        {
+                            .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_EXTERNAL_FRONT,
+                            .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_EXTERNAL_BACK,
+                        },
                 },
-            },
             .input_locked = true,
             .ok_callback = supervisor_format_external,
         },
     [SupervisorWarningTypeBatteryNotReady] =
         {
-            .message = {
-                .type = SupervisorWarningDisplayFixed,
-                .fixed = {
-                    .front = L10N_KEY_SUPERVISOR_WARNING_BATTERY_NOT_READY_FRONT,
-                    .back = L10N_KEY_SUPERVISOR_WARNING_BATTERY_NOT_READY_BACK,
+            .message =
+                {
+                    .type = SupervisorWarningDisplayFixed,
+                    .fixed =
+                        {
+                            .front = L10N_KEY_SUPERVISOR_WARNING_BATTERY_NOT_READY_FRONT,
+                            .back = L10N_KEY_SUPERVISOR_WARNING_BATTERY_NOT_READY_BACK,
+                        },
                 },
-            },
             .input_locked = true,
             .ok_callback = NULL,
         },
     [SupervisorWarningTypeBatteryCritical] =
         {
-            .message = {
-                .type = SupervisorWarningDisplayDynamic,
-                .dynamic.callback = supervisor_battery_critical_message_format,
-            },
+            .message =
+                {
+                    .type = SupervisorWarningDisplayDynamic,
+                    .dynamic.callback = supervisor_battery_critical_message_format,
+                },
             .input_locked = false,
             .ok_callback = NULL,
         },
     [SupervisorWarningTypeBatteryLow] =
         {
-            .message = {
-                .type = SupervisorWarningDisplayFixed,
-                .fixed = {
-                    .front = L10N_KEY_SUPERVISOR_WARNING_BATTERY_LOW_FRONT,
-                    .back = L10N_KEY_SUPERVISOR_WARNING_BATTERY_LOW_BACK,
+            .message =
+                {
+                    .type = SupervisorWarningDisplayFixed,
+                    .fixed =
+                        {
+                            .front = L10N_KEY_SUPERVISOR_WARNING_BATTERY_LOW_FRONT,
+                            .back = L10N_KEY_SUPERVISOR_WARNING_BATTERY_LOW_BACK,
+                        },
                 },
-            },
             .input_locked = false,
             .ok_callback = NULL,
         },
     [SupervisorWarningTypeIntercomError] =
         {
-            .message = {
-                .type = SupervisorWarningDisplayDynamic,
-                .dynamic.callback = supervisor_intercom_error_message_format,
-            },
+            .message =
+                {
+                    .type = SupervisorWarningDisplayDynamic,
+                    .dynamic.callback = supervisor_intercom_error_message_format,
+                },
             .input_locked = true,
             .ok_callback = NULL,
         },
@@ -444,8 +473,12 @@ static void supervisor_reset(void) {
 static void supervisor_make_filesystem(Supervisor* supervisor) {
     SupervisorGui* gui = &supervisor->gui;
     with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_MAKE_FILESYSTEM_PROGRESS_FRONT));
-        label_set_text_fmt(gui->back_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_MAKE_FILESYSTEM_PROGRESS_BACK));
+        label_set_text_fmt(
+            gui->front_label,
+            l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_MAKE_FILESYSTEM_PROGRESS_FRONT));
+        label_set_text_fmt(
+            gui->back_label,
+            l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_MAKE_FILESYSTEM_PROGRESS_BACK));
     });
 
     FURI_LOG_I(TAG, "Creating filesystem...");
@@ -462,8 +495,12 @@ static void supervisor_make_filesystem(Supervisor* supervisor) {
 static void supervisor_format_backup(Supervisor* supervisor) {
     SupervisorGui* gui = &supervisor->gui;
     with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_BACKUP_PROGRESS_FRONT));
-        label_set_text_fmt(gui->back_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_BACKUP_PROGRESS_BACK));
+        label_set_text_fmt(
+            gui->front_label,
+            l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_BACKUP_PROGRESS_FRONT));
+        label_set_text_fmt(
+            gui->back_label,
+            l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_BACKUP_PROGRESS_BACK));
     });
 
     FURI_LOG_I(TAG, "Formatting backup partition...");
@@ -481,8 +518,12 @@ static void supervisor_format_backup(Supervisor* supervisor) {
 static void supervisor_format_external(Supervisor* supervisor) {
     SupervisorGui* gui = &supervisor->gui;
     with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_EXT_PROGRESS_FRONT));
-        label_set_text_fmt(gui->back_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_EXT_PROGRESS_BACK));
+        label_set_text_fmt(
+            gui->front_label,
+            l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_EXT_PROGRESS_FRONT));
+        label_set_text_fmt(
+            gui->back_label,
+            l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_EXT_PROGRESS_BACK));
     });
 
     FURI_LOG_I(TAG, "Formatting external partition...");
@@ -552,7 +593,8 @@ static void supervisor_process(FuriEventLoopObject* object, void* context) {
         if(topmost_warning_type == SupervisorWarningTypeBatteryCritical) {
             instance->battery_critical_counter++;
 
-            instance->gui.battery_remaining_s = SUPERVISOR_BATTERY_TIME_TO_DIE_S - instance->battery_critical_counter;
+            instance->gui.battery_remaining_s =
+                SUPERVISOR_BATTERY_TIME_TO_DIE_S - instance->battery_critical_counter;
             supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryCritical, true);
 
             if(instance->battery_critical_counter >= SUPERVISOR_BATTERY_TIME_TO_DIE_S) {

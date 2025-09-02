@@ -3,7 +3,7 @@
 #include <l10n/l10n.h>
 #include <l10n_keys/intercom.h>
 
-#define TAG "IntercomSrv"
+#define TAG    "IntercomSrv"
 #define APP_ID "intercom"
 
 #define INTERCOM_TX_TIMEOUT_MS                 (1000UL)
