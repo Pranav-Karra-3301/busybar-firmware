@@ -6,8 +6,11 @@
 #include <storage/storage.h>
 #include <storage/storage_backup.h>
 #include <intercom/intercom.h>
+#include <l10n/l10n.h>
+#include <l10n_keys/supervisor.h>
 
 #define TAG "Supervisor"
+#define APP_ID "supervisor"
 
 #define SUPERVISOR_BATTERY_LOW_TIMEOUT_MS 5000
 #define SUPERVISOR_BATTERY_TIME_TO_DIE_S  30
@@ -23,6 +26,12 @@ typedef struct {
     bool input_locked;
     SupervisorGuiOkCb ok_callback;
     uint32_t current_warnings;
+
+    L10nSrv* l10n_service;
+    L10nContext* l10n;
+
+    FuriString* intercom_error;
+    size_t battery_remaining_s;
 } SupervisorGui;
 
 struct Supervisor {
@@ -57,9 +66,28 @@ typedef struct {
     };
 } SupervisorEvent;
 
+typedef enum {
+    SupervisorWarningDisplayFixed,
+    SupervisorWarningDisplayDynamic,
+} SupervisorWarningDisplay;
+
+typedef void (*SupervisorWarningFormatCallback)(SupervisorGui* gui, FuriString* front, FuriString* back);
+
 typedef struct {
-    const char* front_text;
-    const char* back_text;
+    SupervisorWarningDisplay type;
+    union {
+        struct {
+            L10nKey front;
+            L10nKey back;
+        } fixed;
+        struct {
+            SupervisorWarningFormatCallback callback;
+        } dynamic;
+    };
+} SupervisorWarningMessage;
+
+typedef struct {
+    SupervisorWarningMessage message;
     bool input_locked;
     SupervisorGuiOkCb ok_callback;
 } SupervisorWarning;
@@ -81,53 +109,100 @@ static void supervisor_make_filesystem(Supervisor* supervisor);
 static void supervisor_format_backup(Supervisor* supervisor);
 static void supervisor_format_external(Supervisor* supervisor);
 
+static void supervisor_battery_critical_message_format(SupervisorGui* gui, FuriString* front, FuriString* back) {
+    furi_assert(gui);
+    furi_assert(front);
+    furi_assert(back);
+    L10nContext* l10n = gui->l10n;
+    furi_string_set_str(front, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_BATTERY_CRITICAL_FRONT(gui->battery_remaining_s)));
+    furi_string_set_str(back, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_BATTERY_CRITICAL_BACK(gui->battery_remaining_s)));
+}
+
+static void supervisor_intercom_error_message_format(SupervisorGui* gui, FuriString* front, FuriString* back) {
+    furi_assert(gui);
+    furi_assert(front);
+    furi_assert(back);
+    L10nContext* l10n = gui->l10n;
+    furi_string_set_str(front, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_INTERCOM_FRONT));
+    furi_string_set_str(back, l10n_get(l10n, L10N_KEY_SUPERVISOR_WARNING_INTERCOM_BACK(furi_string_get_cstr(gui->intercom_error))));
+}
+
 static const SupervisorWarning supervisor_warnings[] = {
     [SupervisorWarningTypeStorageNoPartitions] =
         {
-            .front_text = "No partitions\nPress OK to format",
-            .back_text = "Incorrect partitions\nPress OK to format\nDevice will reboot",
+            .message = {
+                .type = SupervisorWarningDisplayFixed,
+                .fixed = {
+                    .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_PARTITIONS_FRONT,
+                    .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_PARTITIONS_BACK,
+                },
+            },
             .input_locked = true,
             .ok_callback = supervisor_make_filesystem,
         },
     [SupervisorWarningTypeStorageNoBackup] =
         {
-            .front_text = "Backup corrupted\nPress OK to format",
-            .back_text = "Backup partition corrupted\nPress OK to format\nDevice will reboot",
+            .message = {
+                .type = SupervisorWarningDisplayFixed,
+                .fixed = {
+                    .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_BACKUP_FRONT,
+                    .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_BACKUP_BACK,
+                },
+            },
             .input_locked = true,
             .ok_callback = supervisor_format_backup,
         },
     [SupervisorWarningTypeStorageNoExternal] =
         {
-            .front_text = "Partition corrupted\nPress OK to format",
-            .back_text = "Main partition corrupted\nPress OK to format\nDevice will reboot",
+            .message = {
+                .type = SupervisorWarningDisplayFixed,
+                .fixed = {
+                    .front = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_EXTERNAL_FRONT,
+                    .back = L10N_KEY_SUPERVISOR_WARNING_STORAGE_NO_EXTERNAL_BACK,
+                },
+            },
             .input_locked = true,
             .ok_callback = supervisor_format_external,
         },
     [SupervisorWarningTypeBatteryNotReady] =
         {
-            .front_text = "Battery not present\nConnect battery",
-            .back_text = "Battery not present\nPlease connect battery\n>_<",
+            .message = {
+                .type = SupervisorWarningDisplayFixed,
+                .fixed = {
+                    .front = L10N_KEY_SUPERVISOR_WARNING_BATTERY_NOT_READY_FRONT,
+                    .back = L10N_KEY_SUPERVISOR_WARNING_BATTERY_NOT_READY_BACK,
+                },
+            },
             .input_locked = true,
             .ok_callback = NULL,
         },
     [SupervisorWarningTypeBatteryCritical] =
         {
-            .front_text = "Connect charger\nPower off in 30 sec.",
-            .back_text = "Battery critical\nPlease connect charger\nPower off in 30 sec.",
+            .message = {
+                .type = SupervisorWarningDisplayDynamic,
+                .dynamic.callback = supervisor_battery_critical_message_format,
+            },
             .input_locked = false,
             .ok_callback = NULL,
         },
     [SupervisorWarningTypeBatteryLow] =
         {
-            .front_text = "Battery low",
-            .back_text = "Battery low",
+            .message = {
+                .type = SupervisorWarningDisplayFixed,
+                .fixed = {
+                    .front = L10N_KEY_SUPERVISOR_WARNING_BATTERY_LOW_FRONT,
+                    .back = L10N_KEY_SUPERVISOR_WARNING_BATTERY_LOW_BACK,
+                },
+            },
             .input_locked = false,
             .ok_callback = NULL,
         },
     [SupervisorWarningTypeIntercomError] =
         {
-            .front_text = "Intercom error\nUpdate firmware",
-            .back_text = "Intercom error\nPlease update firmware",
+            .message = {
+                .type = SupervisorWarningDisplayDynamic,
+                .dynamic.callback = supervisor_intercom_error_message_format,
+            },
             .input_locked = true,
             .ok_callback = NULL,
         },
@@ -256,6 +331,19 @@ static void
 
             GuiLayer* main_layer = gui_get_layer(gui->gui, GuiLayerIdSystem);
 
+            FuriString* front_text = furi_string_alloc();
+            FuriString* back_text = furi_string_alloc();
+            const SupervisorWarningMessage* message = &warning->message;
+
+            if(message->type == SupervisorWarningDisplayFixed) {
+                furi_string_set_str(front_text, l10n_get(gui->l10n, message->fixed.front));
+                furi_string_set_str(back_text, l10n_get(gui->l10n, message->fixed.back));
+            } else if(message->type == SupervisorWarningDisplayDynamic) {
+                message->dynamic.callback(gui, front_text, back_text);
+            } else {
+                furi_crash();
+            }
+
             // back display label
             {
                 Widget* root = gui_layer_get_root_widget(main_layer, GuiDisplayIdBack);
@@ -276,7 +364,7 @@ static void
                 widget_set_align(widget, AlignCenter);
                 widget_set_background_color(widget, (Color){0, 0, 0}, 0.90f);
 
-                label_set_text_fmt(gui->back_label, warning->back_text);
+                label_set_text_fmt(gui->back_label, furi_string_get_cstr(back_text));
                 label_set_text_align(gui->back_label, TextAlignCenter);
                 label_set_line_spacing(gui->back_label, 4);
             }
@@ -301,9 +389,12 @@ static void
                 widget_set_align(widget, AlignCenter);
                 widget_set_background_color(widget, (Color){0, 0, 0}, 0.90f);
 
-                label_set_text_fmt(gui->front_label, warning->front_text);
+                label_set_text_fmt(gui->front_label, furi_string_get_cstr(front_text));
                 label_set_text_align(gui->front_label, TextAlignCenter);
             }
+
+            furi_string_free(front_text);
+            furi_string_free(back_text);
         } else {
             // No warnings, remove labels
             if(gui->front_label) {
@@ -353,8 +444,8 @@ static void supervisor_reset(void) {
 static void supervisor_make_filesystem(Supervisor* supervisor) {
     SupervisorGui* gui = &supervisor->gui;
     with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, "Creating filesystem...\nPlease wait");
-        label_set_text_fmt(gui->back_label, "Creating filesystem...\nPlease wait");
+        label_set_text_fmt(gui->front_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_MAKE_FILESYSTEM_PROGRESS_FRONT));
+        label_set_text_fmt(gui->back_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_MAKE_FILESYSTEM_PROGRESS_BACK));
     });
 
     FURI_LOG_I(TAG, "Creating filesystem...");
@@ -371,8 +462,8 @@ static void supervisor_make_filesystem(Supervisor* supervisor) {
 static void supervisor_format_backup(Supervisor* supervisor) {
     SupervisorGui* gui = &supervisor->gui;
     with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, "Formatting backup...\nPlease wait");
-        label_set_text_fmt(gui->back_label, "Formatting backup partition...\nPlease wait");
+        label_set_text_fmt(gui->front_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_BACKUP_PROGRESS_FRONT));
+        label_set_text_fmt(gui->back_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_BACKUP_PROGRESS_BACK));
     });
 
     FURI_LOG_I(TAG, "Formatting backup partition...");
@@ -390,8 +481,8 @@ static void supervisor_format_backup(Supervisor* supervisor) {
 static void supervisor_format_external(Supervisor* supervisor) {
     SupervisorGui* gui = &supervisor->gui;
     with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, "Formatting external...\nPlease wait");
-        label_set_text_fmt(gui->back_label, "Formatting external partition...\nPlease wait");
+        label_set_text_fmt(gui->front_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_EXT_PROGRESS_FRONT));
+        label_set_text_fmt(gui->back_label, l10n_get(supervisor->gui.l10n, L10N_KEY_SUPERVISOR_FORMAT_EXT_PROGRESS_BACK));
     });
 
     FURI_LOG_I(TAG, "Formatting external partition...");
@@ -404,20 +495,6 @@ static void supervisor_format_external(Supervisor* supervisor) {
     }
 
     supervisor_reset();
-}
-
-static void supervisor_update_time_to_die(Supervisor* supervisor, size_t seconds) {
-    SupervisorGui* gui = &supervisor->gui;
-    with_gui(gui->gui, {
-        if(gui->front_label && gui->back_label) {
-            label_set_text_fmt(
-                gui->front_label, "Connect charger\nPower off in %zu sec.", seconds);
-            label_set_text_fmt(
-                gui->back_label,
-                "Battery critical\nPlease connect charger\nPower off in %zu sec.",
-                seconds);
-        }
-    });
 }
 
 static void supervisor_process(FuriEventLoopObject* object, void* context) {
@@ -443,9 +520,10 @@ static void supervisor_process(FuriEventLoopObject* object, void* context) {
         break;
     case SupervisorEventTypeBatteryCriticalStart:
         FURI_LOG_I(TAG, "Battery critical warning received");
+        instance->battery_critical_counter = 0;
+        instance->gui.battery_remaining_s = 30;
         supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryCritical, true);
         furi_event_loop_timer_start(instance->battery_critical_timer, 1000); // 1 second interval
-        instance->battery_critical_counter = 0;
         break;
     case SupervisorEventTypeBatteryCriticalStop:
         FURI_LOG_I(TAG, "Clearing battery critical warning");
@@ -470,12 +548,12 @@ static void supervisor_process(FuriEventLoopObject* object, void* context) {
         size_t topmost_warning_type = supervisor_get_topmost_warning(&instance->gui);
 
         // with the assumption that only BatteryNotPresent warning has higher priority
-        // this will garantee that we will power off in any other state
+        // this will guarantee that we will power off in any other state
         if(topmost_warning_type == SupervisorWarningTypeBatteryCritical) {
             instance->battery_critical_counter++;
 
-            supervisor_update_time_to_die(
-                instance, SUPERVISOR_BATTERY_TIME_TO_DIE_S - instance->battery_critical_counter);
+            instance->gui.battery_remaining_s = SUPERVISOR_BATTERY_TIME_TO_DIE_S - instance->battery_critical_counter;
+            supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryCritical, true);
 
             if(instance->battery_critical_counter >= SUPERVISOR_BATTERY_TIME_TO_DIE_S) {
                 FURI_LOG_I(TAG, "Battery critical timeout reached");
@@ -487,17 +565,8 @@ static void supervisor_process(FuriEventLoopObject* object, void* context) {
     } break;
     case SupervisorEventTypeIntercomError: {
         FURI_LOG_E(TAG, "Intercom error received: %s", furi_string_get_cstr(event.message));
+        furi_string_move(instance->gui.intercom_error, event.message);
         supervisor_update_warning(&instance->gui, SupervisorWarningTypeIntercomError, true);
-        size_t topmost_warning_type = supervisor_get_topmost_warning(&instance->gui);
-        if(topmost_warning_type == SupervisorWarningTypeIntercomError) {
-            with_gui(instance->gui.gui, {
-                label_set_text_fmt(
-                    instance->gui.back_label,
-                    "Intercom error\nPlease update firmware\n\"%s\"",
-                    furi_string_get_cstr(event.message));
-            });
-        }
-        furi_string_free(event.message);
     } break;
     }
 }
@@ -528,8 +597,11 @@ int32_t supervisor_start(void* p) {
     instance->power = furi_record_open(RECORD_POWER);
 
     instance->gui.gui = furi_record_open(RECORD_GUI);
+    instance->gui.l10n_service = furi_record_open(RECORD_L10N);
+    instance->gui.l10n = l10n_context_open(instance->gui.l10n_service, APP_ID, L10nSourceFlash);
     instance->storage = furi_record_open(RECORD_STORAGE);
     instance->intercom = furi_record_open(RECORD_INTERCOM);
+    instance->gui.intercom_error = furi_string_alloc();
 
     furi_pubsub_subscribe(power_get_pubsub(instance->power), supervisor_power_callback, instance);
     furi_pubsub_subscribe(
