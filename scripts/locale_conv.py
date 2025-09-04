@@ -32,7 +32,11 @@ def table_name(app: str, locale: str) -> str:
     return f"L10N_{app.upper()}_{locale_as_snake(locale)}_TABLE"
 
 DEFAULT_LOCALE = "en-US"
-PLACEHOLDER_REGEX = r"%(s|d|zu)"
+
+# "% 10s hello %02d world %zu" -> ["s", "d", "zu"]
+def extract_placeholder_types(template: str) -> List[str]:
+    raw = re.findall(r"%(.?\d{0,2}(s|d|zu))", template)
+    return [t for _, t in raw]
 
 class Main(App):
     def init(self):
@@ -59,7 +63,7 @@ class Main(App):
         for locale, template in row.items():
             if locale == "key":
                 continue
-            placeholders = re.findall(PLACEHOLDER_REGEX, template)
+            placeholders = extract_placeholder_types(template)
             placeholders_by_locale[locale] = placeholders
 
         expected_placeholders = placeholders_by_locale[DEFAULT_LOCALE]
@@ -77,7 +81,7 @@ class Main(App):
         for i, row in enumerate(rows):
             en_us_for_comment = row[DEFAULT_LOCALE].replace("\n", "\\n")
             comment = f"// {DEFAULT_LOCALE}: {en_us_for_comment}\n"
-            placeholders = re.findall(PLACEHOLDER_REGEX, row[DEFAULT_LOCALE])
+            placeholders = extract_placeholder_types(row[DEFAULT_LOCALE])
 
             if placeholders:
                 target.write(comment)
