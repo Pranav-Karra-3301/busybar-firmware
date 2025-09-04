@@ -67,6 +67,8 @@ static BusyApp* busy_alloc(void) {
     instance->status_lights = furi_record_open(RECORD_STATUS_LIGHTS);
     instance->audio = furi_record_open(RECORD_AUDIO);
     instance->gui = furi_record_open(RECORD_GUI);
+    instance->l10n_service = furi_record_open(RECORD_L10N);
+    instance->l10n = l10n_context_open(instance->l10n_service, BUSY_ASSETS_PATH("l10n"), L10nSourceStorage);
 
     if(!busy_settings_load(&instance->settings)) {
         FURI_LOG_W(TAG, "Loading default settings");
@@ -148,6 +150,8 @@ static void busy_free(BusyApp* instance) {
         flex_layout_free(instance->back_container);
     });
 
+    l10n_context_close(instance->l10n);
+    furi_record_close(RECORD_L10N);
     furi_record_close(RECORD_STATUS_LIGHTS);
     furi_record_close(RECORD_AUDIO);
     furi_record_close(RECORD_GUI);

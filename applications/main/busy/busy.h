@@ -7,6 +7,8 @@
 #include <gui/modules/flex_layout.h>
 #include <audio/audio.h>
 #include <status_lights/status_lights.h>
+#include <l10n/l10n.h>
+#include <l10n_keys/busy.h>
 
 #include "busy_timer.h"
 #include "busy_settings.h"
@@ -75,6 +77,8 @@ typedef struct {
     StatusLights* status_lights;
     Audio* audio;
     Gui* gui;
+    L10nSrv* l10n_service;
+    L10nContext* l10n;
     // Containers & application windows
     Widget* front_window;
     FlexLayout* back_container;
