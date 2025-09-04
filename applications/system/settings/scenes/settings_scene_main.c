@@ -8,7 +8,7 @@ typedef enum {
     SettingsSceneMainMenuIndexSound,
     SettingsSceneMainMenuIndexBrightness,
     SettingsSceneMainMenuIndexLanguage,
-    SettingsSceneMainMenuIndexDebug,
+    SettingsSceneMainMenuIndexDebugApps,
 
     SettingsSceneMainMenuIndexesCount,
 } SettingsSceneMainMenuIndex;
@@ -76,7 +76,7 @@ static void settings_scene_main_on_enter(void* context) {
             l10n_get(instance->l10n, L10N_KEY_SETTINGS_MAIN_DEBUG_APPS_FRONT),
             NULL,
             SETTINGS_IMG_PATH("debug_front_7x7.bin"),
-            SettingsSceneMainMenuIndexDebug,
+            SettingsSceneMainMenuIndexDebugApps,
             settings_scene_setup_menu_callback,
             instance);
 
@@ -111,7 +111,7 @@ static void settings_scene_main_on_enter(void* context) {
             l10n_get(instance->l10n, L10N_KEY_SETTINGS_MAIN_DEBUG_APPS_BACK),
             NULL,
             SETTINGS_IMG_PATH("debug_back_12x12.bin"),
-            SettingsSceneMainMenuIndexDebug,
+            SettingsSceneMainMenuIndexDebugApps,
             NULL,
             instance);
 
@@ -155,6 +155,9 @@ static bool settings_scene_main_on_event(const SceneManagerEvent* event, void* c
             settings_push_location(
                 instance, l10n_get(instance->l10n, L10N_KEY_SETTINGS_MAIN_LANGUAGE_BACK));
             scene_manager_next_scene(instance->scene_manager, SettingsAppSceneIdLanguage);
+        case SettingsSceneMainMenuIndexDebugApps:
+            settings_push_location(instance, l10n_get(instance->l10n, L10N_KEY_SETTINGS_MAIN_DEBUG_APPS_BACK));
+            scene_manager_next_scene(instance->scene_manager, SettingsAppSceneIdDebugApps);
             break;
 
         default:
