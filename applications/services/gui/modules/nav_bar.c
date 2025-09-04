@@ -75,7 +75,9 @@ static void nav_bar_update_breadcrumbs(NavBar* instance) {
         }
 
         furi_string_cat_printf(
-            text, ">  #" TOSTRING(COLOR_ACTIVE) " %s #", furi_string_get_cstr(*LocationStack_cref(it)));
+            text,
+            ">  #" TOSTRING(COLOR_ACTIVE) " %s #",
+            furi_string_get_cstr(*LocationStack_cref(it)));
 
         lv_label_set_text(instance->breadcrumbs_label, furi_string_get_cstr(text));
         lv_obj_remove_flag(instance->breadcrumbs_label, LV_OBJ_FLAG_HIDDEN);

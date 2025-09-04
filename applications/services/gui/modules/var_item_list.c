@@ -317,7 +317,8 @@ static void var_item_editor_update(VarItemEditor* instance) {
         } else if(mm == 0) {
             text = l10n_get(instance->l10n, L10N_KEY_GUI_VAR_ITEM_TIME_BOX_HR((int)hh));
         } else {
-            text = l10n_get(instance->l10n, L10N_KEY_GUI_VAR_ITEM_TIME_BOX_OTHER((int)hh, (int)mm));
+            text =
+                l10n_get(instance->l10n, L10N_KEY_GUI_VAR_ITEM_TIME_BOX_OTHER((int)hh, (int)mm));
         }
         lv_label_set_text(label, text);
 
@@ -334,7 +335,9 @@ static void var_item_editor_update(VarItemEditor* instance) {
         }
 
     } else if(instance->type == VarItemTypeSwitch) {
-        const char* text = l10n_get(instance->l10n, instance->value ? L10N_KEY_GUI_VAR_ITEM_SWITCH_ON : L10N_KEY_GUI_VAR_ITEM_SWITCH_OFF);
+        const char* text = l10n_get(
+            instance->l10n,
+            instance->value ? L10N_KEY_GUI_VAR_ITEM_SWITCH_ON : L10N_KEY_GUI_VAR_ITEM_SWITCH_OFF);
         lv_label_set_text(label, text);
 
     } else {

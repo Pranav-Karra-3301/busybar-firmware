@@ -20,7 +20,7 @@ struct L10nSrv {
     FuriMessageQueue* request_queue;
 
     // safe to read concurrently, initialized once at startup:
-    L10nLocale locale; 
+    L10nLocale locale;
     Storage* storage;
 };
 
@@ -194,7 +194,8 @@ void l10n_context_close(L10nContext* context) {
     free(context);
 }
 
-static void l10n_get_into_va(L10nContext* context, char* buf, size_t buf_size, L10nKey key, va_list args) {
+static void
+    l10n_get_into_va(L10nContext* context, char* buf, size_t buf_size, L10nKey key, va_list args) {
     furi_check(context);
 
     const char* template;
