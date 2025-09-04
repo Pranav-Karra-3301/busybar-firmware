@@ -49,6 +49,9 @@ Please update firmware
 '%s'","Ошибка коммуникации
 Пожалуйста, обновите прошивку
 '%s'"
+warning.intercom.sync,Externally requested sync failed,Запрошенная извне синхронизация не удалась
+warning.intercom.framing,Corrupted frame received,Получен повреждённый пакет
+warning.intercom.transmit,Other side has died,Другая сторона умерла
 make_filesystem.progress.front,"Creating filesystem...
 Please wait","Создание файловой системы...
 Пожалуйста, подождите"

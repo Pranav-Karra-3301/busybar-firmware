@@ -1,5 +1,0 @@
-key,en-US,ru-RU
-error.sync,Externally requested sync failed,Запрошенная извне синхронизация не удалась
-error.framing,Corrupted frame received,Получен повреждённый пакет
-error.transmit,Other side has died,Другая сторона умерла
-error.unknown,Unknown error,Неизвестная ошибка

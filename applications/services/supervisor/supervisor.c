@@ -259,11 +259,11 @@ static void supervisor_send_event(Supervisor* instance, SupervisorEventType type
 static void supervisor_send_event_with_message(
     Supervisor* instance,
     SupervisorEventType type,
-    const char* message) {
+    FuriString* message) {
     furi_check(instance);
     SupervisorEvent event;
     event.type = type;
-    event.message = furi_string_alloc_set(message);
+    event.message = message;
 
     furi_check(
         furi_message_queue_put(instance->message_queue, &event, FuriWaitForever) == FuriStatusOk);
@@ -277,8 +277,17 @@ static void supervisor_intercom_callback(const void* message, void* context) {
     Supervisor* instance = context;
 
     if(event->type == IntercomEventTypeError) {
+        static const L10nKey error_keys[IntercomErrorMax] = {
+            [IntercomErrorSync] = L10N_KEY_SUPERVISOR_WARNING_INTERCOM_SYNC,
+            [IntercomErrorFraming] = L10N_KEY_SUPERVISOR_WARNING_INTERCOM_FRAMING,
+            [IntercomErrorTransmit] = L10N_KEY_SUPERVISOR_WARNING_INTERCOM_TRANSMIT,
+        };
+
+        FuriString* error = furi_string_alloc();
+        l10n_get_furi_str(instance->gui.l10n, error, error_keys[event->error]);
+
         supervisor_send_event_with_message(
-            instance, SupervisorEventTypeIntercomError, event->message);
+            instance, SupervisorEventTypeIntercomError, error);
     }
 }
 
