@@ -63,6 +63,7 @@ void ble_characteristic_set_data(
     memcpy(instance->data, data, data_size);
     instance->data_size = data_size;
     instance->modified = true;
+
     if(instance->update_cb) {
         instance->update_cb(data_size, instance->data, instance->update_ctx);
     }

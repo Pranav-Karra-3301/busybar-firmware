@@ -28,7 +28,6 @@ static bool api_ble_enable_callback(
     if(!IS_HTTP_ENDPOINT(path)) return false;
 
     Ble* ble = furi_record_open(RECORD_BLE);
-
     bool result = ble_start(ble);
     furi_record_close(RECORD_BLE);
 
