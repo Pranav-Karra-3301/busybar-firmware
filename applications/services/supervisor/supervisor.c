@@ -286,8 +286,7 @@ static void supervisor_intercom_callback(const void* message, void* context) {
         FuriString* error = furi_string_alloc();
         l10n_get_furi_str(instance->gui.l10n, error, error_keys[event->error]);
 
-        supervisor_send_event_with_message(
-            instance, SupervisorEventTypeIntercomError, error);
+        supervisor_send_event_with_message(instance, SupervisorEventTypeIntercomError, error);
     }
 }
 
