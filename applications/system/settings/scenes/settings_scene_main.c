@@ -155,8 +155,11 @@ static bool settings_scene_main_on_event(const SceneManagerEvent* event, void* c
             settings_push_location(
                 instance, l10n_get(instance->l10n, L10N_KEY_SETTINGS_MAIN_LANGUAGE_BACK));
             scene_manager_next_scene(instance->scene_manager, SettingsAppSceneIdLanguage);
+            break;
+
         case SettingsSceneMainMenuIndexDebugApps:
-            settings_push_location(instance, l10n_get(instance->l10n, L10N_KEY_SETTINGS_MAIN_DEBUG_APPS_BACK));
+            settings_push_location(
+                instance, l10n_get(instance->l10n, L10N_KEY_SETTINGS_MAIN_DEBUG_APPS_BACK));
             scene_manager_next_scene(instance->scene_manager, SettingsAppSceneIdDebugApps);
             break;
 
