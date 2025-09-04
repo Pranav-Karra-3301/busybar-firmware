@@ -100,12 +100,22 @@ const char* l10n_get(L10nContext* context, L10nKey key, ...);
  * @brief Fetches and fills in a translation template
  * 
  * @param[in] context Context handle
- * @param[out] buf Buffer to will with the translation
+ * @param[out] buf Buffer to fill with the translation
  * @param[in] buf_size Size of the buffer
  * @param[in] key Key to fetch the template
  * @param[in] ... Args to paste into the template
  */
 void l10n_get_into(L10nContext* context, char* buf, size_t buf_size, L10nKey key, ...);
+
+/**
+ * @brief Fetches and fills in a translation template
+ * 
+ * @param[in] context Context handle
+ * @param[out] string String to fill with the translation
+ * @param[in] key Key to fetch the template
+ * @param[in] ... Args to paste into the template
+ */
+void l10n_get_furi_str(L10nContext* context, FuriString* string, L10nKey key, ...);
 
 /**
  * @brief Gets the path to a localized resource

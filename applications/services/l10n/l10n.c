@@ -194,9 +194,8 @@ void l10n_context_close(L10nContext* context) {
     free(context);
 }
 
-static void
-    l10n_get_into_va(L10nContext* context, char* buf, size_t buf_size, L10nKey key, va_list args) {
-    furi_check(context);
+static const char* l10n_get_template(L10nContext* context, L10nKey key) {
+    furi_assert(context);
 
     const char* template;
     for(size_t i = 0; i < MAX_CANDIDATE_LOCALES; i++) {
@@ -207,22 +206,38 @@ static void
     }
 
     furi_check(template);
-    vsnprintf(buf, buf_size, template, args);
+    return template;
 }
 
 const char* l10n_get(L10nContext* context, L10nKey key, ...) {
+    furi_check(context);
+
     va_list args;
     va_start(args, 0);
-    l10n_get_into_va(context, context->buffer, sizeof(context->buffer), key, args);
+    const char* template = l10n_get_template(context, key);
+    vsnprintf(context->buffer, sizeof(context->buffer), template, args);
     va_end(args);
 
     return context->buffer;
 }
 
 void l10n_get_into(L10nContext* context, char* buf, size_t buf_size, L10nKey key, ...) {
+    furi_check(context);
+
     va_list args;
     va_start(args, 0);
-    l10n_get_into_va(context, buf, buf_size, key, args);
+    const char* template = l10n_get_template(context, key);
+    vsnprintf(buf, buf_size, template, args);
+    va_end(args);
+}
+
+void l10n_get_furi_str(L10nContext* context, FuriString* string, L10nKey key, ...) {
+    furi_check(context);
+
+    va_list args;
+    va_start(args, 0);
+    const char* template = l10n_get_template(context, key);
+    furi_string_vprintf(string, template, args);
     va_end(args);
 }
 
