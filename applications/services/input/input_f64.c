@@ -58,17 +58,18 @@ static void input_custom_event_callback(uint32_t events, void* context) {
 
 static void input_send(InputSrv* instance, const InputPin* pin, InputAction input_action) {
     InputCommonEvent event;
-    event.device = pin->device;
+    event.packet_type = InputPacketTypeInput;
+    event.input.device = pin->device;
 
     if(pin->device == InputDeviceSwitch) {
         if(input_action == InputActionPress) {
-            event.switch_position = pin->pos;
+            event.input.switch_position = pin->pos;
             furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
         }
 
     } else {
-        event.button_event.button = pin->button;
-        event.button_event.action = input_action;
+        event.input.button_event.button = pin->button;
+        event.input.button_event.action = input_action;
         furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
     }
 }
@@ -114,8 +115,12 @@ static void input_qei_callback(int16_t delta_pos, void* context) {
     InputSrv* instance = context;
 
     InputCommonEvent event = {
-        .device = InputDeviceEncoder,
-        .encoder_delta = delta_pos,
+        .packet_type = InputPacketTypeInput,
+        .input =
+            {
+                .device = InputDeviceEncoder,
+                .encoder_delta = delta_pos,
+            },
     };
 
     furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
@@ -131,26 +136,33 @@ static void input_queue_callback(FuriEventLoopObject* object, void* context) {
 
 #ifdef INPUT_DEBUG
 
-    if(event.device == InputDeviceButton) {
-        const InputButton button = event.button_event.button;
-        const InputAction action = event.button_event.action;
+    if(event.packet_type == InputPacketTypeInput) {
+        const InputCommonEventInput* specific_event = &event.input;
 
-        const char* name = input_pins[button].name;
-        const char* action_str = action == InputActionPress ? "press" : "release";
+        if(specific_event->device == InputDeviceButton) {
+            const InputButton button = specific_event->button_event.button;
+            const InputAction action = specific_event->button_event.action;
 
-        INPUT_LOG("Key %s, event %s", name, action_str);
+            const char* name = input_pins[button].name;
+            const char* action_str = action == InputActionPress ? "press" : "release";
 
-    } else if(event.device == InputDeviceEncoder) {
-        INPUT_LOG("Encoder turn %d", event.encoder_delta);
+            INPUT_LOG("Key %s, event %s", name, action_str);
 
-    } else if(event.device == InputDeviceSwitch) {
-        const InputSwitchPosition pos = event.switch_position;
-        const char* name = input_pins[pos + InputButtonMAX].name;
+        } else if(specific_event->device == InputDeviceEncoder) {
+            INPUT_LOG("Encoder turn %d", specific_event->encoder_delta);
 
-        INPUT_LOG("Switch %s %d, event %s", name, pos, "press");
+        } else if(specific_event->device == InputDeviceSwitch) {
+            const InputSwitchPosition pos = specific_event->switch_position;
+            const char* name = input_pins[pos + InputButtonMAX].name;
 
-    } else {
-        furi_crash();
+            INPUT_LOG("Switch %s %d, event %s", name, pos, "press");
+
+        } else {
+            furi_crash();
+        }
+
+    } else if(event.packet_type == InputPacketTypeAbsSendDone) {
+        INPUT_LOG("Done sending initial absolute state");
     }
 
 #endif
@@ -199,6 +211,11 @@ int32_t input_srv(void* p) {
 
         furi_hal_gpio_add_int_callback(pin->gpio, pin->cond, input_isr_key, instance);
     }
+
+    InputCommonEvent abs_done_event = {
+        .packet_type = InputPacketTypeAbsSendDone,
+    };
+    furi_check(furi_message_queue_put(instance->input_queue, &abs_done_event, 0) == FuriStatusOk);
 
     furi_event_loop_set_custom_event_callback(
         instance->event_loop, input_custom_event_callback, instance);

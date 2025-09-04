@@ -9,13 +9,20 @@
 #include <intercom/intercom.h>
 #endif
 
+#define TAG "Input"
+
 #define INPUT_PRESS_TICKS       150
 #define INPUT_LONG_PRESS_COUNTS 2
+#define ABS_STATE_WAIT_TIMEOUT  furi_ms_to_ticks(500)
 
 #define INPUT_KEY_PRESS(key)   (1UL << key)
 #define INPUT_KEY_RELEASE(key) (1UL << (key + InputKeyMAX))
 
 #define INPUT_REQUEST_QUEUE_SIZE 4
+
+typedef enum {
+    InputApiEventAbsStateAvailable = (1 << 0), // <! Absolute state can be queried now
+} InputApiEvent;
 
 /** Input pin state */
 typedef struct {
@@ -28,9 +35,12 @@ typedef struct {
 
 /** Input state */
 struct Input {
-    FuriPubSub* event_pubsub;
     FuriEventLoop* event_loop;
+
+    FuriPubSub* event_pubsub;
     FuriMessageQueue* request_queue;
+    FuriEventFlag* event_flag;
+
     InputPinState* pin_states;
     volatile uint32_t sequence;
     InputAbsoluteState absolute_state;
@@ -189,12 +199,9 @@ static void input_custom_event_callback(uint32_t events, void* context) {
 }
 
 #ifdef SRV_INTERCOM
-static void input_intercom_rx_callback(const void* data, size_t data_size, void* context) {
-    furi_assert(context);
-    furi_assert(data_size == sizeof(InputCommonEvent));
-
-    Input* input = context;
-    const InputCommonEvent* event = data;
+static void input_handle_intercom_input(Input* input, const InputCommonEventInput* event) {
+    furi_assert(input);
+    furi_assert(event);
 
     if(event->device == InputDeviceButton) {
         const InputKey key = event->button_event.button + InputKeyOk;
@@ -212,6 +219,38 @@ static void input_intercom_rx_callback(const void* data, size_t data_size, void*
     } else if(event->device == InputDeviceEncoder) {
         const InputKey key = event->encoder_delta > 0 ? InputKeyUp : InputKeyDown;
         input_key_toggle(input, key);
+
+    } else {
+        furi_crash();
+    }
+}
+
+static void
+    input_handle_intercom_abs_send_done(Input* input, const InputCommonEventAbsSendDone* event) {
+    furi_assert(input);
+    furi_assert(event);
+
+    uint32_t flags = furi_event_flag_set(input->event_flag, InputApiEventAbsStateAvailable);
+    furi_check(!(flags & FuriFlagError));
+}
+
+static void input_intercom_rx_callback(const void* data, size_t data_size, void* context) {
+    furi_assert(context);
+    furi_assert(data_size == sizeof(InputCommonEvent));
+
+    Input* input = context;
+    const InputCommonEvent* event = data;
+
+    if(event->packet_type == InputPacketTypeInput) {
+        const InputCommonEventInput* specific_event = &event->input;
+        input_handle_intercom_input(input, specific_event);
+
+    } else if(event->packet_type == InputPacketTypeAbsSendDone) {
+        const InputCommonEventAbsSendDone* specific_event = &event->abs_send_done;
+        input_handle_intercom_abs_send_done(input, specific_event);
+
+    } else {
+        furi_crash();
     }
 }
 #endif
@@ -248,6 +287,8 @@ int32_t input_srv(void* p) {
         FuriEventLoopEventIn,
         input_request_handler,
         input);
+
+    input->event_flag = furi_event_flag_alloc();
 
     furi_record_create(RECORD_INPUT_EVENTS, input->event_pubsub);
 
@@ -311,6 +352,15 @@ InputAbsoluteState input_get_absolute_state(Input* input) {
     InputRequest request = {
         .type = InputRequestTypeGetAbsState,
     };
+
+    uint32_t flags = furi_event_flag_wait(
+        input->event_flag, InputApiEventAbsStateAvailable, FuriFlagNoClear, ABS_STATE_WAIT_TIMEOUT);
+    if(flags == FuriFlagErrorTimeout) {
+        FURI_LOG_W(TAG, "Timed out waiting for absolute state");
+    } else {
+        furi_check(!(flags & FuriFlagError));
+    }
+
     input_synchronous_request(input, &request);
     return request.abs_state;
 }

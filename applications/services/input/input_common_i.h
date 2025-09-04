@@ -10,9 +10,14 @@
 extern "C" {
 #endif
 
-/**
- * @brief Input event coming from the input controller chip.
- */
+typedef enum {
+    InputPacketTypeInput, // <! Input event
+    InputPacketTypeAbsSendDone, // <! Done sending initial absolute state
+} InputPacketType;
+
+typedef struct {
+} InputCommonEventAbsSendDone;
+
 typedef struct {
     InputDevice device; /**< Identifier of the device that emitted the event */
     union {
@@ -22,6 +27,17 @@ typedef struct {
         } button_event; /**< Button event */
         InputSwitchPosition switch_position; /**< New mode switch position */
         int16_t encoder_delta; /**< Speed and direction of encoder rotation */
+    };
+} InputCommonEventInput;
+
+/**
+ * @brief Input event coming from the input controller chip.
+ */
+typedef struct {
+    InputPacketType packet_type;
+    union {
+        InputCommonEventAbsSendDone abs_send_done;
+        InputCommonEventInput input;
     };
 } InputCommonEvent;
 
