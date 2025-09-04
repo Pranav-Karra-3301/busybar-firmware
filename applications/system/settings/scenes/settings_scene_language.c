@@ -4,6 +4,8 @@
 #include <gui/modules/menu.h>
 #include <gui/modules/submenu.h>
 
+#include <power/power_service/power.h>
+
 #define LOCALE_IMAGE(name) SETTINGS_IMG_PATH("locale_" name "_front_10x7.bin")
 
 static const char* const LOCALE_IMAGES[L10nLocaleCOUNT] = {
@@ -71,7 +73,11 @@ static bool settings_scene_language_on_event(const SceneManagerEvent* event, voi
     if(event->type == SceneManagerEventTypeCustom) {
         L10nLocale locale = event->event;
         l10n_set_global_locale(instance->l10n_service, locale);
+
         // TODO: display a "reboot needed" screen
+        Power* power = furi_record_open(RECORD_POWER);
+        power_reboot(power, PowerRebootNormal);
+
         consumed = true;
     } else if(event->type == SceneManagerEventTypeBack) {
         settings_pop_location(instance);
