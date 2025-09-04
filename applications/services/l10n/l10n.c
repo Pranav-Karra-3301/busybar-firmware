@@ -16,11 +16,12 @@
 #include <furi_hal_nvm.h>
 
 struct L10nSrv {
-    Storage* storage;
     FuriEventLoop* event_loop;
     FuriMessageQueue* request_queue;
 
-    L10nLocale locale; // <! safe to read concurrently, initialized once at startup
+    // safe to read concurrently, initialized once at startup:
+    L10nLocale locale; 
+    Storage* storage;
 };
 
 struct L10nContext {
@@ -193,9 +194,8 @@ void l10n_context_close(L10nContext* context) {
     free(context);
 }
 
-const char* l10n_get(L10nContext* context, L10nKey key, ...) {
-    va_list args;
-    va_start(args, 0);
+static void l10n_get_into_va(L10nContext* context, char* buf, size_t buf_size, L10nKey key, va_list args) {
+    furi_check(context);
 
     const char* template;
     for(size_t i = 0; i < MAX_CANDIDATE_LOCALES; i++) {
@@ -206,9 +206,53 @@ const char* l10n_get(L10nContext* context, L10nKey key, ...) {
     }
 
     furi_check(template);
-    vsnprintf(context->buffer, sizeof(context->buffer), template, args);
+    vsnprintf(buf, buf_size, template, args);
+}
 
+const char* l10n_get(L10nContext* context, L10nKey key, ...) {
+    va_list args;
+    va_start(args, 0);
+    l10n_get_into_va(context, context->buffer, sizeof(context->buffer), key, args);
     va_end(args);
+
+    return context->buffer;
+}
+
+void l10n_get_into(L10nContext* context, char* buf, size_t buf_size, L10nKey key, ...) {
+    va_list args;
+    va_start(args, 0);
+    l10n_get_into_va(context, buf, buf_size, key, args);
+    va_end(args);
+}
+
+const char* l10n_get_resource(L10nContext* context, const char* template) {
+    furi_check(context);
+    furi_check(template);
+
+    char* first_format = strchr(template, '%');
+    char* last_format = strrchr(template, '%');
+    furi_check(first_format);
+    furi_check(first_format == last_format);
+    furi_check(first_format[1] == 's');
+
+    const char* candidates[] = {
+        l10n_locale_info(context->service->locale)->iso_name,
+        l10n_locale_info(FALLBACK_LOCALE)->iso_name,
+        "",
+    };
+    const size_t candidate_count = COUNT_OF(candidates);
+
+    for(size_t i = 0; i < candidate_count; i++) {
+        const char* candidate = candidates[i];
+        bool add_underscore = i != (candidate_count - 1);
+
+        char locale[16];
+        snprintf(locale, sizeof(locale), "%s%s", add_underscore ? "_" : "", candidate);
+        snprintf(context->buffer, sizeof(context->buffer), template, locale);
+
+        if(storage_file_exists(context->service->storage, context->buffer)) break;
+    }
+
     return context->buffer;
 }
 
