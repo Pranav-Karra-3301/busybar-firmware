@@ -148,7 +148,7 @@ static Ble* ble_alloc() {
 
 #if !defined(SI917) && defined(BLE_AUTO_INIT)
     instance->init_timer = furi_timer_alloc(ble_init_timer_callback, FuriTimerTypeOnce, instance);
-    furi_timer_start(instance->init_timer, 1000);
+    furi_timer_start(instance->init_timer, 3000);
 #endif
     furi_record_create(RECORD_BLE, instance);
 
