@@ -1,8 +1,14 @@
 #include "../settings.h"
+#include "../models/brightness.h"
+#include "../models/volume.h"
 #include "settings_scenes.h"
 #include "../storage_macros.h"
 
 #include <gui/modules/menu.h>
+
+typedef enum {
+    SceneCustomEventMenuItemClicked = SettingsCustomEventSceneEventsStart,
+} SceneCustomEvent;
 
 typedef enum {
     SettingsSceneMainMenuIndexSound,
@@ -16,15 +22,42 @@ typedef struct {
     Menu* front_menu;
     Menu* back_menu;
 
-    size_t menu_idx;
+    _Atomic SettingsSceneMainMenuIndex menu_idx;
 } SettingsSceneMain;
+
+typedef struct {
+    const char* nav_bar_entry;
+    SettingsAppSceneId scene_id;
+} NextSceneParameters;
+
+static const NextSceneParameters next_scenes_parameters[] = {
+    [SettingsSceneMainMenuIndexSound] =
+        {
+            .nav_bar_entry = "SOUND",
+            .scene_id = SettingsAppSceneIdSound,
+        },
+    [SettingsSceneMainMenuIndexBrightness] =
+        {
+            .nav_bar_entry = "BRIGHTNESS",
+            .scene_id = SettingsAppSceneIdBrightness,
+        },
+    [SettingsSceneMainMenuIndexDebugApps] =
+        {
+            .nav_bar_entry = "DEBUG",
+            .scene_id = SettingsAppSceneIdDebugApps,
+        },
+};
+
+static_assert(COUNT_OF(next_scenes_parameters) == SettingsSceneMainMenuIndexesCount);
 
 static void settings_scene_setup_menu_callback(uint32_t index, void* context) {
     furi_assert(context);
-    furi_assert(index < SettingsSceneMainMenuIndexesCount);
 
     SettingsApp* instance = context;
-    settings_send_custom_event(instance, index);
+    SettingsSceneMain* data = scene_manager_get_current_scene_data(instance->scene_manager);
+
+    data->menu_idx = index;
+    settings_send_custom_event(instance, SceneCustomEventMenuItemClicked);
 }
 
 static void settings_scene_main_on_enter(void* context) {
@@ -33,17 +66,16 @@ static void settings_scene_main_on_enter(void* context) {
     SettingsApp* instance = context;
     SettingsSceneMain* data = scene_manager_get_current_scene_data(instance->scene_manager);
 
+    uint8_t volume = settings_volume_get(instance);
     char volume_text[snprintf(NULL, 0, "%u%%", UINT8_MAX) + 1];
-    uint8_t volume = roundf(100.f * audio_get_volume(instance->audio));
     sprintf(volume_text, "%u%%", volume);
 
     const char* brightness_text;
-    uint8_t brightness = back_display_get_brightness(instance->back_display);
-    if(brightness == BACK_DISPLAY_BRIGHTNESS_AUTO) {
+    if(settings_brightness_get_mode(instance) == SettingsBrightnessModeAuto) {
         brightness_text = "Auto";
     } else {
         char* text = alloca(snprintf(NULL, 0, "%u%%", UINT8_MAX) + 1);
-        sprintf(text, "%u%%", brightness);
+        sprintf(text, "%u%%", settings_brightness_get(instance));
         brightness_text = text;
     }
 
@@ -129,29 +161,17 @@ static bool settings_scene_main_on_event(const SceneManagerEvent* event, void* c
 
     bool consumed = false;
     if(event->type == SceneManagerEventTypeCustom) {
-        data->menu_idx = event->event;
+        if(event->event == SceneCustomEventMenuItemClicked) {
+            SettingsSceneMain* data =
+                scene_manager_get_current_scene_data(instance->scene_manager);
+            const NextSceneParameters* next_scene_parameters =
+                &next_scenes_parameters[data->menu_idx];
 
-        switch(event->event) {
-        case SettingsSceneMainMenuIndexSound:
-            settings_push_location(instance, "SOUND");
-            scene_manager_next_scene(instance->scene_manager, SettingsAppSceneIdSound);
-            break;
+            settings_push_location(instance, next_scene_parameters->nav_bar_entry);
+            scene_manager_next_scene(instance->scene_manager, next_scene_parameters->scene_id);
 
-        case SettingsSceneMainMenuIndexBrightness:
-            settings_push_location(instance, "BRIGHTNESS");
-            scene_manager_next_scene(instance->scene_manager, SettingsAppSceneIdBrightness);
-            break;
-
-        case SettingsSceneMainMenuIndexDebugApps:
-            settings_push_location(instance, "DEBUG APPS");
-            scene_manager_next_scene(instance->scene_manager, SettingsAppSceneIdDebugApps);
-            break;
-
-        default:
-            break;
+            consumed = true;
         }
-
-        consumed = true;
     } else if(event->type == SceneManagerEventTypeBack) {
         data->menu_idx = 0;
     }
