@@ -106,3 +106,17 @@ void ble_uart_set_rx_callback(
     BleServiceObject* service = ble->services[index];
     ble_service_register_update_callback(service, 0, rx_cb, ctx);
 }
+
+void ble_uart_set_tx_done_callback(
+    Ble* ble,
+    BleUartChannel channel,
+    BleDataTransmitDoneCallback tx_done_cb,
+    void* ctx) {
+    furi_assert(ble);
+    furi_assert(channel < BleUartChannelCount);
+
+    BleServiceIndex index = (channel == BleUartChannelHM10) ? BleServiceIndexHm10Uart :
+                                                              BleServiceIndexNordicUart;
+    BleServiceObject* service = ble->services[index];
+    ble_service_register_transmission_done_callback(service, 1, tx_done_cb, ctx);
+}
