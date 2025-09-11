@@ -50,7 +50,7 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_RX_CHAR_UUID},
         .uuid_size = 16,
-        .char_properties = BLE_ATT_PROPERTY_READ | BLE_ATT_PROPERTY_WRITE,
+        .char_properties = BLE_ATT_PROPERTY_WRITE | BLE_ATT_PROPERTY_INDICATE,
 #endif
     },
     {
@@ -60,7 +60,7 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_TX_CHAR_UUID},
         .uuid_size = 16,
-        .char_properties = BLE_ATT_PROPERTY_READ | BLE_ATT_PROPERTY_NOTIFY,
+        .char_properties = BLE_ATT_PROPERTY_READ | BLE_ATT_PROPERTY_INDICATE,
 #endif
     },
 };
