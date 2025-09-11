@@ -111,6 +111,20 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
 
         offset += (data_size + sizeof(BleCharacteristicDataHeader));
     }
+
+static bool ble_service_update_response(BleServiceObject* instance, size_t data_size, void* data) {
+    UNUSED(data_size);
+
+    const BleIntercomServiceData* service_config = data;
+    uint8_t offset = 0;
+
+    for(size_t i = 0; i < service_config->char_count; i++) {
+        const BleCharacteristicData* char_init =
+            (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
+
+        BleCharacteristicObject* ch = instance->chars[char_init->header.index];
+        ble_characteristic_tx_done(ch);
+    }
     return true;
 }
 
@@ -122,8 +136,7 @@ static bool ble_service_command_handler_update(
     if(frame_type == BleIntercomFrameTypeRequest) {
         return ble_service_update_request(instance, data_size, data);
     } else {
-        return false;
-        // return ble_service_update_response(instance, data_size, data);
+        return ble_service_update_response(instance, data_size, data);
     }
 }
 
