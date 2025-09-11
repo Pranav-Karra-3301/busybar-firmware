@@ -96,21 +96,23 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
             (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
         size_t data_size = char_init->header.data_size;
 
-        // BLE_LOG_D(
-        //     "%s - char: %d data_size: %d",
-        //     instance->config->name,
-        //     char_init->header.index,
-        //     data_size);
-
         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
-        const char* name = ble_characteristic_get_config(ch)->name;
         ble_characteristic_set_data(ch, char_init->data, data_size);
 
-        ///TODO: Data formatting must be more informative
-        BLE_LOG_I("Ch: %s new data: %s", name, (const char*)char_init->data);
+        BLE_LOG_D(
+            "Ch: %s new data: %s",
+            ble_characteristic_get_config(ch)->name,
+            (const char*)char_init->data);
 
         offset += (data_size + sizeof(BleCharacteristicDataHeader));
     }
+
+    size_t total_size = sizeof(BleCharacteristicCountType);
+    ble_service_prepare_send_intercom_frame(
+        instance, BleIntercomFrameTypeResponse, BleCommandServiceUpdate, total_size, data);
+
+    return true;
+}
 
 static bool ble_service_update_response(BleServiceObject* instance, size_t data_size, void* data) {
     UNUSED(data_size);
