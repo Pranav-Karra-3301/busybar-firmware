@@ -14,6 +14,9 @@ struct BleCharacteristicObject {
     BleDataUpdatedCallback update_cb;
     void* update_ctx;
 
+    BleDataTransmitDoneCallback tx_done_cb;
+    void* tx_done_ctx;
+
     const BleCharacteristicDescriptor* descriptor;
 };
 
@@ -66,6 +69,15 @@ void ble_characteristic_set_data(
 
     if(instance->update_cb) {
         instance->update_cb(data_size, instance->data, instance->update_ctx);
+        instance->modified = false;
+    }
+}
+
+void ble_characteristic_tx_done(BleCharacteristicObject* instance) {
+    furi_assert(instance);
+    if(instance->tx_done_cb) {
+        instance->tx_done_cb(instance->tx_done_ctx);
+        instance->modified = false; // ???? Maybe not needed
     }
 }
 
@@ -119,5 +131,21 @@ void ble_characteristic_register_update_callback(
         BLE_LOG_D("Reset update callback");
         instance->update_cb = NULL;
         instance->update_ctx = NULL;
+    }
+}
+
+void ble_characteristic_register_tx_done_callback(
+    BleCharacteristicObject* instance,
+    BleDataTransmitDoneCallback callback,
+    void* ctx) {
+    furi_assert(instance);
+
+    if(callback) {
+        instance->tx_done_cb = callback;
+        instance->tx_done_ctx = ctx;
+    } else {
+        BLE_LOG_D("Reset tx_done callback");
+        instance->tx_done_cb = NULL;
+        instance->tx_done_ctx = NULL;
     }
 }

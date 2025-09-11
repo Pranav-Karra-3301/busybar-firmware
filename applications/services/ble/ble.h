@@ -33,4 +33,10 @@ void ble_uart_set_rx_callback(
     BleDataUpdatedCallback rx_cb,
     void* ctx);
 
+void ble_uart_set_tx_done_callback(
+    Ble* ble,
+    BleUartChannel channel,
+    BleDataTransmitDoneCallback tx_done_cb,
+    void* ctx);
+
 void ble_uart_tx_data(Ble* ble, BleUartChannel channel, const void* data, const size_t data_size);

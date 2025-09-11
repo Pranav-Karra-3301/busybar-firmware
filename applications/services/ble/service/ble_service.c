@@ -234,3 +234,17 @@ void ble_service_register_update_callback(
         ble_service_unlock(instance);
     }
 }
+
+void ble_service_register_transmission_done_callback(
+    BleServiceObject* instance,
+    uint16_t index,
+    BleDataTransmitDoneCallback cb,
+    void* ctx) {
+    furi_assert(instance);
+    furi_assert(index < instance->config->char_count);
+    if(ble_service_lock(instance)) {
+        BleCharacteristicObject* ch = instance->chars[index];
+        ble_characteristic_register_tx_done_callback(ch, cb, ctx);
+        ble_service_unlock(instance);
+    }
+}

@@ -37,3 +37,9 @@ void ble_service_register_update_callback(
     uint16_t index,
     BleDataUpdatedCallback cb,
     void* ctx);
+
+void ble_service_register_transmission_done_callback(
+    BleServiceObject* instance,
+    uint16_t index,
+    BleDataTransmitDoneCallback cb,
+    void* ctx);
