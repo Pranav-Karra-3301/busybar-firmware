@@ -5,9 +5,10 @@
 
 #include <furi.h>
 
-#define BLE_ATT_PROPERTY_READ   0x02
-#define BLE_ATT_PROPERTY_WRITE  0x08
-#define BLE_ATT_PROPERTY_NOTIFY 0x10
+#define BLE_ATT_PROPERTY_READ     0x02
+#define BLE_ATT_PROPERTY_WRITE    0x08
+#define BLE_ATT_PROPERTY_NOTIFY   0x10
+#define BLE_ATT_PROPERTY_INDICATE 0x20
 
 struct BleServiceObject {
     BleServiceState state;
