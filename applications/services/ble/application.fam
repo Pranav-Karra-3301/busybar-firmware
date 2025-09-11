@@ -33,6 +33,7 @@ App(
         "ble.c",
         "ble_api.c",
         "ble_command_u5.c",
+        "http/ble_http_repeater.c",
         "service/*.c",
         "service/target/ble_service_target_u5.c",
         "service/device_info/*.c",
