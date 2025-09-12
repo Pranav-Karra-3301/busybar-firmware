@@ -534,14 +534,14 @@ static int32_t ble_worker_thread_callback(void* context) {
         }
 
         if(events & BLEWorkerEvtWrite) {
-            BLE_LOG_I("Received packet type = %u", instance->app_ble_write_event.pkt_type);
+            BLE_LOG_D("Received packet type = %u", instance->app_ble_write_event.pkt_type);
 
             if(instance->app_ble_write_event.pkt_type == RSI_BLE_WRITE_REQUEST_EVENT) {
                 const void* data = instance->app_ble_write_event.att_value;
                 const size_t data_size = instance->app_ble_write_event.length;
 
                 uint16_t handle = *(uint16_t*)instance->app_ble_write_event.handle;
-                BLE_LOG_I("Handle: %04X", handle);
+                BLE_LOG_D("Handle: %04X", handle);
                 BleServiceEntry* entry =
                     BleServiceEntryDict_get(ble_worker_instance->service_dict, handle);
                 if(entry) {
@@ -824,16 +824,14 @@ void ble_worker_test_after_init() {
     ble_print_service_hierarchy(0x0023);
 }
 
-void ble_worker_set_data(uint16_t handle, uint16_t data_size, const uint8_t* data) {
-    BLE_LOG_I("Set_value to 0x%04X", handle);
+void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data) {
+    BLE_LOG_D("Set value of 0x%04X", handle);
     rsi_ble_set_local_att_value(handle, data_size, data);
 }
 
-void ble_worker_notify(uint16_t handle, uint16_t data_size, const uint8_t* data) {
-    rsi_ble_set_local_att_value(handle, data_size, data);
-
-    if(ble_worker_instance->connected) {
-        BLE_LOG_I("Notify value of 0x%04X", handle);
-        rsi_ble_notify_value(ble_worker_instance->remote_dev_address, handle, data_size, data);
-    }
+void ble_worker_receive_confirm(uint16_t handle, uint8_t props) {
+    UNUSED(handle);
+    if((props & RSI_BLE_ATT_PROPERTY_INDICATE) == 0) return;
+    BLE_LOG_D("RX confirm for: %04X", handle);
+    rsi_ble_indicate_confirm(ble_worker_instance->remote_dev_address);
 }

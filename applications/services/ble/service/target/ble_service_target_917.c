@@ -52,19 +52,6 @@ static bool ble_service_target_init(BleServiceObject* instance, size_t data_size
     return true;
 }
 
-///TODO: Deal with character index!!!
-void ble_service_target_notify(
-    BleServiceObject* instance,
-    uint8_t ch_index,
-    void* data,
-    size_t data_size) {
-    BLE_LOG_D("%s - ble_service_target_notify", instance->config->name);
-    BleCharacteristicObject* ch = instance->chars[ch_index];
-    ble_characteristic_set_data(ch, data, data_size);
-    const uint16_t handle = ble_characteristic_get_handle(ch);
-    ble_worker_notify(handle, data_size, data);
-}
-
 static bool ble_service_command_handler_init(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
