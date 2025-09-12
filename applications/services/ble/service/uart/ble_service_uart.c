@@ -87,7 +87,7 @@ static const BleCharacteristicDescriptor hm10_uart_service_characteristics[] = {
     {
         .intercom_index = BleSrvDeviceUartCharacterRx,
         .name = "HM10 Rx",
-        .initial_data_size = 5,
+        .initial_data_size = 100,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = HM10_UART_RX_CHAR_UUID},
         .uuid_size = 16,
@@ -97,7 +97,7 @@ static const BleCharacteristicDescriptor hm10_uart_service_characteristics[] = {
     {
         .intercom_index = BleSrvDeviceUartCharacterTx,
         .name = "HM10 Tx",
-        .initial_data_size = 5,
+        .initial_data_size = 100,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = HM10_UART_TX_CHAR_UUID},
         .uuid_size = 16,
