@@ -1,4 +1,5 @@
 #include "ble_command.h"
+#include "http/ble_http_repeater.h"
 
 #define TAG "BLE_U5"
 
@@ -42,6 +43,7 @@ void ble_command_handler_enable(Ble* instance, BleIntercomFrameGeneric* frame) {
         BLE_LOG_D("BleCommandEnable response");
         instance->current_message->result = true;
         api_lock_unlock(instance->current_message->lock);
+        ble_http_repeater_start(instance);
     } else {
         BLE_LOG_D("BleCommandEnable request");
 
@@ -57,6 +59,7 @@ void ble_command_handler_disable(Ble* instance, BleIntercomFrameGeneric* frame) 
         BLE_LOG_D("BleCommandDisable response");
         instance->current_message->result = true;
         api_lock_unlock(instance->current_message->lock);
+        ble_http_repeater_stop();
     } else {
         BLE_LOG_D("BleCommandDisable request");
 

@@ -3,6 +3,8 @@
 
 #if defined(SI917)
 #include "worker/ble_worker.h"
+#else
+#include "http/ble_http_repeater.h"
 #endif
 
 #define TAG "BLE"
@@ -147,6 +149,7 @@ static Ble* ble_alloc() {
     }
 
 #if !defined(SI917) && defined(BLE_AUTO_INIT)
+    ble_http_repeater_init();
     instance->init_timer = furi_timer_alloc(ble_init_timer_callback, FuriTimerTypeOnce, instance);
     furi_timer_start(instance->init_timer, 3000);
 #endif

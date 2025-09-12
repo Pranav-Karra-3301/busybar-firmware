@@ -44,7 +44,3 @@ struct Ble {
     BleMessage* current_message;
 #endif
 };
-
-///TODO: Find better place for these two
-void ble_http_repeater_start(Ble* ble);
-void ble_http_repeater_stop(void);
