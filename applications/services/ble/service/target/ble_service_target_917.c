@@ -96,7 +96,7 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
         /// but in such case we need separate set functions for targets,
         /// or we can do define macro magic
         const uint16_t handle = ble_characteristic_get_handle(ch);
-        ble_worker_notify(handle, data_size, ble_characteristic_get_data(ch));
+        ble_worker_send(handle, data_size, ble_characteristic_get_data(ch));
 
         offset += (data_size + sizeof(BleCharacteristicDataHeader));
     }
