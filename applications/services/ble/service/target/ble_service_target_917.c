@@ -151,17 +151,7 @@ static bool ble_service_command_handler_run(
 
     bool result = false;
     do {
-        // if(instance->desc->run == NULL) {
-        //     BLE_LOG_W("No run for %s service", instance->desc->name);
-        //     break;
-        // }
-
-        // if(!instance->desc->run(instance)) {
-        //     BLE_LOG_W("%s - run error", instance->desc->name);
-        //     break;
-        // }
-
-        ///TOODO: collect all updated characteristics and throw them
+        ///TODO: collect all updated characteristics and throw them
         ///to remote
         size_t total_data_size = 0;
         const uint8_t chars_count_max = instance->config->char_count;
