@@ -64,6 +64,7 @@ DICT_DEF2(BleServiceEntryDict, uint16_t, M_DEFAULT_OPLIST, BleServiceEntry, M_PO
 typedef struct {
     FuriThread* thread;
     FuriSemaphore* indication_sem;
+    FuriSemaphore* notification_sem;
     ///TODO: this can be removed
     bool connected;
     uint8_t device_found;
@@ -431,6 +432,8 @@ static int32_t ble_worker_thread_callback(void* context) {
                     furi_crash();
                 }
             }
+
+            ble_worker_instance->connected = true;
         }
 
         if(events & BLEWorkerEvtDisconnected) {
@@ -439,6 +442,22 @@ static int32_t ble_worker_thread_callback(void* context) {
 
             instance->device_found = 0;
             instance->conn_params_updated = 0;
+            instance->connected = false;
+
+            BleServiceEntryDict_it_t entry_iter;
+            for(BleServiceEntryDict_it(entry_iter, instance->service_dict);
+                !BleServiceEntryDict_end_p(entry_iter);
+                BleServiceEntryDict_next(entry_iter)) {
+                BleServiceEntryDict_itref_t* entry_ref = BleServiceEntryDict_ref(entry_iter);
+
+                BleServiceEntry* entry = &entry_ref->value;
+                BleServiceObject* service = entry->service;
+                if(ble_service_lock(service)) {
+                    BleCharacteristicObject* ch = service->chars[entry->char_index];
+                    ble_characteristic_set_cccd_value(ch, 0);
+                    ble_service_unlock(service);
+                }
+            }
 
             //! start advertising
             status = rsi_ble_start_advertising();
@@ -558,13 +577,20 @@ static int32_t ble_worker_thread_callback(void* context) {
                 BLE_LOG_D("Handle: %04X", handle);
                 BleServiceEntry* entry =
                     BleServiceEntryDict_get(ble_worker_instance->service_dict, handle);
+
                 if(entry) {
                     BLE_LOG_D("Entry present");
                     BleServiceObject* service = entry->service;
                     if(ble_service_lock(service)) {
                         BleCharacteristicObject* ch = service->chars[entry->char_index];
-                        ble_characteristic_set_data(ch, data, data_size);
-                        ble_service_enqueue_run(service);
+
+                        if(ble_characteristic_is_cccd_handle(ch, handle)) {
+                            ble_characteristic_set_cccd_value(ch, *((uint8_t*)data));
+                        } else {
+                            ble_characteristic_set_data(ch, data, data_size);
+                            ble_service_enqueue_run(service);
+                        }
+
                         ble_service_unlock(service);
                     }
                 }
@@ -596,6 +622,11 @@ static int32_t ble_worker_thread_callback(void* context) {
             // } else {
             //     rsi_ble_gatt_write_response(instance->remote_dev_address, 0);
             // }
+        }
+
+        if(events & BLEWorkerEvtMoreDataReq) {
+            BLE_LOG_D("BLEWorkerEvtMoreDataReq");
+            furi_semaphore_release(ble_worker_instance->notification_sem);
         }
 
         if(events & BLEWorkerEvtExit) {
@@ -751,6 +782,7 @@ void ble_worker_init() {
         furi_thread_alloc_ex("BleWorker", 2048, ble_worker_thread_callback, ble_worker_instance);
 
     ble_worker_instance->indication_sem = furi_semaphore_alloc(1, 0);
+    ble_worker_instance->notification_sem = furi_semaphore_alloc(1, 1);
     BleServiceEntryDict_init(ble_worker_instance->service_dict);
 
     ble_hw_config();
@@ -816,6 +848,14 @@ bool ble_worker_register_service(BleServiceObject* service) {
                 0);
             BleServiceEntry entry = {.service = service, .char_index = ch_config->intercom_index};
             BleServiceEntryDict_set_at(ble_worker_instance->service_dict, value_handle, entry);
+
+            if((ch_config->char_properties & RSI_BLE_ATT_PROPERTY_NOTIFY) ||
+               (ch_config->char_properties & RSI_BLE_ATT_PROPERTY_INDICATE)) {
+                ble_characteristic_set_cccd_handle(ch, handle);
+                BleServiceEntry entry = {
+                    .service = service, .char_index = ch_config->intercom_index};
+                BleServiceEntryDict_set_at(ble_worker_instance->service_dict, handle, entry);
+            }
         }
 
         result = true;
@@ -848,20 +888,29 @@ void ble_worker_test_after_init() {
     ble_print_service_hierarchy(0x0023);
 }
 
-void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t props) {
+#define BLE_CCCD_NOTIFICATION_ENABLED(cccd_value) ((cccd_value & 0x01) != 0)
+#define BLE_CCCD_INDICATION_ENABLED(cccd_value)   ((cccd_value & 0x02) != 0)
+
+void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t cccd_value) {
     sl_status_t status;
     BLE_LOG_D("Data_size: %d", data_size);
-    if((props & RSI_BLE_ATT_PROPERTY_INDICATE)) {
+
+    if(ble_worker_instance->connected && BLE_CCCD_INDICATION_ENABLED(cccd_value)) {
         status = rsi_ble_indicate_value(
             ble_worker_instance->remote_dev_address, handle, data_size, data);
 
         if(furi_semaphore_acquire(ble_worker_instance->indication_sem, 1000) != FuriStatusOk) {
             furi_crash("Indication failed");
         }
-    } else if((props & RSI_BLE_ATT_PROPERTY_NOTIFY)) {
+    } else if(ble_worker_instance->connected && BLE_CCCD_NOTIFICATION_ENABLED(cccd_value)) {
+        if(furi_semaphore_acquire(ble_worker_instance->notification_sem, 1000) != FuriStatusOk) {
+            furi_crash("Notification failed");
+        }
+        // BLE_LOG_W("Notify");
         status =
             rsi_ble_notify_value(ble_worker_instance->remote_dev_address, handle, data_size, data);
     } else {
+        // BLE_LOG_W("Set local");
         status = rsi_ble_set_local_att_value(handle, data_size, data);
     }
 

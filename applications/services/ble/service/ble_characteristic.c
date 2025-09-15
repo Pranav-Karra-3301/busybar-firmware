@@ -8,6 +8,8 @@ struct BleCharacteristicObject {
     bool modified;
     uint8_t max_data_size;
     uint8_t data_size; ///TODO: set data_type of proper size
+    uint8_t cccd_value;
+    uint16_t cccd_handle;
     uint16_t handle; ///TODO: maybe add this only to 917
     void* data;
 
@@ -101,6 +103,27 @@ void ble_characteristic_set_handle(BleCharacteristicObject* instance, uint16_t h
 uint16_t ble_characteristic_get_handle(BleCharacteristicObject* instance) {
     furi_assert(instance);
     return instance->handle;
+}
+
+void ble_characteristic_set_cccd_handle(BleCharacteristicObject* instance, uint16_t cccd_handle) {
+    furi_assert(instance);
+    furi_assert(instance->cccd_handle == 0);
+    instance->cccd_handle = cccd_handle;
+}
+
+bool ble_characteristic_is_cccd_handle(BleCharacteristicObject* instance, uint16_t possible_cccd) {
+    furi_assert(instance);
+    return instance->cccd_handle == possible_cccd;
+}
+
+void ble_characteristic_set_cccd_value(BleCharacteristicObject* instance, uint8_t value) {
+    furi_assert(instance);
+    instance->cccd_value = value;
+}
+
+uint8_t ble_characteristic_get_cccd_value(BleCharacteristicObject* instance) {
+    furi_assert(instance);
+    return instance->cccd_value;
 }
 
 uint8_t ble_characteristic_fill_update_struct(
