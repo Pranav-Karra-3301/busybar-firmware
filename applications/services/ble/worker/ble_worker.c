@@ -42,13 +42,15 @@ typedef enum {
     BLEWorkerEvtWrite = (1 << 9),
     BLEWorkerEvtDataTransmit = (1 << 10),
     BLEWorkerEvtMtu = (1 << 11),
+    BLEWorkerEvtIndicateConfirm = (1 << 12),
 } BLEWorkerEvt;
 
 #define BLE_USART_ECHO_ALL_EVENTS                                                                \
     (BLEWorkerEvtExit | BLEWorkerEvtAdvReport | BLEWorkerEvtConnected |                          \
      BLEWorkerEvtDisconnected | BLEWorkerEvtPhyUpdateComplete | BLEWorkerEvtConnUpdate |         \
      BLEWorkerEvtDataLengthChange | BLEWorkerEvtReceveRemoteFeatures | BLEWorkerEvtMoreDataReq | \
-     BLEWorkerEvtWrite | BLEWorkerEvtDataTransmit | BLEWorkerEvtMtu)
+     BLEWorkerEvtWrite | BLEWorkerEvtDataTransmit | BLEWorkerEvtMtu |                            \
+     BLEWorkerEvtIndicateConfirm)
 
 typedef struct {
     ///TODO: for now this is ok, for future maybe it is worth to make each characteristic
@@ -61,6 +63,7 @@ DICT_DEF2(BleServiceEntryDict, uint16_t, M_DEFAULT_OPLIST, BleServiceEntry, M_PO
 
 typedef struct {
     FuriThread* thread;
+    FuriSemaphore* indication_sem;
     ///TODO: this can be removed
     bool connected;
     uint8_t device_found;
@@ -278,6 +281,17 @@ static void
     furi_thread_flags_set(furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtWrite);
 }
 
+static void ble_worker_on_indicate_confirmation_event(
+    uint16_t event_status,
+    rsi_ble_set_att_resp_t* rsi_ble_event_set_att_rsp) {
+    UNUSED(rsi_ble_event_set_att_rsp);
+
+    if(event_status != 0) BLE_LOG_W("Indicate_CB: %d", event_status);
+
+    furi_thread_flags_set(
+        furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtIndicateConfirm);
+}
+
 /**
  * @fn         ble_worker_on_mtu_event
  * @brief      its invoked when write/notify/indication events are received.
@@ -358,7 +372,7 @@ static void ble_hw_config() {
         NULL,
         NULL,
         NULL,
-        NULL,
+        ble_worker_on_indicate_confirmation_event,
         NULL);
 
     // ble_worker_add_simple_chat_serv(instance);
@@ -554,6 +568,10 @@ static int32_t ble_worker_thread_callback(void* context) {
                         ble_service_unlock(service);
                     }
                 }
+            } else if(instance->app_ble_write_event.pkt_type == RSI_BLE_NOTIFICATION_EVENT) {
+                BLE_LOG_W("Notification event");
+            } else if(instance->app_ble_write_event.pkt_type == RSI_BLE_INDICATION_EVENT) {
+                BLE_LOG_W("Indication event");
             }
             //TO DO: send ERR or write response
             // if((*(uint16_t*)instance->app_ble_write_event.handle) == instance->ble_att1_val_hndl) {
@@ -583,6 +601,11 @@ static int32_t ble_worker_thread_callback(void* context) {
         if(events & BLEWorkerEvtExit) {
             rsi_ble_stop_advertising();
             break;
+        }
+
+        if(events & BLEWorkerEvtIndicateConfirm) {
+            BLE_LOG_D("BLEWorkerEvtIndicateConfirm");
+            furi_semaphore_release(ble_worker_instance->indication_sem);
         }
     }
 
@@ -727,6 +750,7 @@ void ble_worker_init() {
     ble_worker_instance->thread =
         furi_thread_alloc_ex("BleWorker", 2048, ble_worker_thread_callback, ble_worker_instance);
 
+    ble_worker_instance->indication_sem = furi_semaphore_alloc(1, 0);
     BleServiceEntryDict_init(ble_worker_instance->service_dict);
 
     ble_hw_config();
@@ -824,14 +848,34 @@ void ble_worker_test_after_init() {
     ble_print_service_hierarchy(0x0023);
 }
 
-void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data) {
-    BLE_LOG_D("Set value of 0x%04X", handle);
-    rsi_ble_set_local_att_value(handle, data_size, data);
+void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t props) {
+    sl_status_t status;
+    BLE_LOG_D("Data_size: %d", data_size);
+    if((props & RSI_BLE_ATT_PROPERTY_INDICATE)) {
+        status = rsi_ble_indicate_value(
+            ble_worker_instance->remote_dev_address, handle, data_size, data);
+
+        if(furi_semaphore_acquire(ble_worker_instance->indication_sem, 1000) != FuriStatusOk) {
+            furi_crash("Indication failed");
+        }
+    } else if((props & RSI_BLE_ATT_PROPERTY_NOTIFY)) {
+        status =
+            rsi_ble_notify_value(ble_worker_instance->remote_dev_address, handle, data_size, data);
+    } else {
+        status = rsi_ble_set_local_att_value(handle, data_size, data);
+    }
+
+    if(status != 0) BLE_LOG_W("Send fail %08lX", status);
 }
 
 void ble_worker_receive_confirm(uint16_t handle, uint8_t props) {
     UNUSED(handle);
-    if((props & RSI_BLE_ATT_PROPERTY_INDICATE) == 0) return;
-    BLE_LOG_D("RX confirm for: %04X", handle);
-    rsi_ble_indicate_confirm(ble_worker_instance->remote_dev_address);
+    sl_status_t status;
+    if((props & RSI_BLE_ATT_PROPERTY_INDICATE)) {
+        status = rsi_ble_indicate_confirm(ble_worker_instance->remote_dev_address);
+    } else {
+        status = rsi_ble_gatt_write_response(ble_worker_instance->remote_dev_address, 0);
+    }
+
+    if(status != 0) BLE_LOG_W("Recv fail %08lX", status);
 }
