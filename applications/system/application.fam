@@ -8,6 +8,7 @@ App(
         "message",
         "system_apps_on_start",
         "system_apps_cli",
+        "lottie_player",
     ],
     targets=["f20", "f21"],
 )
@@ -20,6 +21,7 @@ App(
     provides=[
         "update_cli",
         "crypto_backup",
+        "fetch",
     ],
     targets=["f20", "f21"],
 )
@@ -43,7 +45,7 @@ App(
         "ble_test",
         "ble_usart_echo",
         "crypto_test",
-        "nvm3_test",
+        "nvm_test",
         "wifi_calibration",
         "wifi_cli_test",
         "wifi_rf_test",
