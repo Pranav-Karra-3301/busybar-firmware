@@ -16,13 +16,18 @@ env:
 jobs:
   main:
     runs-on: BsbShell
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
         u5_target: [20, 21]
+
     steps:
       - name: 'Wipe workspace'
-        run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;
+        run: |
+          rm -f /home/runner/.gitconfig
+          find ./ -mount -maxdepth 1 -exec rm -rf {} \;
 
       - name: 'Checkout code'
         uses: actions/checkout@v4
@@ -31,21 +36,30 @@ jobs:
           fetch-depth: 2
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 'Configure Git and LFS for submodules'
+        run: |
+          # Configure Git LFS
+          git lfs install --skip-smudge
+          
+          # Set up authentication for GitHub repositories at repo level
+          echo "https://x-access-token:${GH_TOKEN}@github.com" > ~/.git-credentials
+          git config credential.helper 'store --file ~/.git-credentials'
+          
+          # Configure LFS settings
+          git config lfs.transfer.maxretries 3
+
       - name: 'Update submodules'
         run: |
-          git submodule update --init --recursive --jobs=$(nproc) scripts/toolchain fbt_layers/fbtng || cat /home/runner/work/bsb-firmware/bsb-firmware/.git/modules/lib/matter_ext/lfs/logs/*
+          git submodule update --init --recursive --jobs=$(nproc) scripts/toolchain fbt_layers/fbtng || (git lfs logs last && exit 1)
 
       - name: 'Get commit details'
         id: names
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BUILD_TYPE='DEBUG=1 COMPACT=0'
           if [[ ${{ github.event_name }} == 'pull_request' ]]; then
             TYPE="pull"
           elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
             TYPE="tag"
-            # BUILD_TYPE='DEBUG=0 COMPACT=1' # TODO: To be enabled later
           else
             TYPE="other"
           fi
@@ -72,7 +86,7 @@ jobs:
           cp -v dist/f${U5_TARGET_HW}-*/* artifacts/
 
       - name: 'Upload build artifacts'
-        if: ${{ !github.event.pull_request.head.repo.fork && steps.build-fw.outcome == 'success' }} 
+        if: ${{ !github.event.pull_request.head.repo.fork && steps.build-fw.outcome == 'success' }}
         id: build-update
         run: |
           FILES=$(for ARTIFACT in $(find artifacts -maxdepth 1 -not -type d); do echo "-F files=@${ARTIFACT}"; done)
@@ -88,7 +102,6 @@ jobs:
           rm -rf map_analyser_files
           mkdir -p map_analyser_files
           mv -v fbt_layers/fbtng/build/f${U5_TARGET_HW}-firmware*/fw_elf/*.elf* map_analyser_files
-          # Remove updater files - not needed for map analysis
           rm -f fbt_layers/fbtng/build/f${U5_TARGET_HW}-updater*/fw_elf/*.elf*
           source scripts/toolchain/fbtenv.sh
           python3 scripts/map_analyse_upload.py \
@@ -117,7 +130,7 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: 'github-actions[bot]'
-          body-includes: 'Compiled f${{ matrix.u5_target }} firmware for commit'              
+          body-includes: 'Compiled f${{ matrix.u5_target }} firmware for commit'
 
       - name: 'Create or update comment'
         if: ${{ !github.event.pull_request.head.repo.fork && matrix.u5_target == env.DEFAULT_TARGET && github.event.pull_request }}
@@ -131,3 +144,20 @@ jobs:
             - [📊 Sil Size report](https://fw-reports-sil-bsb.flipp.dev/?branch=${{steps.names.outputs.branch_name}})
             - [📊 U5 Size report](https://fw-reports-bsb.flipp.dev/?branch=${{steps.names.outputs.branch_name}})
           edit-mode: replace
+
+      - name: 'Set update URL output for default target'
+        id: set-url
+        if: ${{ matrix.u5_target == env.DEFAULT_TARGET }}
+        run: |
+          echo "update_url=${{ steps.names.outputs.branch_name }}/busybar-f${{ matrix.u5_target }}-update-${{ steps.names.outputs.suffix }}.tar" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger "Updater tests"
+        if: ${{ false && matrix.u5_target == env.DEFAULT_TARGET }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run updater_test.yml \
+            --ref ${COMMIT_HASH} \
+            -f default_target=${{ env.DEFAULT_TARGET }} \
+            -f sha=${{ github.sha }} \
+            -f update_url="${{ steps.set-url.outputs.update_url }}"
