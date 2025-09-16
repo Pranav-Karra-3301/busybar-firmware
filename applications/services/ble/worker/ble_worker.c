@@ -315,15 +315,6 @@ static void ble_hw_config() {
     static uint8_t rsi_app_resp_get_dev_addr[RSI_DEV_ADDR_LEN] = {0};
     uint8_t local_dev_addr[BLE_WORKER_LOCAL_DEV_ADDR_LEN] = {0};
 
-    status = sl_wifi_init(&wifi_config_client, NULL, sl_wifi_default_event_handler);
-    if(status == SL_STATUS_ALREADY_INITIALIZED) {
-        BLE_LOG_I("Already initialized");
-    } else if(status != SL_STATUS_OK) {
-        BLE_LOG_W("Wi-Fi Initialization Failed, Error Code : 0x0x%08lx", status);
-        ///TODO: don't crash, return false instead
-        furi_crash();
-    }
-
     //! get the local device MAC address.
     status = rsi_bt_get_local_device_address(rsi_app_resp_get_dev_addr);
     if(status != RSI_SUCCESS) {
