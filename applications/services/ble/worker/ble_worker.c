@@ -21,11 +21,19 @@
 #define TAG "BleWorker"
 
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
-#define BLE_WORKER_MAX_MTU_SIZE       200
+#define BLE_WORKER_MAX_MTU_SIZE       240
+// #define BLE_WORKER__MAX_SEND_DATA_LEN 232
 
 #define UUID_SIZE 16
 
 #define BLE_WORKER_BT_HCI_COMMAND_DISALLOWED 0x4E0C
+
+//! Configuration bitmap for attributes
+#define RSI_BLE_ATT_MAINTAIN_IN_HOST BIT(0)
+#define RSI_BLE_ATT_SECURITY_ENABLE  BIT(1)
+
+#define RSI_BLE_ATT_CONFIG_BITMAP (RSI_BLE_ATT_MAINTAIN_IN_HOST)
+
 //! application events list
 typedef enum {
     BLEWorkerEvtExit = (1 << 0),
@@ -458,8 +466,8 @@ static int32_t ble_worker_thread_callback(void* context) {
         if(events & BLEWorkerEvtReceveRemoteFeatures) {
             //! event invokes when remote features were received
             BLE_LOG_I(
-                "Feature received is 0x%x",
-                *(uint8_t*)instance->remote_dev_feature.remote_features);
+                "Feature received is 0x%04X",
+                *(uint16_t*)instance->remote_dev_feature.remote_features);
 
             if(instance->remote_dev_feature.remote_features[0] & 0x20) {
                 status = rsi_ble_set_data_len(instance->remote_dev_address, TX_LEN, TX_TIME);
@@ -808,7 +816,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
                 ch_config->char_properties,
                 ble_characteristic_get_data(ch),
                 ble_characteristic_get_data_size(ch),
-                0);
+                RSI_BLE_ATT_CONFIG_BITMAP);
             BleServiceEntry entry = {.service = service, .char_index = ch_config->intercom_index};
             BleServiceEntryDict_set_at(ble_worker_instance->service_dict, value_handle, entry);
 
