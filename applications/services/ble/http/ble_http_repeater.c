@@ -58,7 +58,7 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
         conn->recv.len = 0;
     } else if(ev == MG_EV_CLOSE) {
         if(ble_http->exit) return;
-        FURI_LOG_I(TAG, "Reopen conn");
+        FURI_LOG_D(TAG, "Reopen conn");
         ble_http->conn =
             mg_connect(&ble_http->mgr, BLE_HTTP_HOST, ble_event_handler, ble_http_repeater);
     }
@@ -90,8 +90,6 @@ static int32_t ble_http_repeater_thread_handler(void* p) {
 static BleHttpRepeater* ble_http_repeater_alloc(Ble* ble) {
     BleHttpRepeater* instance = malloc(sizeof(BleHttpRepeater));
     instance->wait = furi_semaphore_alloc(1, 0);
-    // instance->network = furi_record_open(RECORD_NETWORK);
-    // network_init_current_thread(instance->network);
     instance->ble = ble;
 
     ble_uart_set_rx_callback(ble, BleUartChannelNordic, ble_uart_rx_callback, instance);
@@ -104,7 +102,6 @@ static BleHttpRepeater* ble_http_repeater_alloc(Ble* ble) {
 static void ble_http_repeater_free(BleHttpRepeater* instance) {
     furi_thread_free(instance->thread);
     furi_semaphore_free(instance->wait);
-    // network_deinit_current_thread(instance->network);
     furi_record_close(RECORD_NETWORK);
     free(instance);
 }

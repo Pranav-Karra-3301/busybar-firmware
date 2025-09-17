@@ -39,7 +39,7 @@ bool ble_init(Ble* ble) {
 BleServiceState ble_get_state(Ble* ble) {
     furi_assert(ble);
     size_t msg_size = sizeof(BleMessage) + sizeof(BleServiceState);
-    BLE_LOG_I("Alloc BleMessage: %d", msg_size);
+    BLE_LOG_D("Alloc BleMessage: %d", msg_size);
 
     BleMessage* msg = malloc(msg_size);
     msg->header.frame_type = BleIntercomFrameTypeRequest;
