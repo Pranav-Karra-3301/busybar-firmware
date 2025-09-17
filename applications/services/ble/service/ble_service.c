@@ -38,7 +38,7 @@ static inline void
         free(instance->frame_buf);
         instance->frame_buf = malloc(new_frame_size);
         instance->frame_size = new_frame_size;
-        BLE_LOG_I("%s - buf_size: %d", instance->config->name, new_frame_size);
+        BLE_LOG_D("%s - buf_size: %d", instance->config->name, new_frame_size);
     }
 }
 

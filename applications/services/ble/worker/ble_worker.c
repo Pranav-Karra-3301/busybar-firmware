@@ -367,9 +367,6 @@ static void ble_hw_config() {
         ble_worker_on_indicate_confirmation_event,
         NULL);
 
-    // ble_worker_add_simple_chat_serv(instance);
-    // ble_add_battery_service(instance);
-
     // //! Set local name
     status = rsi_bt_set_local_name((uint8_t*)advertise_config.local_name.data);
     if(status != RSI_SUCCESS) {
@@ -386,7 +383,6 @@ static void ble_hw_config() {
     rsi_ble_set_advertise_data((uint8_t*)&advertise_config, sizeof(advertise_config));
 
     // ble_adjust_gap_service_data();
-    BLE_LOG_I("Wireless Initialization Success");
 }
 
 static int32_t ble_worker_thread_callback(void* context) {
@@ -590,29 +586,6 @@ static int32_t ble_worker_thread_callback(void* context) {
             } else if(instance->app_ble_write_event.pkt_type == RSI_BLE_INDICATION_EVENT) {
                 BLE_LOG_W("Indication event");
             }
-            //TO DO: send ERR or write response
-            // if((*(uint16_t*)instance->app_ble_write_event.handle) == instance->ble_att1_val_hndl) {
-            //     // furi_string_printf(
-            //     //     instance->msg, "Received data: %s", instance->app_ble_write_event.att_value);
-            //     // cli_shell_notification_print(instance->shell, instance->msg);
-
-            //     // rsi_ble_gatt_write_response(instance->remote_dev_address, 0);
-
-            //     //Todo: if need send Error response
-            //     //rsi_ble_att_error_response(instance->remote_dev_address,
-            //     //    *(uint16_t *)instance->app_ble_write_event.handle,
-            //     //    opcode,
-            //     //    err);
-
-            //     // Send notification to remote device
-            //     // rsi_ble_notify_value(
-            //     //     instance->remote_dev_address,
-            //     //     instance->ble_att2_val_hndl,
-            //     //     instance->app_ble_write_event.length,
-            //     //     instance->app_ble_write_event.att_value);
-            // } else {
-            //     rsi_ble_gatt_write_response(instance->remote_dev_address, 0);
-            // }
         }
 
         if(events & BLEWorkerEvtMoreDataReq) {
@@ -753,7 +726,8 @@ static uint16_t ble_worker_add_char_val_att(
 
         //! add attribute to the service
         int32_t ret = rsi_ble_add_attribute(&new_att);
-        BLE_LOG_I("Add CCCD handle: %04X, Ret: %lX", handle, ret);
+        BLE_LOG_D("Add CCCD handle: %04X, Ret: %lX", handle, ret);
+        UNUSED(ret);
     }
     return handle;
 }
@@ -783,19 +757,17 @@ void ble_worker_init() {
     uuid.size = 2;
     uuid.val.val16 = 0x2A01;
     uint16_t value_handle = 0;
-    sl_status_t status;
     if(ble_find_characteristic_value_handle_by_uiid(&uuid, 0x001E, &value_handle)) {
         uint16_t data = 0x00C0;
-        BLE_LOG_I("Handle found: %04X", value_handle);
-        status = rsi_ble_set_local_att_value(value_handle, 2, (uint8_t*)&data);
-        BLE_LOG_I("Status: %lX", status);
+        BLE_LOG_D("Handle found: %04X", value_handle);
+        sl_status_t status = rsi_ble_set_local_att_value(value_handle, 2, (uint8_t*)&data);
+        UNUSED(status);
+        BLE_LOG_D("Status: %lX", status);
     }
     //---------------------------------------
 }
 
 bool ble_worker_register_service(BleServiceObject* service) {
-    BLE_LOG_I("register_service");
-
     uuid_t rsi_uiid = {0};
     rsi_ble_resp_add_serv_t new_serv_resp = {0};
 
@@ -810,7 +782,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
         service->handle = new_serv_resp.start_handle;
 
         uint16_t handle = new_serv_resp.start_handle;
-        BLE_LOG_I("Serv: 0x%04X", new_serv_resp.start_handle);
+        BLE_LOG_D("Register servive: 0x%04X", new_serv_resp.start_handle);
         for(uint8_t i = 0; i < service->config->char_count; i++) {
             BleCharacteristicObject* ch = service->chars[i];
             const BleCharacteristicDescriptor* ch_config = ble_characteristic_get_config(ch);
@@ -818,7 +790,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
             memset(&rsi_uiid, 0, sizeof(uuid_t));
             ble_prepare_uuid(&ch_config->uuid, ch_config->uuid_size, &rsi_uiid);
 
-            BLE_LOG_I("Add char %s att handle: %04X", ch_config->name, handle + 1);
+            BLE_LOG_D("Add char %s att handle: %04X", ch_config->name, handle + 1);
             ble_worker_add_char_serv_att(
                 service->service_handler,
                 handle + 1,
@@ -827,7 +799,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
                 rsi_uiid);
 
             uint16_t value_handle = handle + 2;
-            BLE_LOG_I("Add char %s val att handle: %04X", ch_config->name, value_handle);
+            BLE_LOG_D("Add char %s val att handle: %04X", ch_config->name, value_handle);
             ble_characteristic_set_handle(ch, value_handle);
             handle = ble_worker_add_char_val_att(
                 service->service_handler,
@@ -869,10 +841,9 @@ void ble_worker_start() {
 }
 
 void ble_worker_stop() {
-    BLE_LOG_I("Stopping BLE...");
     furi_thread_flags_set(furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtExit);
     furi_thread_join(ble_worker_instance->thread);
-    BLE_LOG_I("Stopped");
+    BLE_LOG_I("BLE Stopped");
 }
 
 void ble_worker_test_after_init() {
