@@ -103,7 +103,7 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
 static void ble_service_state_change_callback(void* context) {
     furi_assert(context);
     Ble* instance = context;
-    BLE_LOG_W("ble_service_state_change_callback");
+    BLE_LOG_D("ble_service_state_change_callback");
     furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeServiceStateChanged);
 }
 

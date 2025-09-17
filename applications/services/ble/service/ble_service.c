@@ -211,8 +211,6 @@ void ble_service_write_data(
     furi_assert(data);
     furi_assert(data_size > 0);
 
-    ///TODO: check if characteristic is is writeable
-
     if(ble_service_lock(instance)) {
         BleCharacteristicObject* ch = instance->chars[index];
         ble_characteristic_set_data(ch, data, data_size);

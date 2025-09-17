@@ -13,7 +13,6 @@ static bool ble_service_target_init(BleServiceObject* instance) {
     BLE_LOG_D("%s - ble_service_target_init", instance->config->name);
 
     bool result = false;
-    /* need to create some data to put in here */
     if(instance->config->init(instance)) {
         BLE_LOG_D("%s - request start remote", instance->config->name);
 
@@ -46,12 +45,6 @@ static bool ble_service_target_init(BleServiceObject* instance) {
             BleCommandServiceInit,
             total_config_size,
             config);
-        // ble_service_prepare_frame(
-        //     instance,
-        //     BleIntercomFrameTypeRequest,
-        //     BleCommandServiceInit,
-        //     total_config_size,
-        //     config);
 
         free(config);
         result = true;
@@ -72,7 +65,6 @@ static bool ble_service_command_handler_init(
     if(frame_type == BleIntercomFrameTypeRequest) {
         BLE_LOG_D("Init request");
         result = ble_service_target_init(instance);
-        // ble_service_send_intercom_frame(instance);
     } else {
         BLE_LOG_D("Init response");
         ble_service_switch_state(instance, BleServiceStateReady);
@@ -88,7 +80,6 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
     }
 
     const BleIntercomServiceData* service_config = data;
-    // BLE_LOG_D("%s - char_count: %d", instance->config->name, service_config->char_count);
     uint8_t offset = 0;
 
     for(size_t i = 0; i < service_config->char_count; i++) {
@@ -160,8 +151,6 @@ static bool ble_service_command_handler_run(
             break;
         }
 
-        ///TOODO: collect all updated characteristics and throw them
-        ///to remote
         size_t total_data_size = 0;
         const uint8_t chars_count_max = instance->config->char_count;
         uint8_t chars_count = 0;

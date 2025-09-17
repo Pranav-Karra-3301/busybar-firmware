@@ -46,8 +46,6 @@ static bool ble_service_target_init(BleServiceObject* instance, size_t data_size
 
     ble_service_prepare_send_intercom_frame(
         instance, BleIntercomFrameTypeResponse, BleCommandServiceInit, 0, NULL);
-    // ble_service_prepare_frame(
-    //     instance, BleIntercomFrameTypeResponse, BleCommandServiceInit, 0, NULL);
 
     return true;
 }
@@ -61,7 +59,6 @@ static bool ble_service_command_handler_init(
     if(frame_type == BleIntercomFrameTypeRequest) {
         BLE_LOG_D("Init request");
         result = ble_service_target_init(instance, data_size, data);
-        // ble_service_send_intercom_frame(instance);
     } else {
         BLE_LOG_D("Init response");
     }
@@ -75,7 +72,6 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
     }
 
     const BleIntercomServiceData* service_config = data;
-    // BLE_LOG_D("%s - char_count: %d", instance->desc->name, service_config->char_count);
     uint8_t offset = 0;
 
     for(size_t i = 0; i < service_config->char_count; i++) {
@@ -83,18 +79,9 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
             (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
         size_t data_size = char_init->header.data_size;
 
-        // BLE_LOG_D(
-        //     "%s - char: %d data_size: %d",
-        //     instance->desc->name,
-        //     char_init->header.index,
-        //     data_size);
-
         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
         ble_characteristic_set_data(ch, char_init->data, data_size);
 
-        ///TODO: maybe pass this inside characteristic_set_data function
-        /// but in such case we need separate set functions for targets,
-        /// or we can do define macro magic
         const uint16_t handle = ble_characteristic_get_handle(ch);
         const uint8_t cccd_value = ble_characteristic_get_cccd_value(ch);
         ble_worker_send(handle, data_size, ble_characteristic_get_data(ch), cccd_value);
@@ -151,8 +138,6 @@ static bool ble_service_command_handler_run(
 
     bool result = false;
     do {
-        ///TODO: collect all updated characteristics and throw them
-        ///to remote
         size_t total_data_size = 0;
         const uint8_t chars_count_max = instance->config->char_count;
         uint8_t chars_count = 0;
