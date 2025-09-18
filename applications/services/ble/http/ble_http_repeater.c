@@ -6,6 +6,8 @@
 
 #define BLE_HTTP_HOST "http://127.0.0.1:80"
 
+#define MAX_TX_CHUNK_SIZE (237)
+
 typedef struct {
     struct mg_mgr mgr;
     struct mg_connection* conn;
@@ -43,7 +45,7 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
         size_t total_size = conn->recv.len;
         size_t index = 0;
         while(total_size) {
-            size_t send_size = total_size > 180 ? 180 : total_size;
+            size_t send_size = total_size > MAX_TX_CHUNK_SIZE ? MAX_TX_CHUNK_SIZE : total_size;
             ble_uart_tx_data(
                 ble_http->ble, BleUartChannelNordic, &conn->recv.buf[index], send_size);
 
