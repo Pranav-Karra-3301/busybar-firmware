@@ -22,11 +22,14 @@
 
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
 #define BLE_WORKER_MAX_MTU_SIZE       240
-// #define BLE_WORKER__MAX_SEND_DATA_LEN 232
+#define BLE_WORKER_ATTR_HEADER_SIZE   3
 
 #define UUID_SIZE 16
 
 #define BLE_WORKER_BT_HCI_COMMAND_DISALLOWED 0x4E0C
+
+#define BLE_CCCD_NOTIFICATION_ENABLED(cccd_value) ((cccd_value & 0x01) != 0)
+#define BLE_CCCD_INDICATION_ENABLED(cccd_value)   ((cccd_value & 0x02) != 0)
 
 //! Configuration bitmap for attributes
 #define RSI_BLE_ATT_MAINTAIN_IN_HOST BIT(0)
@@ -75,6 +78,7 @@ typedef struct {
     FuriSemaphore* notification_sem;
     ///TODO: this can be removed
     bool connected;
+    uint16_t max_payload_size;
     uint8_t device_found;
     uint8_t conn_params_updated;
     uint8_t remote_name[31];
@@ -549,6 +553,10 @@ static int32_t ble_worker_thread_callback(void* context) {
                 instance->str_remote_address,
                 instance->app_ble_mtu_event.mtu_size);
 
+            ble_worker_instance->max_payload_size =
+                instance->app_ble_mtu_event.mtu_size - BLE_WORKER_ATTR_HEADER_SIZE;
+            BLE_LOG_I("Max payload size: %u", ble_worker_instance->max_payload_size);
+
             status = rsi_ble_set_wo_resp_notify_buf_info(
                 instance->remote_dev_address, DLE_BUFFER_MODE, DLE_BUFFER_COUNT);
             if(status != RSI_SUCCESS) {
@@ -858,10 +866,11 @@ void ble_worker_test_after_init() {
     ble_print_service_hierarchy(0x0023);
 }
 
-#define BLE_CCCD_NOTIFICATION_ENABLED(cccd_value) ((cccd_value & 0x01) != 0)
-#define BLE_CCCD_INDICATION_ENABLED(cccd_value)   ((cccd_value & 0x02) != 0)
-
-void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t cccd_value) {
+static void ble_worker_send_chunk(
+    uint16_t handle,
+    uint16_t data_size,
+    const uint8_t* data,
+    uint16_t cccd_value) {
     sl_status_t status;
     BLE_LOG_D("Data_size: %d", data_size);
 
@@ -876,15 +885,27 @@ void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, u
         if(furi_semaphore_acquire(ble_worker_instance->notification_sem, 1000) != FuriStatusOk) {
             furi_crash("Notification failed");
         }
-        // BLE_LOG_W("Notify");
         status =
             rsi_ble_notify_value(ble_worker_instance->remote_dev_address, handle, data_size, data);
     } else {
-        // BLE_LOG_W("Set local");
         status = rsi_ble_set_local_att_value(handle, data_size, data);
     }
 
     if(status != 0) BLE_LOG_W("Send fail %08lX", status);
+}
+
+void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t cccd_value) {
+    size_t index = 0;
+    size_t total_size = data_size;
+
+    while(total_size) {
+        size_t send_size = total_size > ble_worker_instance->max_payload_size ?
+                               ble_worker_instance->max_payload_size :
+                               total_size;
+        ble_worker_send_chunk(handle, send_size, &data[index], cccd_value);
+        index += send_size;
+        total_size -= send_size;
+    }
 }
 
 void ble_worker_receive_confirm(uint16_t handle, uint8_t props) {
