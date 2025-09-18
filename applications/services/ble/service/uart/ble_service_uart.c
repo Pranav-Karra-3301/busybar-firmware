@@ -28,6 +28,8 @@
 #define HM10_UART_RX_CHAR_UUID \
     {0x00, 0x00, 0xFF, 0xE1, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB}
 
+#define NORDIC_UART_INITIAL_DATA_SIZE (237) //RSI_DEV_ATT_LEN - ATTRIBUTE_HEADER_SIZE (240-3 = 237)
+
 typedef enum {
     BleSrvDeviceUartCharacterRx,
     BleSrvDeviceUartCharacterTx,
@@ -46,7 +48,7 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
     {
         .intercom_index = BleSrvDeviceUartCharacterRx,
         .name = "Uart Rx",
-        .initial_data_size = 240,
+        .initial_data_size = NORDIC_UART_INITIAL_DATA_SIZE,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_RX_CHAR_UUID},
         .uuid_size = 16,
@@ -56,7 +58,7 @@ static const BleCharacteristicDescriptor nordic_uart_service_characteristics[] =
     {
         .intercom_index = BleSrvDeviceUartCharacterTx,
         .name = "Uart Tx",
-        .initial_data_size = 240,
+        .initial_data_size = NORDIC_UART_INITIAL_DATA_SIZE,
 #if defined(SI917)
         .uuid = {.Char_UUID_128 = UART_TX_CHAR_UUID},
         .uuid_size = 16,
