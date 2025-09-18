@@ -764,6 +764,7 @@ void ble_worker_init() {
 
     ble_worker_instance->indication_sem = furi_semaphore_alloc(1, 0);
     ble_worker_instance->notification_sem = furi_semaphore_alloc(1, 1);
+    ble_worker_instance->max_payload_size = BLE_WORKER_MAX_MTU_SIZE - BLE_WORKER_ATTR_HEADER_SIZE;
     BleServiceEntryDict_init(ble_worker_instance->service_dict);
 
     ble_hw_config();
@@ -824,7 +825,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
                 ch_config->char_properties,
                 ble_characteristic_get_data(ch),
                 ble_characteristic_get_data_size(ch),
-                RSI_BLE_ATT_CONFIG_BITMAP);
+                0);
             BleServiceEntry entry = {.service = service, .char_index = ch_config->intercom_index};
             BleServiceEntryDict_set_at(ble_worker_instance->service_dict, value_handle, entry);
 
