@@ -3,6 +3,25 @@
 
 #define BUSY_NAV_BAR_HEIGHT 20
 
+static bool busy_thread_signal_callback(uint32_t signal, void* arg, void* context) {
+    UNUSED(arg);
+
+    BusyApp* instance = context;
+
+    switch(signal) {
+    case FuriSignalExit:
+        furi_event_loop_stop(instance->event_loop);
+        return true;
+
+    case FuriSignalAboutToExit:
+        busy_send_custom_event(instance, BusyCustomEventAboutToExit);
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 static void busy_input_queue_callback(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
 
@@ -108,7 +127,7 @@ static BusyApp* busy_alloc(void) {
         instance->back_window = widget_alloc(flex_layout_get_base(instance->back_container));
         flex_layout_set_child_widget_grow(instance->back_container, instance->back_window, 1);
 
-        instance->timer_card = timer_card_alloc(back_root);
+        instance->timer_card = timer_card_alloc(flex_layout_get_base(instance->back_container));
     });
 
     furi_event_loop_subscribe_message_queue(
@@ -165,7 +184,10 @@ int32_t busy_app(void* arg) {
     UNUSED(arg);
 
     BusyApp* instance = busy_alloc();
+    FuriThread* thread = furi_thread_get_current();
+    furi_thread_set_signal_callback(thread, busy_thread_signal_callback, instance);
     furi_event_loop_run(instance->event_loop);
+    furi_thread_set_signal_callback(thread, NULL, NULL);
     busy_free(instance);
 
     return 0;
