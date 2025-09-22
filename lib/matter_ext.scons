@@ -142,6 +142,7 @@ sources = [
     f"{MATTER_SDK_DIR}/src/app/clusters/localization-configuration-server/localization-configuration-server.cpp",
     f"{MATTER_SDK_DIR}/src/app/clusters/network-commissioning/network-commissioning.cpp",
     f"{MATTER_SDK_DIR}/src/app/clusters/on-off-server/on-off-server.cpp",
+    f"{MATTER_SDK_DIR}/src/app/clusters/mode-select-server/mode-select-server.cpp",
     f"{MATTER_SDK_DIR}/src/app/clusters/operational-credentials-server/operational-credentials-server.cpp",
     f"{MATTER_SDK_DIR}/src/app/clusters/ota-requestor/DefaultOTARequestor.cpp",
     f"{MATTER_SDK_DIR}/src/app/clusters/ota-requestor/ota-requestor-server.cpp",

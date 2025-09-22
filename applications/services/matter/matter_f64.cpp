@@ -10,6 +10,7 @@
 
 #include <app/server/Server.h>
 #include <app/clusters/on-off-server/on-off-server.h>
+#include <app/clusters/mode-select-server/supported-modes-manager.h>
 #include <app-common/zap-generated/attributes/Accessors.h>
 
 #include <platform/bsb/BSBDeviceInfoProvider.hpp>
@@ -30,6 +31,62 @@ using namespace Platform;
 using namespace DeviceLayer;
 using namespace chip::app::Clusters;
 
+// ===========================
+// Mode Select temporary stuff
+// ===========================
+
+using ModeOptionStructType = ModeSelect::Structs::ModeOptionStruct::Type;
+using SemanticTag = ModeSelect::Structs::SemanticTagStruct::Type;
+template <typename T>
+using List = app::DataModel::List<T>;
+
+namespace {
+ModeSelect::Structs::ModeOptionStruct::Type buildModeOptionStruct(
+    const char* label,
+    uint8_t mode,
+    const List<const SemanticTag>& semanticTags) {
+    ModeSelect::Structs::ModeOptionStruct::Type option;
+    option.label = CharSpan::fromCharString(label);
+    option.mode = mode;
+    option.semanticTags = semanticTags;
+    return option;
+}
+
+} // namespace
+
+constexpr SemanticTag semanticTags[] = {{.value = 0}};
+
+static const ModeOptionStructType mySwitchModes[] = {
+    buildModeOptionStruct("BUSY", 0, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("CUSTOM", 1, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("OFF", 2, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("APPS", 3, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("SETTINGS", 4, List<const SemanticTag>(semanticTags)),
+};
+
+class MySupportedModesManager : public ModeSelect::SupportedModesManager {
+    using ModeOptionStructType = ModeSelect::Structs::ModeOptionStruct::Type;
+
+    ModeOptionsProvider getModeOptionsProvider(EndpointId endpointId) const {
+        furi_check(endpointId == 2);
+        return ModeOptionsProvider(&mySwitchModes[0], &mySwitchModes[4]);
+    }
+
+    Protocols::InteractionModel::Status getModeOptionByMode(
+        EndpointId endpointId,
+        uint8_t mode,
+        const ModeOptionStructType** dataPtr) const {
+        furi_check(endpointId == 2);
+        furi_check(mode < 5);
+        *dataPtr = &mySwitchModes[mode];
+        return Protocols::InteractionModel::Status::Success;
+    }
+};
+
+// ==================
+// ==================
+// ==================
+
 class MatterSrv {
 public:
     MatterSrv(void);
@@ -39,6 +96,7 @@ public:
 
 private:
     CommonCaseDeviceServerInitParams m_server_init_params;
+    MySupportedModesManager m_supported_modes_manager;
 };
 
 // sorry - the MatterPostAttributeChangeCallback can't accept any context
@@ -248,6 +306,8 @@ CHIP_ERROR MatterSrv::init(void) {
         if(err != CHIP_NO_ERROR) {
             break;
         }
+
+        ModeSelect::setSupportedModesManager(&m_supported_modes_manager);
 
         BSB::GetDeviceInfoProvider()->SetStorageDelegate(
             &Server::GetInstance().GetPersistentStorage());
