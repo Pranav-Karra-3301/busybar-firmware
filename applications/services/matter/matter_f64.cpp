@@ -57,11 +57,11 @@ ModeSelect::Structs::ModeOptionStruct::Type buildModeOptionStruct(
 constexpr SemanticTag semanticTags[] = {{.value = 0}};
 
 static const ModeOptionStructType mySwitchModes[] = {
-    buildModeOptionStruct("BUSY", 0, List<const SemanticTag>(semanticTags)),
-    buildModeOptionStruct("CUSTOM", 1, List<const SemanticTag>(semanticTags)),
-    buildModeOptionStruct("OFF", 2, List<const SemanticTag>(semanticTags)),
-    buildModeOptionStruct("APPS", 3, List<const SemanticTag>(semanticTags)),
-    buildModeOptionStruct("SETTINGS", 4, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("Banana", 0, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("Apple", 1, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("Pear", 2, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("Grape", 3, List<const SemanticTag>(semanticTags)),
+    buildModeOptionStruct("Orange", 4, List<const SemanticTag>(semanticTags)),
 };
 
 class MySupportedModesManager : public ModeSelect::SupportedModesManager {
@@ -69,7 +69,7 @@ class MySupportedModesManager : public ModeSelect::SupportedModesManager {
 
     ModeOptionsProvider getModeOptionsProvider(EndpointId endpointId) const {
         furi_check(endpointId == 2);
-        return ModeOptionsProvider(&mySwitchModes[0], &mySwitchModes[4]);
+        return ModeOptionsProvider(&mySwitchModes[0], &mySwitchModes[5]);
     }
 
     Protocols::InteractionModel::Status getModeOptionByMode(
