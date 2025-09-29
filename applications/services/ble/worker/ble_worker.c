@@ -6,7 +6,6 @@
 #include <sl_wifi_callback_framework.h>
 
 #include "ble_config.h"
-#include "wifi_config.h"
 
 #include "rsi_ble_apis.h"
 #include "rsi_ble_common_config.h"
@@ -72,12 +71,20 @@ typedef struct {
 
 DICT_DEF2(BleServiceEntryDict, uint16_t, M_DEFAULT_OPLIST, BleServiceEntry, M_POD_OPLIST)
 
+typedef enum {
+    BleWorkerStateIdle,
+    BleWorkerStateAdvertising,
+    BleWorkerStateConnected,
+    BleWorkerStateError,
+} BleWorkerState;
+
 typedef struct {
     FuriThread* thread;
     FuriSemaphore* indication_sem;
     FuriSemaphore* notification_sem;
     ///TODO: this can be removed
     bool connected;
+    BleWorkerState state;
     uint16_t max_payload_size;
     uint8_t device_found;
     uint8_t conn_params_updated;
@@ -410,12 +417,14 @@ static int32_t ble_worker_thread_callback(void* context) {
         if(events & BLEWorkerEvtConnected) {
             //! event invokes when connection was completed
             BLE_LOG_I("Connected, str_remote_address : %s", instance->str_remote_address);
-
+            instance->state = BleWorkerStateConnected;
             //! Setting MTU Exchange event
             status =
                 rsi_ble_mtu_exchange_event(instance->remote_dev_address, BLE_WORKER_MAX_MTU_SIZE);
             if(status != RSI_SUCCESS) {
                 BLE_LOG_W("MTU request cmd failed with error code = 0x%08lx", status);
+            } else {
+                BLE_LOG_I("MTU sent");
             }
 
             if(!instance->conn_params_updated) {
@@ -462,8 +471,10 @@ static int32_t ble_worker_thread_callback(void* context) {
             status = rsi_ble_start_advertising();
             if(status != RSI_SUCCESS) {
                 BLE_LOG_W("Failed to start advertising, error code : 0x%08lx", status);
+                instance->state = BleWorkerStateError;
             } else {
                 BLE_LOG_I("Start advertising...");
+                instance->state = BleWorkerStateAdvertising;
             }
         }
 
@@ -610,7 +621,12 @@ static int32_t ble_worker_thread_callback(void* context) {
         }
 
         if(events & BLEWorkerEvtExit) {
-            rsi_ble_stop_advertising();
+            status = rsi_ble_stop_advertising();
+            if(status != RSI_SUCCESS) {
+                BLE_LOG_W("Unable to stop advertise: 0x%08lx", status);
+                instance->state = BleWorkerStateError;
+            } else
+                instance->state = BleWorkerStateIdle;
             break;
         }
 
@@ -758,7 +774,7 @@ static void ble_prepare_uuid(const Char_UUID_t* temp, const uint8_t size, uuid_t
 
 void ble_worker_init() {
     ble_worker_instance = malloc(sizeof(BleWorker));
-
+    ble_worker_instance->state = BleWorkerStateIdle;
     ble_worker_instance->thread =
         furi_thread_alloc_ex("BleWorker", 2048, ble_worker_thread_callback, ble_worker_instance);
 
@@ -845,16 +861,22 @@ bool ble_worker_register_service(BleServiceObject* service) {
 }
 
 void ble_worker_start() {
-    ///TODO: this can be moved to thread
-    //! start advertising
-    sl_status_t status = rsi_ble_start_advertising();
-    if(status != RSI_SUCCESS) {
-        BLE_LOG_W("Failed to start advertising, error code : 0x%08lx", status);
-    } else {
-        BLE_LOG_I("Start advertising...");
-    }
+    do {
+        if(ble_worker_instance->state != BleWorkerStateIdle) {
+            BLE_LOG_W("BLE not in Idle state, skip advertise start");
+            break;
+        }
 
-    furi_thread_start(ble_worker_instance->thread);
+        sl_status_t status = rsi_ble_start_advertising();
+        if(status != RSI_SUCCESS) {
+            BLE_LOG_W("Failed to start advertising, error code : 0x%08lx", status);
+            break;
+        }
+
+        BLE_LOG_I("Start advertising...");
+        ble_worker_instance->state = BleWorkerStateAdvertising;
+        furi_thread_start(ble_worker_instance->thread);
+    } while(false);
 }
 
 void ble_worker_stop() {
