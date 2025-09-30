@@ -107,8 +107,8 @@ static bool ble_service_update_response(BleServiceObject* instance, size_t data_
 
         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
         uint16_t handle = ble_characteristic_get_handle(ch);
-        const BleCharacteristicDescriptor* ch_conf = ble_characteristic_get_config(ch);
-        ble_worker_receive_confirm(handle, ch_conf->char_properties);
+        const uint8_t cccd_value = ble_characteristic_get_cccd_value(ch);
+        ble_worker_receive_confirm(handle, cccd_value);
     }
     return true;
 }

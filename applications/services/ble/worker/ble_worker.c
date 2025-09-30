@@ -588,7 +588,7 @@ static int32_t ble_worker_thread_callback(void* context) {
                 const size_t data_size = instance->app_ble_write_event.length;
 
                 uint16_t handle = *(uint16_t*)instance->app_ble_write_event.handle;
-                BLE_LOG_D("Handle: %04X", handle);
+                BLE_LOG_I("Handle: %04X", handle);
                 BleServiceEntry* entry =
                     BleServiceEntryDict_get(ble_worker_instance->service_dict, handle);
 
@@ -607,6 +607,10 @@ static int32_t ble_worker_thread_callback(void* context) {
 
                         ble_service_unlock(service);
                     }
+                } else {
+                    BLE_LOG_W("Not found: %04X", handle);
+                    status =
+                        rsi_ble_gatt_write_response(ble_worker_instance->remote_dev_address, 0);
                 }
             } else if(instance->app_ble_write_event.pkt_type == RSI_BLE_NOTIFICATION_EVENT) {
                 BLE_LOG_W("Notification event");
@@ -906,7 +910,8 @@ static void ble_worker_send_chunk(
         }
     } else if(ble_worker_instance->connected && BLE_CCCD_NOTIFICATION_ENABLED(cccd_value)) {
         if(furi_semaphore_acquire(ble_worker_instance->notification_sem, 1000) != FuriStatusOk) {
-            furi_crash("Notification failed");
+            //furi_crash("Notification failed");
+            BLE_LOG_W("Notification failed for %04X", handle);
         }
         status =
             rsi_ble_notify_value(ble_worker_instance->remote_dev_address, handle, data_size, data);
@@ -931,10 +936,10 @@ void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, u
     }
 }
 
-void ble_worker_receive_confirm(uint16_t handle, uint8_t props) {
+void ble_worker_receive_confirm(uint16_t handle, uint8_t cccd_value) {
     UNUSED(handle);
     sl_status_t status;
-    if((props & RSI_BLE_ATT_PROPERTY_INDICATE)) {
+    if(ble_worker_instance->connected && BLE_CCCD_INDICATION_ENABLED(cccd_value)) {
         status = rsi_ble_indicate_confirm(ble_worker_instance->remote_dev_address);
     } else {
         status = rsi_ble_gatt_write_response(ble_worker_instance->remote_dev_address, 0);

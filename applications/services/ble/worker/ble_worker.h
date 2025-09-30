@@ -5,9 +5,9 @@ void ble_worker_init();
 
 bool ble_worker_register_service(BleServiceObject* service);
 
-void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t props);
+void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t cccd_value);
 
-void ble_worker_receive_confirm(uint16_t handle, uint8_t props);
+void ble_worker_receive_confirm(uint16_t handle, uint8_t cccd_value);
 
 void ble_worker_start();
 
