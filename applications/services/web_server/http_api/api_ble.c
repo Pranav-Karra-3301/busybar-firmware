@@ -11,7 +11,7 @@ typedef struct {
 const char* ble_state_names[] = {
     [BleServiceStateReset] = "reset",
     [BleServiceStateInitialization] = "initialization",
-    [BleServiceStateReady] = "ready",
+    [BleServiceStateReady] = "enabled",
     [BleServiceStateAdvertising] = "advertising",
     [BleServiceStateConnected] = "connected",
     [BleServiceStateError] = "internal error",
@@ -79,6 +79,7 @@ static bool api_ble_get_state_callback(
     BleServiceState state = ble_get_state(ble);
     furi_record_close(RECORD_BLE);
 
+    ///TODO:rework logic to return enabled/disabled/connected
     if(state != BleServiceStateError)
         MG_REPLY_OK_BODY(conn, "{\"state\":\"%s\"}\n", ble_state_names[state]);
     else
@@ -101,7 +102,7 @@ static const HttpHandler handlers_ble[] = {
         .on_request = api_ble_disable_callback,
     },
     {
-        .uri = "state",
+        .uri = "status",
         .method = "GET",
         .type = HttpHandlerCustom,
         .on_request = api_ble_get_state_callback,
