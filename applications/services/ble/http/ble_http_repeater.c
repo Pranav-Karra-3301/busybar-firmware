@@ -13,6 +13,7 @@ typedef struct {
     struct mg_connection* conn;
     FuriThread* thread;
     FuriSemaphore* wait;
+    FuriSemaphore* uart_conn_sync;
     Ble* ble;
     Network* network;
     bool exit;
@@ -24,9 +25,8 @@ static BleHttpRepeater* ble_http_repeater;
 static void ble_uart_rx_callback(size_t data_size, void* data, void* context) {
     furi_assert(context);
     BleHttpRepeater* instance = context;
-    if(data_size > 0) {
-        mg_wakeup(&instance->mgr, instance->conn->id, data, data_size);
-    }
+    furi_semaphore_acquire(ble_http_repeater->uart_conn_sync, FuriWaitForever);
+    mg_wakeup(&instance->mgr, instance->conn->id, data, data_size);
 }
 
 static void ble_uart_tx_done_callback(void* context) {
@@ -41,6 +41,11 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
     if(ev == MG_EV_WAKEUP) {
         struct mg_str* data = (struct mg_str*)ev_data;
         mg_send(conn, data->buf, data->len);
+        furi_semaphore_release(ble_http_repeater->uart_conn_sync);
+
+    } else if(ev == MG_EV_CONNECT) {
+        FURI_LOG_D(TAG, "Connected");
+        furi_semaphore_release(ble_http_repeater->uart_conn_sync);
     } else if(ev == MG_EV_READ) {
         size_t total_size = conn->recv.len;
         size_t index = 0;
@@ -60,7 +65,7 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
         conn->recv.len = 0;
     } else if(ev == MG_EV_CLOSE) {
         if(ble_http->exit) return;
-        FURI_LOG_D(TAG, "Reopen conn");
+        FURI_LOG_I(TAG, "Reopen conn");
         ble_http->conn =
             mg_connect(&ble_http->mgr, BLE_HTTP_HOST, ble_event_handler, ble_http_repeater);
     }
@@ -92,6 +97,8 @@ static int32_t ble_http_repeater_thread_handler(void* p) {
 static BleHttpRepeater* ble_http_repeater_alloc(Ble* ble) {
     BleHttpRepeater* instance = malloc(sizeof(BleHttpRepeater));
     instance->wait = furi_semaphore_alloc(1, 0);
+    instance->uart_conn_sync = furi_semaphore_alloc(1, 0);
+
     instance->ble = ble;
 
     ble_uart_set_rx_callback(ble, BleUartChannelNordic, ble_uart_rx_callback, instance);
