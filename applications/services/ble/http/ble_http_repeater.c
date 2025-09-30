@@ -17,6 +17,8 @@ typedef struct {
     Ble* ble;
     Network* network;
     bool exit;
+    bool print;
+    FuriString* debug;
 } BleHttpRepeater;
 
 static FuriMutex* ble_http_init_mutex;
@@ -43,8 +45,17 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
         mg_send(conn, data->buf, data->len);
         furi_semaphore_release(ble_http_repeater->uart_conn_sync);
 
+        ///TODO: Added for debug, remove after done
+        if(ble_http->print) {
+            furi_string_printf(ble_http->debug, data->buf);
+            size_t index = furi_string_search_char(ble_http->debug, '\n');
+            furi_string_left(ble_http->debug, index);
+            FURI_LOG_I(TAG, furi_string_get_cstr(ble_http->debug));
+            ble_http->print = false;
+        }
     } else if(ev == MG_EV_CONNECT) {
         FURI_LOG_D(TAG, "Connected");
+        ble_http->print = true;
         furi_semaphore_release(ble_http_repeater->uart_conn_sync);
     } else if(ev == MG_EV_READ) {
         size_t total_size = conn->recv.len;
@@ -54,7 +65,7 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
             ble_uart_tx_data(
                 ble_http->ble, BleUartChannelNordic, &conn->recv.buf[index], send_size);
 
-            if(furi_semaphore_acquire(ble_http->wait, 1000) != FuriStatusOk) {
+            if(furi_semaphore_acquire(ble_http->wait, 500) != FuriStatusOk) {
                 FURI_LOG_W(TAG, "Error during send process");
                 break;
             }
@@ -77,6 +88,8 @@ static int32_t ble_http_repeater_thread_handler(void* p) {
 
     mg_mgr_init(&ble_http_repeater->mgr);
     mg_wakeup_init(&ble_http_repeater->mgr);
+    ble_http_repeater->print = true;
+    ble_http_repeater->debug = furi_string_alloc();
 
     ble_http_repeater->conn =
         mg_connect(&ble_http_repeater->mgr, BLE_HTTP_HOST, ble_event_handler, ble_http_repeater);
@@ -87,6 +100,7 @@ static int32_t ble_http_repeater_thread_handler(void* p) {
     }
 
     // Cleanup
+    furi_string_free(ble_http_repeater->debug);
     FURI_LOG_D(TAG, "Ble repeater stopped");
     mg_mgr_free(&ble_http_repeater->mgr);
     network_deinit_current_thread(ble_http_repeater->network);
