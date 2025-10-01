@@ -1,13 +1,14 @@
 #include "../settings.h"
+#include "../models/brightness.h"
 
 #include <gui/modules/var_item_list.h>
 
-typedef enum {
-    BrightnessModeManual,
-    BrightnessModeAuto,
+#define MANUAL_BRIGHTNESS_DEFAULT_VALUE 50
 
-    BrightnessModesCount,
-} BrightnessMode;
+typedef enum {
+    SceneCustomEventModeChanged = SettingsCustomEventSceneEventsStart,
+    SceneCustomEventBrightnessChanged,
+} SceneCustomEvent;
 
 typedef enum {
     VarItemListIdBrightness,
@@ -24,12 +25,12 @@ typedef struct {
     VarItemListContainer front_container;
     VarItemListContainer back_container;
 
-    BrightnessMode mode;
-    uint8_t brightness;
+    _Atomic SettingsBrightnessMode mode;
+    _Atomic uint8_t brightness;
 } SettingsSceneBrightness;
 
 static void settings_scene_brightness_filter_items(SettingsSceneBrightness* data) {
-    const bool show_brightness = (data->mode == BrightnessModeManual);
+    const bool show_brightness = (data->mode == SettingsBrightnessModeManual);
 
     widget_set_visible(
         (Widget*)data->front_container.items[VarItemListIdBrightness], show_brightness);
@@ -46,9 +47,7 @@ static void settings_scene_brightness_mode_changed_callback(VarItem* item, void*
 
     data->mode = var_item_get_value(item);
     settings_scene_brightness_filter_items(data);
-    settings_send_custom_event(
-        instance,
-        (data->mode == BrightnessModeAuto) ? BACK_DISPLAY_BRIGHTNESS_AUTO : data->brightness);
+    settings_send_custom_event(instance, SceneCustomEventModeChanged);
 }
 
 static void settings_scene_brightness_changed_callback(VarItem* item, void* context) {
@@ -59,7 +58,7 @@ static void settings_scene_brightness_changed_callback(VarItem* item, void* cont
     SettingsSceneBrightness* data = scene_manager_get_current_scene_data(instance->scene_manager);
 
     data->brightness = var_item_get_value(item);
-    settings_send_custom_event(instance, data->brightness);
+    settings_send_custom_event(instance, SceneCustomEventBrightnessChanged);
 }
 
 static void settings_scene_brightness_fill_var_item_list(
@@ -68,14 +67,14 @@ static void settings_scene_brightness_fill_var_item_list(
     bool do_set_callbacks) {
     SettingsSceneBrightness* data = scene_manager_get_current_scene_data(instance->scene_manager);
 
-    char brightness_mode_names[BrightnessModesCount][64] = {{0}, {0}};
+    char brightness_mode_names[SettingsBrightnessModeCount][64] = {{0}, {0}};
     strcpy(
-        brightness_mode_names[BrightnessModeManual],
+        brightness_mode_names[SettingsBrightnessModeManual],
         l10n_get(instance->l10n, L10N_KEY_SETTINGS_BRIGHTNESS_MODE_MANUAL));
     strcpy(
-        brightness_mode_names[BrightnessModeAuto],
+        brightness_mode_names[SettingsBrightnessModeAuto],
         l10n_get(instance->l10n, L10N_KEY_SETTINGS_BRIGHTNESS_MODE_AUTO));
-    const char* brightness_modes[BrightnessModesCount] = {
+    const char* brightness_modes[SettingsBrightnessModeCount] = {
         brightness_mode_names[0],
         brightness_mode_names[1],
     };
@@ -85,7 +84,7 @@ static void settings_scene_brightness_fill_var_item_list(
         l10n_get(instance->l10n, L10N_KEY_SETTINGS_BRIGHTNESS_MODE),
         NULL,
         brightness_modes,
-        BrightnessModesCount,
+        SettingsBrightnessModeCount,
         (do_set_callbacks) ? settings_scene_brightness_mode_changed_callback : NULL,
         instance);
 
@@ -95,9 +94,9 @@ static void settings_scene_brightness_fill_var_item_list(
         container->list,
         l10n_get(instance->l10n, L10N_KEY_SETTINGS_BRIGHTNESS_LEVEL),
         "%",
-        5,
-        100,
-        5,
+        SETTINGS_BRIGHTNESS_RANGE_MIN,
+        SETTINGS_BRIGHTNESS_RANGE_MAX,
+        SETTINGS_BRIGHTNESS_STEP,
         (do_set_callbacks) ? settings_scene_brightness_changed_callback : NULL,
         instance);
 
@@ -111,14 +110,10 @@ static void settings_scene_brightness_on_enter(void* context) {
     SettingsApp* instance = context;
     SettingsSceneBrightness* data = scene_manager_get_current_scene_data(instance->scene_manager);
 
-    uint8_t brightness = back_display_get_brightness(instance->back_display);
-    if(brightness == BACK_DISPLAY_BRIGHTNESS_AUTO) {
-        data->mode = BrightnessModeAuto;
-        data->brightness = 50;
-    } else {
-        data->mode = BrightnessModeManual;
-        data->brightness = brightness;
-    }
+    SettingsBrightnessMode mode = settings_brightness_get_mode(instance);
+    data->mode = mode;
+    data->brightness = (mode == SettingsBrightnessModeAuto) ? MANUAL_BRIGHTNESS_DEFAULT_VALUE :
+                                                              settings_brightness_get(instance);
 
     with_gui(instance->gui, {
         data->front_container.list = var_item_list_alloc(instance->front_scene_window);
@@ -150,10 +145,27 @@ static bool settings_scene_brightness_on_event(const SceneManagerEvent* event, v
 
     bool consumed = false;
     if(event->type == SceneManagerEventTypeCustom) {
-        front_display_set_brightness(instance->front_display, event->event);
-        back_display_set_brightness(instance->back_display, event->event);
+        SettingsSceneBrightness* data =
+            scene_manager_get_current_scene_data(instance->scene_manager);
 
-        consumed = true;
+        switch(event->event) {
+        case SceneCustomEventModeChanged:
+            if(data->mode == SettingsBrightnessModeAuto) {
+                settings_brightness_set_auto_mode(instance);
+            } else {
+                settings_brightness_set(instance, data->brightness);
+            }
+            consumed = true;
+            break;
+
+        case SceneCustomEventBrightnessChanged:
+            settings_brightness_set(instance, data->brightness);
+            consumed = true;
+            break;
+
+        default:
+            break;
+        }
     } else if(event->type == SceneManagerEventTypeBack) {
         settings_pop_location(instance);
     }

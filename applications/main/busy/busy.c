@@ -3,6 +3,25 @@
 
 #define BUSY_NAV_BAR_HEIGHT 20
 
+static bool busy_thread_signal_callback(uint32_t signal, void* arg, void* context) {
+    UNUSED(arg);
+
+    BusyApp* instance = context;
+
+    switch(signal) {
+    case FuriSignalExit:
+        furi_event_loop_stop(instance->event_loop);
+        return true;
+
+    case FuriSignalAboutToExit:
+        busy_send_custom_event(instance, BusyCustomEventAboutToExit);
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 static void busy_input_queue_callback(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
 
@@ -13,10 +32,7 @@ static void busy_input_queue_callback(FuriEventLoopObject* object, void* context
     while(furi_message_queue_get(instance->input_queue, &event, 0) == FuriStatusOk) {
         if(event.type == InputTypeShort) {
             if(event.key == InputKeyBack) {
-                if(!scene_manager_handle_back_event(instance->scene_manager)) {
-                    furi_event_loop_stop(instance->event_loop);
-                    break;
-                }
+                scene_manager_handle_back_event(instance->scene_manager);
             }
         }
     }
@@ -70,6 +86,7 @@ static BusyApp* busy_alloc(void) {
     instance->l10n_service = furi_record_open(RECORD_L10N);
     instance->l10n =
         l10n_context_open(instance->l10n_service, BUSY_ASSETS_PATH("l10n"), L10nSourceStorage);
+    instance->matter = furi_record_open(RECORD_MATTER);
 
     if(!busy_settings_load(&instance->settings)) {
         FURI_LOG_W(TAG, "Loading default settings");
@@ -128,15 +145,17 @@ static BusyApp* busy_alloc(void) {
         busy_event_queue_callback,
         instance);
 
-    busy_set_status_lights(instance, BusyStatusLightsTypeOff);
-
     scene_manager_next_scene(instance->scene_manager, BusyAppSceneIdStart);
+
+    busy_set_status_lights(instance, BusyStatusLightsTypeOff);
+    busy_set_matter(instance, false);
 
     return instance;
 }
 
 static void busy_free(BusyApp* instance) {
     busy_set_status_lights(instance, BusyStatusLightsTypeOff);
+    busy_set_matter(instance, false);
 
     scene_manager_free(instance->scene_manager);
     busy_timer_free(instance->busy_timer);
@@ -153,6 +172,7 @@ static void busy_free(BusyApp* instance) {
 
     l10n_context_close(instance->l10n);
     furi_record_close(RECORD_L10N);
+    furi_record_close(RECORD_MATTER);
     furi_record_close(RECORD_STATUS_LIGHTS);
     furi_record_close(RECORD_AUDIO);
     furi_record_close(RECORD_GUI);
@@ -170,7 +190,10 @@ int32_t busy_app(void* arg) {
     UNUSED(arg);
 
     BusyApp* instance = busy_alloc();
+    FuriThread* thread = furi_thread_get_current();
+    furi_thread_set_signal_callback(thread, busy_thread_signal_callback, instance);
     furi_event_loop_run(instance->event_loop);
+    furi_thread_set_signal_callback(thread, NULL, NULL);
     busy_free(instance);
 
     return 0;
@@ -204,6 +227,15 @@ void busy_set_status_lights(BusyApp* instance, BusyStatusLightsType type) {
     furi_assert(type < BusyStatusLightsTypeMax);
 
     status_lights_send_command(instance->status_lights, &busy_status_lights[type]);
+}
+
+void busy_set_matter(BusyApp* instance, bool switch_state) {
+    furi_assert(instance);
+    MatterVirtualDeviceState device_state = {
+        .device = MatterVirtualDeviceSwitch1,
+        .bool_val = switch_state,
+    };
+    matter_set_state(instance->matter, device_state);
 }
 
 void busy_push_location(BusyApp* instance, const char* location_name) {

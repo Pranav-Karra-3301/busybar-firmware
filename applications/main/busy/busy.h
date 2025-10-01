@@ -9,6 +9,7 @@
 #include <status_lights/status_lights.h>
 #include <l10n/l10n.h>
 #include <l10n_keys/busy.h>
+#include <matter/matter.h>
 
 #include "busy_timer.h"
 #include "busy_settings.h"
@@ -41,6 +42,7 @@ typedef enum {
     BusyCustomEventStartPressed,
     BusyCustomEventStartReleased,
     BusyCustomEventStartShortPressed,
+    BusyCustomEventAboutToExit
 } BusyCustomEvent;
 
 typedef enum {
@@ -79,6 +81,7 @@ typedef struct {
     Gui* gui;
     L10nSrv* l10n_service;
     L10nContext* l10n;
+    MatterSrv* matter;
     // Containers & application windows
     Widget* front_window;
     FlexLayout* back_container;
@@ -98,6 +101,8 @@ void busy_prepare_transition(BusyApp* instance, BusyTransitionType type);
 void busy_start_transition(BusyApp* instance);
 
 void busy_set_status_lights(BusyApp* instance, BusyStatusLightsType type);
+
+void busy_set_matter(BusyApp* instance, bool switch_state);
 
 void busy_push_location(BusyApp* instance, const char* location_name);
 

@@ -3,6 +3,25 @@
 
 #define CUSTOM_NAV_BAR_HEIGHT 20
 
+static bool custom_thread_signal_callback(uint32_t signal, void* arg, void* context) {
+    UNUSED(arg);
+
+    CustomApp* instance = context;
+
+    switch(signal) {
+    case FuriSignalExit:
+        furi_event_loop_stop(instance->event_loop);
+        return true;
+
+    case FuriSignalAboutToExit:
+        custom_send_custom_event(instance, CustomCustomEventAboutToExit);
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 static void custom_input_queue_callback(FuriEventLoopObject* object, void* context) {
     furi_assert(context);
 
@@ -13,10 +32,7 @@ static void custom_input_queue_callback(FuriEventLoopObject* object, void* conte
     while(furi_message_queue_get(instance->input_queue, &event, 0) == FuriStatusOk) {
         if(event.type == InputTypeShort) {
             if(event.key == InputKeyBack) {
-                if(!scene_manager_handle_back_event(instance->scene_manager)) {
-                    furi_event_loop_stop(instance->event_loop);
-                    break;
-                }
+                scene_manager_handle_back_event(instance->scene_manager);
             }
         }
     }
@@ -66,6 +82,8 @@ static CustomApp* custom_alloc(void) {
     instance->status_lights = furi_record_open(RECORD_STATUS_LIGHTS);
     instance->audio = furi_record_open(RECORD_AUDIO);
     instance->gui = furi_record_open(RECORD_GUI);
+    instance->desktop = furi_record_open(RECORD_DESKTOP);
+    instance->matter = furi_record_open(RECORD_MATTER);
 
     with_gui(instance->gui, {
         GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
@@ -114,15 +132,17 @@ static CustomApp* custom_alloc(void) {
         custom_event_queue_callback,
         instance);
 
-    custom_set_status_lights(instance, CustomStatusLightsTypeOff);
-
     scene_manager_next_scene(instance->scene_manager, CustomAppSceneIdStart);
+
+    custom_set_status_lights(instance, CustomStatusLightsTypeOff);
+    custom_set_matter(instance, false);
 
     return instance;
 }
 
 static void custom_free(CustomApp* instance) {
     custom_set_status_lights(instance, CustomStatusLightsTypeOff);
+    custom_set_matter(instance, false);
 
     scene_manager_free(instance->scene_manager);
 
@@ -136,6 +156,8 @@ static void custom_free(CustomApp* instance) {
         flex_layout_free(instance->back_container);
     });
 
+    furi_record_close(RECORD_MATTER);
+    furi_record_close(RECORD_DESKTOP);
     furi_record_close(RECORD_STATUS_LIGHTS);
     furi_record_close(RECORD_AUDIO);
     furi_record_close(RECORD_GUI);
@@ -153,7 +175,10 @@ int32_t custom_app(void* arg) {
     UNUSED(arg);
 
     CustomApp* instance = custom_alloc();
+    FuriThread* thread = furi_thread_get_current();
+    furi_thread_set_signal_callback(thread, custom_thread_signal_callback, instance);
     furi_event_loop_run(instance->event_loop);
+    furi_thread_set_signal_callback(thread, NULL, NULL);
     custom_free(instance);
 
     return 0;
@@ -187,6 +212,15 @@ void custom_set_status_lights(CustomApp* instance, CustomStatusLightsType type) 
     furi_assert(type < CustomStatusLightsTypeMax);
 
     status_lights_send_command(instance->status_lights, &custom_status_lights[type]);
+}
+
+void custom_set_matter(CustomApp* instance, bool switch_state) {
+    furi_assert(instance);
+    MatterVirtualDeviceState device_state = {
+        .device = MatterVirtualDeviceSwitch2,
+        .bool_val = switch_state,
+    };
+    matter_set_state(instance->matter, device_state);
 }
 
 void custom_push_location(CustomApp* instance, const char* location_name) {

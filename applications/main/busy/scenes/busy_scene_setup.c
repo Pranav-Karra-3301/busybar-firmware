@@ -6,6 +6,8 @@
 typedef struct {
     Menu* front_menu;
     Menu* back_menu;
+
+    size_t menu_idx;
 } BusySceneSetup;
 
 typedef enum {
@@ -59,6 +61,8 @@ static void busy_scene_setup_on_enter(void* context) {
             busy_scene_setup_menu_callback,
             instance);
 
+        menu_set_selected_item_index(data->front_menu, data->menu_idx);
+
         data->back_menu = menu_alloc(instance->back_window);
         menu_add_item(
             data->back_menu,
@@ -76,6 +80,8 @@ static void busy_scene_setup_on_enter(void* context) {
             0,
             NULL,
             NULL);
+
+        menu_set_selected_item_index(data->back_menu, data->menu_idx);
     });
 
     free(mode_name);
@@ -95,11 +101,14 @@ static void busy_scene_setup_on_exit(void* context) {
 
 static bool busy_scene_setup_on_event(const SceneManagerEvent* event, void* context) {
     furi_assert(context);
+
     BusyApp* instance = context;
+    BusySceneSetup* data = scene_manager_get_current_scene_data(instance->scene_manager);
 
     bool consumed = false;
-
     if(event->type == SceneManagerEventTypeCustom) {
+        data->menu_idx = event->event;
+
         if(event->event == BusySceneSetupMenuIndexTimer) {
             busy_push_location(
                 instance, l10n_get(instance->l10n, L10N_KEY_BUSY_SETUP_TIMER_TITLE_NAVBAR));
@@ -114,6 +123,8 @@ static bool busy_scene_setup_on_event(const SceneManagerEvent* event, void* cont
         consumed = true;
 
     } else if(event->type == SceneManagerEventTypeBack) {
+        data->menu_idx = 0;
+
         busy_pop_location(instance);
     }
 

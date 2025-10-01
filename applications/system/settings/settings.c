@@ -4,6 +4,25 @@
 
 #define SETTINGS_NAV_BAR_HEIGHT 20
 
+static bool settings_thread_signal_callback(uint32_t signal, void* arg, void* context) {
+    UNUSED(arg);
+
+    SettingsApp* instance = context;
+
+    switch(signal) {
+    case FuriSignalExit:
+        furi_event_loop_stop(instance->event_loop);
+        return true;
+
+    case FuriSignalAboutToExit:
+        settings_send_custom_event(instance, SettingsCustomEventAboutToExit);
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 static void settings_input_queue_callback(FuriEventLoopObject* object, void* context) {
     UNUSED(object);
 
@@ -15,12 +34,7 @@ static void settings_input_queue_callback(FuriEventLoopObject* object, void* con
     while(furi_message_queue_get(instance->input_queue, &event, 0) == FuriStatusOk) {
         if(event.type == InputTypeShort) {
             if(event.key == InputKeyBack) {
-                SettingsAppSceneId current_scene_id =
-                    scene_manager_get_current_scene_id(instance->scene_manager);
-
-                if(current_scene_id != SettingsAppSceneIdStart) {
-                    scene_manager_handle_back_event(instance->scene_manager);
-                }
+                scene_manager_handle_back_event(instance->scene_manager);
             }
         }
     }
@@ -153,7 +167,10 @@ int32_t settings_app(void* arg) {
     UNUSED(arg);
 
     SettingsApp* instance = settings_alloc();
+    FuriThread* thread = furi_thread_get_current();
+    furi_thread_set_signal_callback(thread, settings_thread_signal_callback, instance);
     furi_event_loop_run(instance->event_loop);
+    furi_thread_set_signal_callback(thread, NULL, NULL);
     settings_free(instance);
 
     return 0;

@@ -5,8 +5,10 @@
 #include <gui/gui.h>
 #include <gui/modules/nav_bar.h>
 #include <gui/modules/flex_layout.h>
+#include <desktop/desktop.h>
 #include <audio/audio.h>
 #include <status_lights/status_lights.h>
+#include <matter/matter.h>
 
 #include <busy/time_macros.h>
 #include "storage_macros.h"
@@ -22,6 +24,10 @@
 #define TAG "Custom"
 
 #define TOTAL_TIME_LOW_THR_MN (15)
+
+typedef enum {
+    CustomCustomEventAboutToExit = 100
+} CustomCustomEvent;
 
 typedef enum {
     CustomTransitionTypeDefault,
@@ -42,7 +48,9 @@ typedef struct {
     SceneManager* scene_manager;
     StatusLights* status_lights;
     Audio* audio;
+    Desktop* desktop;
     Gui* gui;
+    MatterSrv* matter;
     // Containers & application windows
     Widget* front_window;
     FlexLayout* back_container;
@@ -60,6 +68,8 @@ void custom_prepare_transition(CustomApp* instance, CustomTransitionType type);
 void custom_start_transition(CustomApp* instance);
 
 void custom_set_status_lights(CustomApp* instance, CustomStatusLightsType type);
+
+void custom_set_matter(CustomApp* instance, bool switch_state);
 
 void custom_push_location(CustomApp* instance, const char* location_name);
 

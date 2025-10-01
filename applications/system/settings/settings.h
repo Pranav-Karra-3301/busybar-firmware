@@ -13,6 +13,12 @@
 #include <l10n/l10n.h>
 #include <l10n_keys/settings.h>
 
+typedef enum {
+    SettingsCustomEventAboutToExit,
+
+    SettingsCustomEventSceneEventsStart
+} SettingsCustomEvent;
+
 typedef struct SettingsApp {
     FuriEventLoop* event_loop;
     FuriMessageQueue* input_queue;

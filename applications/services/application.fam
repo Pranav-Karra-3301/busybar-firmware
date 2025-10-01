@@ -39,6 +39,7 @@ App(
         "network",
         "l10n",
         "sntp",
+        "matter",
     ],
     targets=["f20", "f21"],
 )
@@ -52,6 +53,7 @@ App(
         "input",
         "network",
         "wifi",
+        "nvm",
         "matter",
     ],
     targets=["f64"],

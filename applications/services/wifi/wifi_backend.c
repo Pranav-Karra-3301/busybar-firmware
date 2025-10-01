@@ -36,60 +36,6 @@ static inline void wifi_set_state(Wifi* instance, WifiState state) {
     }
 }
 
-static void wifi_init_request_handler(Wifi* instance) {
-    FURI_LOG_D(TAG, "Init");
-
-    sl_status_t status;
-
-    do {
-        status = sl_net_init(SL_NET_WIFI_CLIENT_INTERFACE, &wifi_config_client, instance, NULL);
-
-        if(status != SL_STATUS_OK) {
-            FURI_LOG_E(TAG, "Failed to initialise Wifi: %lX", status);
-            break;
-        }
-
-        WifiHardwareAddress* hw_address = &instance->response.hw_address;
-        status = sl_wifi_get_mac_address(SL_WIFI_CLIENT_INTERFACE, (sl_mac_address_t*)hw_address);
-
-        if(status != SL_STATUS_OK) {
-            FURI_LOG_E(TAG, "Failed to get MAC address: %lX", status);
-            break;
-        }
-
-        wifi_set_state(instance, WifiStateDown);
-
-    } while(false);
-
-    WifiResponse* response = &instance->response;
-    response->status = wifi_decode_sl_status(status);
-
-    wifi_send_response(instance);
-}
-
-static void wifi_deinit_request_handler(Wifi* instance) {
-    FURI_LOG_D(TAG, "Deinit");
-
-    sl_status_t status;
-
-    do {
-        status = sl_net_deinit(SL_NET_WIFI_CLIENT_INTERFACE);
-
-        if(status != SL_STATUS_OK) {
-            FURI_LOG_E(TAG, "Failed to deinitialise Wifi: %lX", status);
-            break;
-        }
-
-        wifi_set_state(instance, WifiStateDeinit);
-
-    } while(false);
-
-    WifiResponse* response = &instance->response;
-    response->status = wifi_decode_sl_status(status);
-
-    wifi_send_response(instance);
-}
-
 static void wifi_scan_request_handler(Wifi* instance) {
     FURI_LOG_D(TAG, "Scan");
 
@@ -263,6 +209,23 @@ static void wifi_get_info_request_handler(Wifi* instance) {
     wifi_send_response(instance);
 }
 
+static void wifi_get_hw_address_request_handler(Wifi* instance) {
+    FURI_LOG_D(TAG, "GetHwAddress");
+
+    WifiHardwareAddress* hw_address = &instance->response.hw_address;
+    const sl_status_t status =
+        sl_wifi_get_mac_address(SL_WIFI_CLIENT_INTERFACE, (sl_mac_address_t*)hw_address);
+
+    if(status != SL_STATUS_OK) {
+        FURI_LOG_E(TAG, "Failed to get MAC address: %lX", status);
+    }
+
+    WifiResponse* response = &instance->response;
+    response->status = wifi_decode_sl_status(status);
+
+    wifi_send_response(instance);
+}
+
 static void wifi_intercom_rx_callback(const void* data, size_t data_size, void* context) {
     furi_assert(context);
     furi_assert(data_size == sizeof(WifiRequest));
@@ -362,6 +325,23 @@ static sl_status_t wifi_scan_callback(
     return ret;
 }
 
+static sl_status_t wifi_init_driver(Wifi* instance) {
+    sl_status_t status;
+
+    do {
+        status = sl_net_init(SL_NET_WIFI_CLIENT_INTERFACE, &wifi_config_client, NULL, NULL);
+
+        if(status != SL_STATUS_OK) {
+            break;
+        }
+
+        status = sl_wifi_set_scan_callback(wifi_scan_callback, instance);
+
+    } while(false);
+
+    return status;
+}
+
 static Wifi* wifi_alloc(void) {
     Wifi* instance = malloc(sizeof(Wifi));
 
@@ -369,6 +349,7 @@ static Wifi* wifi_alloc(void) {
     instance->event_pubsub = furi_pubsub_alloc();
     instance->intercom = furi_record_open(RECORD_INTERCOM);
     instance->tcpip_lock = furi_semaphore_alloc(1, 0);
+    instance->ip6_addr_valid = furi_semaphore_alloc(1, 0);
 
     furi_record_open(RECORD_NETWORK);
 
@@ -376,13 +357,16 @@ static Wifi* wifi_alloc(void) {
         instance->event_loop, wifi_custom_event_callback, instance);
     intercom_set_rx_callback(
         instance->intercom, IntercomChannelWifi, wifi_intercom_rx_callback, instance);
-
     intercom_set_rx_callback(
         instance->intercom, IntercomChannelWifiData, wifi_net_intercom_rx_callback, instance);
 
-    sl_wifi_set_scan_callback(wifi_scan_callback, instance);
-
     wifi_net_tcpip_init(instance);
+
+    const sl_status_t status = wifi_init_driver(instance);
+
+    if(status != SL_STATUS_OK) {
+        FURI_LOG_E(TAG, "Failed to initialise Wifi: %lX", status);
+    }
 
     furi_record_create(RECORD_WIFI, instance->event_pubsub);
 
@@ -399,10 +383,9 @@ int32_t wifi_srv(void* arg) {
 }
 
 static const WifiRequestHandler wifi_request_handlers[WifiRequestTypeMax] = {
-    [WifiRequestTypeInit] = wifi_init_request_handler,
-    [WifiRequestTypeDeinit] = wifi_deinit_request_handler,
     [WifiRequestTypeScan] = wifi_scan_request_handler,
     [WifiRequestTypeConnect] = wifi_connect_request_handler,
     [WifiRequestTypeDisconnect] = wifi_disconnect_request_handler,
     [WifiRequestTypeGetInfo] = wifi_get_info_request_handler,
+    [WifiRequestTypeGetHwAddress] = wifi_get_hw_address_request_handler,
 };
