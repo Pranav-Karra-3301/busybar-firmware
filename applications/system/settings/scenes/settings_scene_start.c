@@ -134,7 +134,8 @@ static void settings_scene_start_on_enter(void* context) {
         data->front_card = anim_title_card_alloc(instance->front_scene_window);
         anim_title_card_set_title(
             data->front_card, l10n_get(instance->l10n, L10N_KEY_SETTINGS_TITLE_FRONT));
-        anim_title_card_set_icon(data->front_card, SETTINGS_ANIM_PATH("settings_front_13x13.anim"));
+        anim_title_card_set_icon(
+            data->front_card, SETTINGS_ANIM_PATH("settings_front_13x13.anim"));
 
         if(data->is_not_first_enter) {
             settings_scene_start_run_in_out_anim(instance, SettingsSceneStartInOutAnimTypeNone);
