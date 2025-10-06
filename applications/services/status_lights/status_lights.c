@@ -225,21 +225,7 @@ static StatusLights* status_lights_alloc() {
         &stored_brightness,
         &(int){STATUS_LIGHTS_BRIGHTNESS_AUTO});
 
-    StatusLightsMessage message = {
-        .api_lock = NULL,
-        .type = StatusLightsMessageTypeSetBrightness,
-        .as_set_brightness =
-            {
-                .brightness = (status_lights_is_valid_brightness(stored_brightness)) ?
-                                  stored_brightness :
-                                  STATUS_LIGHTS_BRIGHTNESS_AUTO,
-                .do_save = false,
-            },
-    };
-
-    furi_check(
-        furi_message_queue_put(instance->message_queue, &message, FuriWaitForever) ==
-        FuriStatusOk);
+    status_lights_set_brightness(instance, stored_brightness);
 
     furi_record_create(RECORD_STATUS_LIGHTS, instance);
 
