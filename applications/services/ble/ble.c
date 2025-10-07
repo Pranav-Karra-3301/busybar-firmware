@@ -90,16 +90,14 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
     furi_assert(data_size < MAX_BLE_INTERCOM_FRAME_SIZE);
     Ble* instance = context;
     const BleIntercomFrameGeneric* const frame = data;
-    const BleServiceIndex index = frame->header.service_index;
-    if(index == BleServiceIndexGeneral) {
+    if(frame->header.source == BleIntercomFrameSourceSystem) {
         if(furi_semaphore_acquire(instance->mailbox_lock, 100) == FuriStatusOk) {
             memcpy(&instance->mailbox, data, data_size);
             furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeFrameReceived);
         } else
             BLE_LOG_W("Packet lost!");
     } else {
-        // BLE_LOG_I("Service pack");
-        BleServiceObject* service = instance->services[index];
+        BleServiceObject* service = instance->services[frame->header.service_index];
         ble_service_process_mailbox(service, frame);
     }
 }

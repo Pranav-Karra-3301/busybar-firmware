@@ -18,9 +18,13 @@
 #define BLE_LOG_W(...) FURI_LOG_W(TAG, __VA_ARGS__)
 
 typedef enum {
+    BleIntercomFrameSourceSystem,
+    BleIntercomFrameSourceService,
+} BleIntercomFrameSource;
+
+typedef enum {
     BleIntercomFrameTypeRequest,
     BleIntercomFrameTypeResponse,
-    BleIntercomFrameTypeNotification,
 } BleIntercomFrameType;
 
 //==========================================================================================================
@@ -40,11 +44,12 @@ typedef enum {
 typedef struct {
     BleCommand command;
     uint16_t service_index;
-    uint16_t char_index;
+    // uint16_t char_index;
 } BleServiceCommand;
 //==========================================================================================================
 
 typedef struct /*FURI_PACKED*/ {
+    BleIntercomFrameSource source;
     BleIntercomFrameType frame_type;
     BleCommand command;
     BleServiceIndex service_index;

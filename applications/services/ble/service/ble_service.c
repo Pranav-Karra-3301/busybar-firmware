@@ -54,6 +54,7 @@ void ble_service_prepare_send_intercom_frame(
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
     BleIntercomFrameHeader* header = &frame->header;
 
+    header->source = BleIntercomFrameSourceService;
     header->frame_type = frame_type;
     header->command = command;
     header->service_index = instance->config->index;
