@@ -2,8 +2,9 @@
 
 #define TAG "BleServiceU5"
 
-static bool
-    ble_service_command_allowed_by_state(const BleCommand command, const BleServiceState state) {
+static bool ble_service_command_allowed_by_state(
+    const BleServiceCommandEnum command,
+    const BleServiceState state) {
     UNUSED(state);
     UNUSED(command);
     return true;
@@ -42,7 +43,7 @@ static bool ble_service_target_init(BleServiceObject* instance) {
         ble_service_prepare_send_intercom_frame(
             instance,
             BleIntercomFrameTypeRequest,
-            BleCommandServiceInit,
+            BleServiceCommandInit,
             total_config_size,
             config);
 
@@ -100,7 +101,7 @@ static bool ble_service_update_request(BleServiceObject* instance, size_t data_s
 
     size_t total_size = sizeof(BleCharacteristicCountType);
     ble_service_prepare_send_intercom_frame(
-        instance, BleIntercomFrameTypeResponse, BleCommandServiceUpdate, total_size, data);
+        instance, BleIntercomFrameTypeResponse, BleServiceCommandUpdate, total_size, data);
 
     return true;
 }
@@ -179,7 +180,7 @@ static bool ble_service_command_handler_run(
         BLE_LOG_D("%s - config size: %d", instance->config->name, total_size);
 
         ble_service_prepare_send_intercom_frame(
-            instance, BleIntercomFrameTypeRequest, BleCommandServiceUpdate, total_size, config);
+            instance, BleIntercomFrameTypeRequest, BleServiceCommandUpdate, total_size, config);
 
         free(config);
 
@@ -191,7 +192,7 @@ static bool ble_service_command_handler_run(
 bool ble_service_target_execute(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
-    BleCommand command,
+    BleServiceCommandEnum command,
     size_t data_size,
     void* data) {
     BLE_LOG_D("%s - target_execute: %d", instance->config->name, command);
@@ -199,13 +200,13 @@ bool ble_service_target_execute(
     bool result = false;
     if(ble_service_command_allowed_by_state(command, instance->state)) {
         switch(command) {
-        case BleCommandServiceInit:
+        case BleServiceCommandInit:
             result = ble_service_command_handler_init(instance, frame_type, data_size, data);
             break;
-        case BleCommandServiceRun:
+        case BleServiceCommandRun:
             ble_service_command_handler_run(instance, frame_type, data_size, data);
             break;
-        case BleCommandServiceUpdate:
+        case BleServiceCommandUpdate:
             ble_service_command_handler_update(instance, frame_type, data_size, data);
             break;
         default:

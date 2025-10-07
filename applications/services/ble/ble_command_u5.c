@@ -79,7 +79,7 @@ void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame)
 
         frame->header.source = BleIntercomFrameSourceSystem;
         frame->header.frame_type = BleIntercomFrameTypeRequest;
-        frame->header.command = BleCommandGetState;
+        frame->header.command.system = BleCommandGetState;
         frame->header.data_size = 0;
 
         size_t frame_size = sizeof(BleIntercomFrameHeader);

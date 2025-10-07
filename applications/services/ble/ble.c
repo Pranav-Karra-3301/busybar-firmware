@@ -40,7 +40,7 @@ static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* 
 
     BleServiceCommand msg;
     if(furi_message_queue_get(ble->message_queue, &msg, FuriWaitForever) == FuriStatusOk) {
-        BleServiceObject* service = ble->services[msg.service_index];
+        BleServiceObject* service = ble->services[msg.index];
         ble_service_process(service, &msg);
     } else
         BLE_LOG_W("MsgQueue is full!");
@@ -64,7 +64,7 @@ void ble_custom_event_callback(uint32_t events, void* context) {
                     frame->header.service_index,
                     frame->header.data_size,
                     frame->header.data_size + sizeof(BleIntercomFrameHeader));
-                const BleCommand command = frame->header.command;
+                const BleCommand command = frame->header.command.system;
                 if(command == BleCommandInit) {
                     ble_command_handler_init(instance, frame);
                 } else if(command == BleCommandEnable) {
@@ -97,7 +97,7 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
         } else
             BLE_LOG_W("Packet lost!");
     } else {
-        BleServiceObject* service = instance->services[frame->header.service_index];
+        BleServiceObject* service = instance->services[frame->header.command.service.index];
         ble_service_process_mailbox(service, frame);
     }
 }

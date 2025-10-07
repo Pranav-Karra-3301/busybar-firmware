@@ -33,17 +33,17 @@ typedef enum {
     BleCommandEnable,
     BleCommandDisable,
     BleCommandGetState,
-    //-------------------------------------
-    BleCommandServiceInit,
-    BleCommandServiceRun,
-    BleCommandServiceUpdate,
-    //-------------------------------------
-    BleCommandServiceProcessFrame,
 } BleCommand;
 
+typedef enum {
+    BleServiceCommandInit,
+    BleServiceCommandRun,
+    BleServiceCommandUpdate,
+} BleServiceCommandEnum;
+
 typedef struct {
-    BleCommand command;
-    uint16_t service_index;
+    BleServiceCommandEnum command;
+    uint16_t index;
     // uint16_t char_index;
 } BleServiceCommand;
 //==========================================================================================================
@@ -51,8 +51,10 @@ typedef struct {
 typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameSource source;
     BleIntercomFrameType frame_type;
-    BleCommand command;
-    BleServiceIndex service_index;
+    union {
+        BleCommand system;
+        BleServiceCommand service;
+    } command;
     size_t data_size;
 } BleIntercomFrameHeader;
 

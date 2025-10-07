@@ -45,7 +45,7 @@ static inline void
 void ble_service_prepare_send_intercom_frame(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
-    BleCommand command,
+    BleServiceCommandEnum command,
     size_t data_size,
     void* data) {
     size_t frame_size = data_size + sizeof(BleIntercomFrameHeader);
@@ -56,8 +56,8 @@ void ble_service_prepare_send_intercom_frame(
 
     header->source = BleIntercomFrameSourceService;
     header->frame_type = frame_type;
-    header->command = command;
-    header->service_index = instance->config->index;
+    header->command.service.command = command;
+    header->command.service.index = instance->config->index;
     header->data_size = data_size;
     ///TODO: need more checks if there_is_enough memory in buffer
     if(data_size && data) memcpy(frame->data, data, data_size);
@@ -91,7 +91,7 @@ static bool ble_service_process_input_frame(BleServiceObject* instance) {
     ble_service_target_execute(
         instance,
         frame->header.frame_type,
-        frame->header.command,
+        frame->header.command.service.command,
         frame->header.data_size,
         frame->data);
 
@@ -143,7 +143,7 @@ bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* ms
     BLE_LOG_D("%s - ble_service_process", instance->config->name);
     bool result = false;
     if(ble_service_lock(instance)) {
-        if(msg->command == BleCommandServiceProcessFrame) {
+        if(msg->command == BleServiceCommandProcessFrame) {
             result = ble_service_process_input_frame(instance);
         } else
             result = ble_service_target_execute(
@@ -166,7 +166,7 @@ void ble_service_process_mailbox(
     if(ble_service_lock_input_frame(instance)) {
         ble_service_frame_buf_check_alloc(instance, fs);
         memcpy(instance->frame_buf, input_frame, fs);
-        ble_service_enqueue_message(instance, BleCommandServiceProcessFrame, 0);
+        ble_service_enqueue_message(instance, BleServiceCommandProcessFrame, 0);
     }
 }
 
@@ -176,11 +176,14 @@ BleServiceState ble_service_get_state(BleServiceObject* instance) {
     return instance->state;
 }
 
-void ble_service_enqueue_message(BleServiceObject* instance, BleCommand command, uint8_t ch_index) {
+void ble_service_enqueue_message(
+    BleServiceObject* instance,
+    BleServiceCommandEnum command,
+    uint8_t ch_index) {
     furi_assert(instance);
+    UNUSED(ch_index);
 
-    BleServiceCommand msg = {
-        .command = command, .service_index = instance->config->index, .char_index = ch_index};
+    BleServiceCommand msg = {.command = command, .index = instance->config->index};
 
     if(furi_message_queue_put(instance->message_queue, &msg, 100) != FuriStatusOk) {
         BLE_LOG_W("%s - unable to enqueue for processing", instance->config->name);
@@ -191,7 +194,7 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
     furi_assert(instance);
     BLE_LOG_D("%s - enqueue init", instance->config->name);
     if(ble_service_lock(instance)) {
-        ble_service_enqueue_message(instance, BleCommandServiceInit, 0);
+        ble_service_enqueue_message(instance, BleServiceCommandInit, 0);
         ble_service_unlock(instance);
     }
 }
@@ -199,7 +202,7 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
 void ble_service_enqueue_run(BleServiceObject* instance) {
     furi_assert(instance);
     BLE_LOG_D("%s - enqueue run", instance->config->name);
-    ble_service_enqueue_message(instance, BleCommandServiceRun, 0);
+    ble_service_enqueue_message(instance, BleServiceCommandRun, 0);
 }
 
 void ble_service_write_data(
