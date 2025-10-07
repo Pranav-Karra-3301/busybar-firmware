@@ -73,10 +73,6 @@ void ble_custom_event_callback(uint32_t events, void* context) {
                     ble_command_handler_disable(instance, frame);
                 } else if(command == BleCommandGetState) {
                     ble_command_handler_get_state(instance, (BleIntercomFrameStatus*)frame);
-                } else if(events & BleEventTypeFrameReceived) {
-                    BleServiceIndex index = frame->header.service_index;
-                    BleServiceObject* service = instance->services[index];
-                    ble_service_process_mailbox(service, frame);
                 }
             }
 
@@ -93,11 +89,19 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
     furi_assert(context);
     furi_assert(data_size < MAX_BLE_INTERCOM_FRAME_SIZE);
     Ble* instance = context;
-    if(furi_semaphore_acquire(instance->mailbox_lock, 100) == FuriStatusOk) {
-        memcpy(&instance->mailbox, data, data_size);
-        furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeFrameReceived);
-    } else
-        BLE_LOG_W("Packet lost!");
+    const BleIntercomFrameGeneric* const frame = data;
+    const BleServiceIndex index = frame->header.service_index;
+    if(index == BleServiceIndexGeneral) {
+        if(furi_semaphore_acquire(instance->mailbox_lock, 100) == FuriStatusOk) {
+            memcpy(&instance->mailbox, data, data_size);
+            furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeFrameReceived);
+        } else
+            BLE_LOG_W("Packet lost!");
+    } else {
+        // BLE_LOG_I("Service pack");
+        BleServiceObject* service = instance->services[index];
+        ble_service_process_mailbox(service, frame);
+    }
 }
 
 static void ble_service_state_change_callback(void* context) {

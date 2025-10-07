@@ -32,6 +32,7 @@ void ble_command_handler_init(Ble* instance, BleIntercomFrameGeneric* frame) {
         BLE_LOG_D("BleCommandInit request");
 
         frame->header.frame_type = BleIntercomFrameTypeRequest;
+        frame->header.service_index = BleServiceIndexGeneral;
         size_t frame_size = sizeof(BleIntercomFrameHeader) + frame->header.data_size;
         size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
         furi_assert(tx == frame_size);
@@ -48,6 +49,7 @@ void ble_command_handler_enable(Ble* instance, BleIntercomFrameGeneric* frame) {
         BLE_LOG_D("BleCommandEnable request");
 
         frame->header.frame_type = BleIntercomFrameTypeRequest;
+        frame->header.service_index = BleServiceIndexGeneral;
         size_t frame_size = sizeof(BleIntercomFrameHeader) + frame->header.data_size;
         size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
         furi_assert(tx == frame_size);
@@ -64,6 +66,7 @@ void ble_command_handler_disable(Ble* instance, BleIntercomFrameGeneric* frame) 
         BLE_LOG_D("BleCommandDisable request");
 
         frame->header.frame_type = BleIntercomFrameTypeRequest;
+        frame->header.service_index = BleServiceIndexGeneral;
         size_t frame_size = sizeof(BleIntercomFrameHeader) + frame->header.data_size;
         size_t tx = intercom_tx(instance->intercom, IntercomChannelBle, frame, frame_size, 100);
         furi_assert(tx == frame_size);
@@ -75,6 +78,7 @@ void ble_command_handler_get_state(Ble* instance, BleIntercomFrameStatus* frame)
         BLE_LOG_D("GetStatus request");
 
         frame->header.frame_type = BleIntercomFrameTypeRequest;
+        frame->header.service_index = BleServiceIndexGeneral;
         frame->header.command = BleCommandGetState;
         frame->header.data_size = 0;
 
