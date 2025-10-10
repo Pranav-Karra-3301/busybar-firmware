@@ -1,5 +1,7 @@
 #include "ble_i.h"
 
+#include "ble_system_command.h"
+
 #define TAG "BleAPI"
 
 static void ble_send_message(Ble* instance, BleMessage* message) {

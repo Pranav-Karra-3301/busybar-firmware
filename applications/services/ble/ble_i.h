@@ -1,7 +1,8 @@
 #pragma once
 
 #include "ble.h"
-#include "ble_common.h"
+#include "ble_intercom_types.h"
+#include "ble_command_engine.h"
 #include "service/ble_service.h"
 #include "service/ble_service_config.h"
 
@@ -32,6 +33,7 @@ struct Ble {
     FuriMutex* ble_lock;
     FuriSemaphore* mailbox_lock;
     BleIntercomFrameGeneric mailbox;
+    BleCommandEngine* engine;
 
     FuriMessageQueue* message_queue;
     FuriEventLoop* event_loop;

@@ -1,5 +1,5 @@
 #include "ble_i.h"
-#include "ble_command.h"
+#include "ble_system_command.h"
 
 #if defined(SI917)
 #include "worker/ble_worker.h"
@@ -56,25 +56,7 @@ void ble_custom_event_callback(uint32_t events, void* context) {
 
         if((events & BleEventTypeFrameReceived) || (events & BleEventTypeIncomingMessage)) {
             BleIntercomFrameGeneric* frame = ble_command_preprocess(instance, events);
-            if(frame) {
-                BLE_LOG_D(
-                    "Rx Frame t: %d c: %d s: %d ds: %d fs: %d",
-                    frame->header.frame_type,
-                    frame->header.command,
-                    frame->header.service_index,
-                    frame->header.data_size,
-                    frame->header.data_size + sizeof(BleIntercomFrameHeader));
-                const BleCommand command = frame->header.command.system;
-                if(command == BleCommandInit) {
-                    ble_command_handler_init(instance, frame);
-                } else if(command == BleCommandEnable) {
-                    ble_command_handler_enable(instance, frame);
-                } else if(command == BleCommandDisable) {
-                    ble_command_handler_disable(instance, frame);
-                } else if(command == BleCommandGetState) {
-                    ble_command_handler_get_state(instance, (BleIntercomFrameStatus*)frame);
-                }
-            }
+            ble_command_engine_run(instance->engine, frame, instance);
 
             if(events & BleEventTypeFrameReceived) {
                 furi_semaphore_release(instance->mailbox_lock);
@@ -124,8 +106,8 @@ static Ble* ble_alloc() {
     instance->mailbox_lock = furi_semaphore_alloc(1, 1);
     instance->ble_lock = furi_mutex_alloc(FuriMutexTypeNormal);
 
-    instance->message_queue =
-        furi_message_queue_alloc(BLE_SERVICES_COUNT, sizeof(BleServiceCommand));
+    instance->message_queue = furi_message_queue_alloc(BLE_SERVICES_COUNT, 4);
+    instance->engine = ble_command_engine_alloc(ble_commands, BleCommandCount, NULL, NULL);
 
     furi_event_loop_set_custom_event_callback(
         instance->event_loop, ble_custom_event_callback, instance);
