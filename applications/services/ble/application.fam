@@ -9,6 +9,8 @@ App(
     requires=["intercom"],
     sources=[
         "ble.c",
+        "ble_system_command.c",
+        "ble_system_command_917.c",
         "ble_command_engine.c",
         "worker/*.c",
         "service/*.c",
@@ -32,6 +34,8 @@ App(
     sources=[
         "ble.c",
         "ble_api.c",
+        "ble_system_command.c",
+        "ble_system_command_u5.c",
         "ble_command_engine.c",
         "http/ble_http_repeater.c",
         "service/*.c",
