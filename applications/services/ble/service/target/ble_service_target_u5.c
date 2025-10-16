@@ -17,26 +17,9 @@ static bool ble_service_target_init(BleServiceObject* instance) {
     if(instance->config->init(instance)) {
         BLE_LOG_D("%s - request start remote", instance->config->name);
 
-        size_t total_data_size = 0;
-        uint8_t chars_count = instance->config->char_count;
-        for(size_t i = 0; i < chars_count; i++) {
-            total_data_size += ble_characteristic_get_data_size(instance->chars[i]);
-        }
-
-        size_t total_config_size = sizeof(BleCharacteristicDataHeader) * chars_count +
-                                   total_data_size + sizeof(BleCharacteristicCountType);
-        BleIntercomServiceData* config = malloc(total_config_size);
-
-        config->char_count = chars_count;
-        uint8_t offset = 0;
-        for(size_t i = 0; i < chars_count; i++) {
-            BleCharacteristicObject* ch_obj = instance->chars[i];
-
-            BleCharacteristicData* char_init =
-                (BleCharacteristicData*)((uint8_t*)config->chars_config + offset);
-
-            offset += ble_characteristic_fill_update_struct(ch_obj, char_init);
-        }
+        size_t total_config_size = 0;
+        BleIntercomServiceData* config =
+            ble_service_create_intercom_service_data_pack(instance, false, &total_config_size);
 
         BLE_LOG_D("%s - config size: %d", instance->config->name, total_config_size);
 
@@ -152,30 +135,9 @@ static bool ble_service_command_handler_run(
             break;
         }
 
-        size_t total_data_size = 0;
-        const uint8_t chars_count_max = instance->config->char_count;
-        uint8_t chars_count = 0;
-        for(size_t i = 0; i < chars_count_max; i++) {
-            if(!ble_characteristic_is_modified(instance->chars[i])) continue;
-            total_data_size += ble_characteristic_get_data_size(instance->chars[i]);
-            chars_count++;
-        }
-
-        size_t total_size = sizeof(BleCharacteristicDataHeader) * chars_count + total_data_size +
-                            sizeof(BleCharacteristicCountType);
-        BleIntercomServiceData* config = malloc(total_size);
-
-        config->char_count = chars_count;
-        uint8_t offset = 0;
-        for(size_t i = 0; i < chars_count_max; i++) {
-            BleCharacteristicObject* ch_obj = instance->chars[i];
-
-            if(!ble_characteristic_is_modified(ch_obj)) continue;
-            BleCharacteristicData* char_init =
-                (BleCharacteristicData*)((uint8_t*)config->chars_config + offset);
-
-            offset += ble_characteristic_fill_update_struct(ch_obj, char_init);
-        }
+        size_t total_size = 0;
+        BleIntercomServiceData* config =
+            ble_service_create_intercom_service_data_pack(instance, false, &total_size);
 
         BLE_LOG_D("%s - config size: %d", instance->config->name, total_size);
 

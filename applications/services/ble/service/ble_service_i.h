@@ -51,3 +51,13 @@ void ble_service_switch_state(BleServiceObject* instance, BleServiceState new_st
 bool ble_service_lock(BleServiceObject* instance);
 void ble_service_unlock(BleServiceObject* instance);
 void ble_service_send_intercom_frame(BleServiceObject* instance);
+
+size_t ble_service_count_characteristics_and_size(
+    BleServiceObject* instance,
+    bool modified_only,
+    BleCharacteristicCountType* characteristics_count);
+
+BleIntercomServiceData* ble_service_create_intercom_service_data_pack(
+    BleServiceObject* instance,
+    bool modified_only,
+    size_t* output_pack_size);
