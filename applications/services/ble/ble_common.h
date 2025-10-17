@@ -16,11 +16,3 @@
 
 #define BLE_LOG_I(...) FURI_LOG_I(TAG, __VA_ARGS__)
 #define BLE_LOG_W(...) FURI_LOG_W(TAG, __VA_ARGS__)
-
-typedef enum {
-    BleServiceCommandInit,
-    BleServiceCommandRun,
-    BleServiceCommandUpdate,
-
-    BleServiceCommandCount,
-} BleServiceCommandEnum;
