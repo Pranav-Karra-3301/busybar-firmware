@@ -17,7 +17,7 @@ BleServiceObject* ble_service_alloc(
     BleServiceStateChangeCallback state_callback,
     BleServiceStateChangeCallbackContext* ctx);
 
-bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* msg);
+bool ble_service_process(BleServiceObject* instance);
 void ble_service_process_mailbox(
     BleServiceObject* instance,
     const BleIntercomFrameGeneric* input_frame);

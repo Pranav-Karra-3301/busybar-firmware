@@ -38,12 +38,11 @@ static void ble_event_loop_msg_queue_handler(FuriEventLoopObject* object, void* 
     Ble* ble = context;
     furi_assert(object == ble->message_queue);
 
-    BleServiceCommand msg;
-    if(furi_message_queue_get(ble->message_queue, &msg, FuriWaitForever) == FuriStatusOk) {
-        BleServiceObject* service = ble->services[msg.index];
-        ble_service_process(service, &msg);
+    BleServiceObject* service = NULL;
+    if(furi_message_queue_get(ble->message_queue, &service, FuriWaitForever) == FuriStatusOk) {
+        ble_service_process(service);
     } else
-        BLE_LOG_W("MsgQueue is full!");
+        BLE_LOG_W("Unable to get message from queue!");
 }
 
 void ble_custom_event_callback(uint32_t events, void* context) {

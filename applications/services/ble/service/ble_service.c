@@ -138,19 +138,17 @@ BleServiceObject* ble_service_alloc(
     return instance;
 }
 
-bool ble_service_process(BleServiceObject* instance, const BleServiceCommand* msg) {
+bool ble_service_process(BleServiceObject* instance) {
     furi_assert(instance);
-    furi_assert(msg);
 
     BLE_LOG_D("%s - ble_service_process", instance->config->name);
     bool result = false;
     if(ble_service_lock(instance)) {
-        if(msg->command == BleServiceCommandProcessFrame) {
+        if(instance->frame_pending) {
             result = ble_service_process_input_frame(instance);
         } else
             result = ble_service_target_execute(
-                instance, BleIntercomFrameTypeRequest, msg->command, 0, NULL);
-
+                instance, BleIntercomFrameTypeRequest, BleServiceCommandRun, 0, NULL);
         ble_service_unlock(instance);
     }
     return result;
@@ -168,7 +166,7 @@ void ble_service_process_mailbox(
     if(ble_service_lock_input_frame(instance)) {
         ble_service_frame_buf_check_alloc(instance, fs);
         memcpy(instance->frame_buf, input_frame, fs);
-        ble_service_enqueue_message(instance, BleServiceCommandProcessFrame, 0);
+        ble_service_enqueue_message(instance);
     }
 }
 
@@ -178,16 +176,11 @@ BleServiceState ble_service_get_state(BleServiceObject* instance) {
     return instance->state;
 }
 
-void ble_service_enqueue_message(
-    BleServiceObject* instance,
-    BleServiceCommandEnum command,
-    uint8_t ch_index) {
+void ble_service_enqueue_message(BleServiceObject* instance) {
     furi_assert(instance);
-    UNUSED(ch_index);
 
-    BleServiceCommand msg = {.command = command, .index = instance->config->index};
-
-    if(furi_message_queue_put(instance->message_queue, &msg, 100) != FuriStatusOk) {
+    uint32_t value = (uint32_t)instance;
+    if(furi_message_queue_put(instance->message_queue, &value, 100) != FuriStatusOk) {
         BLE_LOG_W("%s - unable to enqueue for processing", instance->config->name);
     }
 }
@@ -204,7 +197,8 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
 void ble_service_enqueue_run(BleServiceObject* instance) {
     furi_assert(instance);
     BLE_LOG_D("%s - enqueue run", instance->config->name);
-    ble_service_enqueue_message(instance, BleServiceCommandRun, 0);
+
+    ble_service_enqueue_message(instance);
 }
 
 void ble_service_write_data(
