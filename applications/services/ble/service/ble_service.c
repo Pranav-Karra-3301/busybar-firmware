@@ -72,8 +72,8 @@ void ble_service_prepare_send_intercom_frame(
         header->data_size,
         frame_size);
 
-    size_t tx =
-        intercom_tx(instance->intercom, IntercomChannelBle, instance->frame_buf, frame_size, 100);
+    size_t tx = intercom_tx(
+        instance->intercom, IntercomChannelBle, instance->frame_buf, frame_size, FuriWaitForever);
     furi_assert(tx == frame_size);
 }
 
