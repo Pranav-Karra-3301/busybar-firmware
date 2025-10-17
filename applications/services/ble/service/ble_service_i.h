@@ -20,7 +20,7 @@ struct BleServiceObject {
     Intercom* intercom;
 
     FuriSemaphore* frame_lock;
-    size_t frame_size;
+    bool frame_pending;
     uint8_t* frame_buf;
 
     BleServiceStateChangeCallback state_change_callback;

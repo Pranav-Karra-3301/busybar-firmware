@@ -22,10 +22,12 @@ static bool ble_service_lock_input_frame(BleServiceObject* instance) {
         BLE_LOG_W("%s - frame lock failed", instance->config->name);
         return false;
     }
+    instance->frame_pending = true;
     return true;
 }
 
 static void ble_service_unlock_input_frame(BleServiceObject* instance) {
+    instance->frame_pending = false;
     if(furi_semaphore_release(instance->frame_lock) != FuriStatusOk) {
         BLE_LOG_W("%s - frame unlock failed", instance->config->name);
     }
