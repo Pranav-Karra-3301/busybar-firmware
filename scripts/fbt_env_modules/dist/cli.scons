@@ -7,9 +7,7 @@ distenv.PhonyTarget(
     [
         [
             "${PYTHON3}",
-            "${FBT_SCRIPT_DIR}/serial_cli.py",
-            "-p",
-            "${FLIP_PORT}",
+            distenv.Real("#scripts/busybar_telnet.py"),
             "${ARGS}",
         ]
     ],

@@ -72,3 +72,7 @@ while the device is connected via USB and its virtual ethernet interface is init
 - `targets`             - Firmware targets: platform specific code
 
 Also, see `ReadMe.md` files inside those directories for further details.
+
+## Utilities
+
+- `./fbt cli`, `scripts/busybar_telnet.py` — interactive BusyBar Telnet client.

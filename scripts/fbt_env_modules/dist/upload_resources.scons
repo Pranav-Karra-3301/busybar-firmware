@@ -7,6 +7,7 @@ upload_resources = distenv.PhonyTarget(
         [
             "${PYTHON3}",
             distenv.Real("${FBT_SCRIPT_DIR}/storage.py"),
+            "${ARGS}",
             "send",
             firmware_env["RESOURCES_ROOT"],
             "/ext",
