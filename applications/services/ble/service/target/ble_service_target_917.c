@@ -21,25 +21,28 @@ static bool ble_service_target_init(BleServiceObject* instance, size_t data_size
         return false;
     }
 
-    const BleIntercomServiceData* service_config = data;
-    BLE_LOG_D("%s - config char_count: %d", instance->config->name, service_config->char_count);
-    uint8_t offset = 0;
+    // const BleIntercomServiceData* service_config = data;
+    // BLE_LOG_D("%s - config char_count: %d", instance->config->name, service_config->char_count);
+    // uint8_t offset = 0;
 
-    for(size_t i = 0; i < service_config->char_count; i++) {
-        const BleCharacteristicData* char_init =
-            (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
-        size_t data_size = char_init->header.data_size;
+    // for(size_t i = 0; i < service_config->char_count; i++) {
+    //     const BleCharacteristicData* char_init =
+    //         (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
+    //     size_t data_size = char_init->header.data_size;
 
-        BLE_LOG_D(
-            "%s - char: %d data_size: %d",
-            instance->config->name,
-            char_init->header.index,
-            data_size);
-        BleCharacteristicObject* ch = instance->chars[char_init->header.index];
-        ble_characteristic_set_data(ch, char_init->data, data_size);
+    //     BLE_LOG_D(
+    //         "%s - char: %d data_size: %d",
+    //         instance->config->name,
+    //         char_init->header.index,
+    //         data_size);
+    //     BleCharacteristicObject* ch = instance->chars[char_init->header.index];
+    //     ble_characteristic_set_data(ch, char_init->data, data_size);
 
-        offset += (data_size + sizeof(BleCharacteristicDataHeader));
-    }
+    //     offset += (data_size + sizeof(BleCharacteristicDataHeader));
+    // }
+
+    ///TODO: add callback here, for special action with each character
+    ble_service_parse_intercom_service_data(instance, data, NULL);
 
     if(ble_worker_register_service(instance)) {
         ble_service_switch_state(instance, state);
@@ -66,29 +69,21 @@ static bool ble_service_command_handler_init(
     return result;
 }
 
+static void ble_service_update_characteristic_extra_action(BleCharacteristicObject* ch) {
+    const uint16_t handle = ble_characteristic_get_handle(ch);
+    const uint8_t cccd_value = ble_characteristic_get_cccd_value(ch);
+    size_t data_size = ble_characteristic_get_data_size(ch);
+    ble_worker_send(handle, data_size, ble_characteristic_get_data(ch), cccd_value);
+}
+
 static bool ble_service_update_request(BleServiceObject* instance, size_t data_size, void* data) {
     if(data_size == 0) {
         BLE_LOG_W("Data_size == 0");
         return false;
     }
 
-    const BleIntercomServiceData* service_config = data;
-    uint8_t offset = 0;
-
-    for(size_t i = 0; i < service_config->char_count; i++) {
-        const BleCharacteristicData* char_init =
-            (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
-        size_t data_size = char_init->header.data_size;
-
-        BleCharacteristicObject* ch = instance->chars[char_init->header.index];
-        ble_characteristic_set_data(ch, char_init->data, data_size);
-
-        const uint16_t handle = ble_characteristic_get_handle(ch);
-        const uint8_t cccd_value = ble_characteristic_get_cccd_value(ch);
-        ble_worker_send(handle, data_size, ble_characteristic_get_data(ch), cccd_value);
-
-        offset += (data_size + sizeof(BleCharacteristicDataHeader));
-    }
+    ble_service_parse_intercom_service_data(
+        instance, data, ble_service_update_characteristic_extra_action);
 
     ble_service_prepare_send_intercom_frame(
         instance, BleIntercomFrameTypeResponse, BleServiceCommandUpdate, 0, NULL);

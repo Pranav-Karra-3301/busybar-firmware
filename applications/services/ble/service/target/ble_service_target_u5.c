@@ -58,35 +58,19 @@ static bool ble_service_command_handler_init(
 }
 
 static bool ble_service_update_request(BleServiceObject* instance, size_t data_size, void* data) {
+    ///TODO: think of moving this to ble_service_parse_intercom_service_data
     if(data_size == 0) {
         BLE_LOG_W("Data_size == 0");
         return false;
     }
 
-    const BleIntercomServiceData* service_config = data;
-    uint8_t offset = 0;
-
-    for(size_t i = 0; i < service_config->char_count; i++) {
-        const BleCharacteristicData* char_init =
-            (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
-        size_t data_size = char_init->header.data_size;
-
-        BleCharacteristicObject* ch = instance->chars[char_init->header.index];
-        ble_characteristic_set_data(ch, char_init->data, data_size);
-
-        BLE_LOG_D(
-            "Ch: %s new data: %s",
-            ble_characteristic_get_config(ch)->name,
-            (const char*)char_init->data);
-
-        offset += (data_size + sizeof(BleCharacteristicDataHeader));
-    }
+    bool result = ble_service_parse_intercom_service_data(instance, data, NULL);
 
     size_t total_size = sizeof(BleCharacteristicCountType);
     ble_service_prepare_send_intercom_frame(
         instance, BleIntercomFrameTypeResponse, BleServiceCommandUpdate, total_size, data);
 
-    return true;
+    return result;
 }
 
 static bool ble_service_update_response(BleServiceObject* instance, size_t data_size, void* data) {

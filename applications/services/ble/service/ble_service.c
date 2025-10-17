@@ -301,3 +301,31 @@ BleIntercomServiceData* ble_service_create_intercom_service_data_pack(
     *output_pack_size = total_config_size;
     return config;
 }
+
+bool ble_service_parse_intercom_service_data(
+    BleServiceObject* instance,
+    const BleIntercomServiceData* data,
+    BleParseIntercomServiceDataCharacteristicExtraAction action) {
+    const BleIntercomServiceData* service_config = data;
+    uint8_t offset = 0;
+
+    for(size_t i = 0; i < service_config->char_count; i++) {
+        const BleCharacteristicData* char_init =
+            (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
+        size_t data_size = char_init->header.data_size;
+
+        BleCharacteristicObject* ch = instance->chars[char_init->header.index];
+        ble_characteristic_set_data(ch, char_init->data, data_size);
+
+        BLE_LOG_D(
+            "Ch: %s new data: %s",
+            ble_characteristic_get_config(ch)->name,
+            (const char*)char_init->data);
+
+        if(action) action(ch);
+
+        offset += (data_size + sizeof(BleCharacteristicDataHeader));
+    }
+
+    return true;
+}

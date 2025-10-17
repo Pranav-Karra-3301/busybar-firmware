@@ -33,10 +33,11 @@ struct BleServiceObject {
 #endif
 };
 
-void ble_service_enqueue_message(
-    BleServiceObject* instance,
-    BleServiceCommandEnum command,
-    uint8_t ch_index);
+///TODO: make this function to return result value
+typedef void (*BleParseIntercomServiceDataCharacteristicExtraAction)(
+    BleCharacteristicObject* characteristic);
+
+void ble_service_enqueue_message(BleServiceObject* instance);
 void ble_service_enqueue_run(BleServiceObject* instance);
 
 void ble_service_prepare_send_intercom_frame(
@@ -61,3 +62,8 @@ BleIntercomServiceData* ble_service_create_intercom_service_data_pack(
     BleServiceObject* instance,
     bool modified_only,
     size_t* output_pack_size);
+
+bool ble_service_parse_intercom_service_data(
+    BleServiceObject* instance,
+    const BleIntercomServiceData* data,
+    BleParseIntercomServiceDataCharacteristicExtraAction action);
