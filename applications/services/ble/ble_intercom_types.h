@@ -1,6 +1,10 @@
 #pragma once
 
+#include <intercom/intercom.h>
 #include <furi.h>
+
+///TODO: remove this from here by adjusting BleServiceCommand and command types below
+#include "service/ble_service_command.h"
 
 typedef enum {
     BleIntercomFrameSourceSystem,
