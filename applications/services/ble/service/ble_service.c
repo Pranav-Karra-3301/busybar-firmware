@@ -187,9 +187,18 @@ void ble_service_enqueue_message(BleServiceObject* instance) {
 
 void ble_service_enqueue_init(BleServiceObject* instance) {
     furi_assert(instance);
-    BLE_LOG_D("%s - enqueue init", instance->config->name);
-    if(ble_service_lock(instance)) {
-        ble_service_enqueue_message(instance, BleServiceCommandInit, 0);
+    if(ble_service_lock(instance) && ble_service_lock_input_frame(instance)) {
+        ble_service_frame_buf_check_alloc(instance, sizeof(BleIntercomFrameHeader));
+        BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
+
+        frame->header.source = BleIntercomFrameSourceService;
+        frame->header.frame_type = BleIntercomFrameTypeRequest;
+        frame->header.command.service.command = BleServiceCommandInit;
+        frame->header.command.service.index = instance->config->index;
+        frame->header.data_size = 0;
+        BLE_LOG_I("%s - enqueue init", instance->config->name);
+
+        ble_service_enqueue_message(instance);
         ble_service_unlock(instance);
     }
 }
