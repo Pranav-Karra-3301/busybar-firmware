@@ -21,6 +21,7 @@ struct BleServiceObject {
 
     FuriSemaphore* frame_lock;
     bool frame_pending;
+    size_t buffer_size;
     uint8_t* frame_buf;
 
     BleServiceStateChangeCallback state_change_callback;

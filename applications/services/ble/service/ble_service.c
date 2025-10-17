@@ -36,10 +36,10 @@ static void ble_service_unlock_input_frame(BleServiceObject* instance) {
 static inline void
     ble_service_frame_buf_check_alloc(BleServiceObject* instance, size_t new_frame_size) {
     furi_check(new_frame_size < MAX_BLE_INTERCOM_FRAME_SIZE);
-    if(new_frame_size > instance->frame_size) {
+    if(new_frame_size > instance->buffer_size) {
         free(instance->frame_buf);
         instance->frame_buf = malloc(new_frame_size);
-        instance->frame_size = new_frame_size;
+        instance->buffer_size = new_frame_size;
         BLE_LOG_D("%s - buf_size: %d", instance->config->name, new_frame_size);
     }
 }
@@ -133,7 +133,7 @@ BleServiceObject* ble_service_alloc(
             instance->chars[config->intercom_index] = ble_char;
         }
     }
-    instance->frame_size = 0;
+    instance->buffer_size = 0;
 
     return instance;
 }
