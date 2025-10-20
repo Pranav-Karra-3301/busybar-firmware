@@ -606,7 +606,8 @@ static int32_t ble_worker_thread_callback(void* context) {
                         }
 
                         ble_service_unlock(service);
-                    }
+                    } else
+                        furi_crash("FAIL!");
                 } else {
                     BLE_LOG_W("Not found: %04X", handle);
                     status =
