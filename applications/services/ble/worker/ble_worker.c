@@ -36,6 +36,12 @@
 
 #define RSI_BLE_ATT_CONFIG_BITMAP (RSI_BLE_ATT_MAINTAIN_IN_HOST)
 
+#ifdef RSI_BLE_SMP_IO_CAPABILITY
+#undef RSI_BLE_SMP_IO_CAPABILITY
+#define RSI_BLE_SMP_IO_CAPABILITY 0x03
+#endif
+
+#define MITM_REQ 1
 //! application events list
 typedef enum {
     BLEWorkerEvtExit = (1 << 0),
@@ -53,6 +59,10 @@ typedef enum {
     BLEWorkerEvtDataTransmit = (1 << 10),
     BLEWorkerEvtMtu = (1 << 11),
     BLEWorkerEvtIndicateConfirm = (1 << 12),
+
+    BLEWorkerSmpResponse = (1 << 13),
+    BLEWorkerSmpEncryptStarted = (1 << 14),
+    BLEWorkerSmpLtkRequest = (1 << 15),
 } BLEWorkerEvt;
 
 #define BLE_USART_ECHO_ALL_EVENTS                                                                \
@@ -60,7 +70,8 @@ typedef enum {
      BLEWorkerEvtDisconnected | BLEWorkerEvtPhyUpdateComplete | BLEWorkerEvtConnUpdate |         \
      BLEWorkerEvtDataLengthChange | BLEWorkerEvtReceveRemoteFeatures | BLEWorkerEvtMoreDataReq | \
      BLEWorkerEvtWrite | BLEWorkerEvtDataTransmit | BLEWorkerEvtMtu |                            \
-     BLEWorkerEvtIndicateConfirm)
+     BLEWorkerEvtIndicateConfirm | BLEWorkerSmpResponse | BLEWorkerSmpLtkRequest |               \
+     BLEWorkerSmpEncryptStarted)
 
 typedef struct {
     ///TODO: for now this is ok, for future maybe it is worth to make each characteristic
@@ -82,6 +93,7 @@ typedef struct {
     FuriThread* thread;
     FuriSemaphore* indication_sem;
     FuriSemaphore* notification_sem;
+    uint8_t pairing_info_available;
     ///TODO: this can be removed
     bool connected;
     BleWorkerState state;
@@ -104,6 +116,11 @@ typedef struct {
 
     rsi_ble_event_write_t app_ble_write_event;
     rsi_ble_event_mtu_t app_ble_mtu_event;
+
+    rsi_bt_event_smp_resp_t rsi_bt_event_smp_resp;
+    rsi_bt_event_le_ltk_request_t ble_ltk_req;
+    rsi_bt_event_encryption_enabled_t enc_enabled;
+    rsi_bt_event_le_security_keys_t app_ble_sec_keys;
 
     BleServiceEntryDict_t service_dict;
 } BleWorker;
@@ -329,6 +346,93 @@ static void ble_worker_on_mtu_event(rsi_ble_event_mtu_t* rsi_ble_mtu) {
     furi_thread_flags_set(furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtMtu);
 }
 
+//===========================================================================================
+static void print_array(FuriString* buf, uint8_t* data, size_t data_size) {
+    for(uint8_t i = 0; i < data_size; i++) {
+        furi_string_cat_printf(buf, "%02X ", data[i]);
+    }
+}
+
+void rsi_ble_on_smp_request(rsi_bt_event_smp_req_t* remote_dev_address) {
+    FuriString* buf = furi_string_alloc();
+    uint8_t n = sizeof(remote_dev_address->dev_addr);
+    print_array(buf, remote_dev_address->dev_addr, n);
+    BLE_LOG_W("SMP_REQUEST addr: %s", furi_string_get_cstr(buf));
+
+    furi_string_free(buf);
+}
+
+void rsi_ble_on_smp_response(rsi_bt_event_smp_resp_t* resp) {
+    BLE_LOG_W("rsi_ble_on_smp_response");
+    memcpy(&ble_worker_instance->rsi_bt_event_smp_resp, resp, sizeof(rsi_bt_event_smp_resp_t));
+    furi_thread_flags_set(furi_thread_get_id(ble_worker_instance->thread), BLEWorkerSmpResponse);
+}
+
+void rsi_ble_on_smp_passkey(rsi_bt_event_smp_passkey_t* remote_dev_address) {
+    UNUSED(remote_dev_address);
+    BLE_LOG_W("rsi_ble_on_smp_passkey");
+}
+
+void rsi_ble_on_smp_failed(uint16_t resp_status, rsi_bt_event_smp_failed_t* remote_dev_address) {
+    UNUSED(resp_status);
+    UNUSED(remote_dev_address);
+    BLE_LOG_W("rsi_ble_on_smp_failed status: %X", resp_status);
+}
+
+void rsi_ble_on_encrypt_started(
+    uint16_t resp_status,
+    rsi_bt_event_encryption_enabled_t* enc_enabled) {
+    UNUSED(resp_status);
+    UNUSED(enc_enabled);
+    BLE_LOG_W("rsi_ble_on_encrypt_started status: %X", resp_status);
+    memcpy(
+        &ble_worker_instance->enc_enabled, enc_enabled, sizeof(rsi_bt_event_encryption_enabled_t));
+
+    furi_thread_flags_set(
+        furi_thread_get_id(ble_worker_instance->thread), BLEWorkerSmpEncryptStarted);
+}
+
+void rsi_ble_on_smp_passkey_display(rsi_bt_event_smp_passkey_display_t* smp_passkey_display) {
+    UNUSED(smp_passkey_display);
+    BLE_LOG_W("rsi_ble_on_smp_passkey_display");
+}
+
+void rsi_ble_on_sc_passkey(rsi_bt_event_sc_passkey_t* sc_passkey) {
+    UNUSED(sc_passkey);
+    BLE_LOG_W("rsi_ble_on_sc_passkey: %ld", sc_passkey->passkey);
+}
+
+void rsi_ble_on_le_ltk_req_event(rsi_bt_event_le_ltk_request_t* rsi_ble_event_le_ltk_request) {
+    UNUSED(rsi_ble_event_le_ltk_request);
+
+    BLE_LOG_W("rsi_ble_on_le_ltk_req_event");
+    memcpy(
+        &ble_worker_instance->ble_ltk_req,
+        rsi_ble_event_le_ltk_request,
+        sizeof(rsi_bt_event_le_ltk_request_t));
+    furi_thread_flags_set(furi_thread_get_id(ble_worker_instance->thread), BLEWorkerSmpLtkRequest);
+}
+
+void rsi_ble_on_le_security_keys(rsi_bt_event_le_security_keys_t* rsi_ble_event_le_security_keys) {
+    UNUSED(rsi_ble_event_le_security_keys);
+
+    BLE_LOG_W("rsi_ble_on_le_security_keys");
+    memcpy(
+        &ble_worker_instance->app_ble_sec_keys,
+        rsi_ble_event_le_security_keys,
+        sizeof(rsi_bt_event_le_security_keys_t));
+}
+
+void ble_on_cli_smp_response_event(rsi_bt_event_smp_resp_t* remote_dev_address) {
+    UNUSED(remote_dev_address);
+    BLE_LOG_W("ble_on_cli_smp_response_event");
+}
+
+void rsi_ble_on_sc_method(rsi_bt_event_sc_method_t* scmethod) {
+    UNUSED(scmethod);
+    BLE_LOG_W("rsi_ble_on_sc_method");
+}
+//===========================================================================================
 static void ble_hw_config() {
     sl_status_t status = 0;
     static uint8_t rsi_app_resp_get_dev_addr[RSI_DEV_ADDR_LEN] = {0};
@@ -358,6 +462,18 @@ static void ble_hw_config() {
         ble_worker_on_conn_update_complete_event,
         NULL);
 
+    rsi_ble_smp_register_callbacks(
+        rsi_ble_on_smp_request,
+        rsi_ble_on_smp_response,
+        rsi_ble_on_smp_passkey,
+        rsi_ble_on_smp_failed,
+        rsi_ble_on_encrypt_started,
+        rsi_ble_on_smp_passkey_display,
+        rsi_ble_on_sc_passkey,
+        rsi_ble_on_le_ltk_req_event,
+        rsi_ble_on_le_security_keys,
+        ble_on_cli_smp_response_event,
+        rsi_ble_on_sc_method);
     rsi_ble_gap_extended_register_callbacks(
         ble_worker_simple_peripheral_on_remote_features_event, ble_worker_more_data_req_event);
 
@@ -638,6 +754,54 @@ static int32_t ble_worker_thread_callback(void* context) {
         if(events & BLEWorkerEvtIndicateConfirm) {
             BLE_LOG_D("BLEWorkerEvtIndicateConfirm");
             furi_semaphore_release(ble_worker_instance->indication_sem);
+        }
+
+        if(events & BLEWorkerSmpResponse) {
+            BLE_LOG_W("BLEWorkerSmpResponse");
+            status = rsi_ble_smp_pair_response(
+                ble_worker_instance->rsi_bt_event_smp_resp.dev_addr,
+                RSI_BLE_SMP_IO_CAPABILITY,
+                MITM_REQ);
+
+            if(status != SL_STATUS_OK) {
+                BLE_LOG_W("Passkey Status: %lX", status);
+            }
+            ble_worker_instance->pairing_info_available = 0;
+        }
+
+        if(events & BLEWorkerSmpEncryptStarted) {
+            BLE_LOG_W("BLEWorkerSmpEncryptStarted");
+            ble_worker_instance->pairing_info_available = 1;
+        }
+
+        if(events & BLEWorkerSmpLtkRequest) {
+            BLE_LOG_W("BLEWorkerSmpLtkRequest");
+            if(ble_worker_instance->pairing_info_available) {
+                const rsi_bt_event_encryption_enabled_t* encrypt_keys =
+                    &ble_worker_instance->enc_enabled;
+
+                status = rsi_ble_ltk_req_reply(
+                    ble_worker_instance->remote_dev_address,
+                    (1 | encrypt_keys->enabled | (encrypt_keys->sc_enable << 7)),
+                    encrypt_keys->localltk);
+                if(status != RSI_SUCCESS) {
+                    BLE_LOG_W("\n ltk req reply cmd failed with reason = %lx \n", status);
+                }
+            } else {
+                rsi_ble_ltk_req_reply(ble_worker_instance->remote_dev_address, 0, NULL);
+                if(status != RSI_SUCCESS) {
+                    BLE_LOG_W("\n ltk negative req reply cmd failed with reason = %lx \n", status);
+                }
+
+                /* restarting the SMP */
+                status = rsi_ble_smp_pair_request(
+                    ble_worker_instance->remote_dev_address, RSI_BLE_SMP_IO_CAPABILITY, MITM_REQ);
+                if(status != RSI_SUCCESS) {
+                    BLE_LOG_W("\n smp pair req failed with reason = %lx \n", status);
+                } else {
+                    ble_worker_instance->pairing_info_available = 0;
+                }
+            }
         }
     }
 
