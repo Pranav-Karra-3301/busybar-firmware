@@ -213,7 +213,8 @@ def run_build_update_bundles(args):
 
     upd_si917_ta_rps = discover_si917_NWP_rps_path()
 
-    upd_si917_ta_rps = discover_si917_NWP_rps_path()
+    # WARNING path overrided especially for factory branch
+    upd_si917_ta_rps = "core2_fw/SiWG917-B.2.13.5.2.0.5.rps"
 
     ensure_run_assets_dir()
     # TODO: check if the firmware builded successfully before running this command?

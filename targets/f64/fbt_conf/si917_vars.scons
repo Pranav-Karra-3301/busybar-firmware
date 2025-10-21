@@ -11,9 +11,13 @@ VARS.AddVariables(
     (
         "SI917_NWP_STACK",
         "NWP stack to use for the SI917 target",
-        "#lib/wiseconnect/connectivity_firmware/standard/SiWG917-B.2.14.5.0.0.10.rps",
+        "core2_fw/SiWG917-B.2.13.5.2.0.5.rps",      # WARNING path overrided especially for factory branch
     ),
 )
+
+        # "#lib/wiseconnect/connectivity_firmware/standard/SiWG917-B.2.14.5.0.0.10.rps",
+# Previous version for 917 ta:
+# https://github.com/SiliconLabs/wiseconnect/tree/2f93cc44966f651c51cdd3d4b779d850fbf03d22/connectivity_firmware/standard
 
 
 # Inject default values for this target into global variables
