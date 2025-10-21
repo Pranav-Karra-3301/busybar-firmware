@@ -89,6 +89,18 @@ bool ble_stop(Ble* ble) {
     return msg.result;
 }
 
+bool ble_forget(Ble* ble) {
+    furi_assert(ble);
+    BleMessage msg = {0};
+    msg.header.frame_type = BleIntercomFrameTypeRequest;
+    msg.header.command.system = BleCommandForgetPairing;
+    msg.header.data_size = 0;
+    msg.header.source = BleIntercomFrameSourceSystem;
+
+    ble_send_message(ble, &msg);
+    return msg.result;
+}
+
 void ble_uart_tx_data(Ble* ble, BleUartChannel channel, const void* data, const size_t data_size) {
     furi_assert(ble);
     furi_assert(channel < BleUartChannelCount);
