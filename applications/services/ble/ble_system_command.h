@@ -7,6 +7,7 @@ typedef enum {
     BleCommandEnable,
     BleCommandDisable,
     BleCommandGetState,
+    BleCommandForgetPairing,
 
     BleCommandCount
 } BleSystemCommand;
