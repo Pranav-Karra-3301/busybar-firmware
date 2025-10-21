@@ -11,7 +11,7 @@ VARS.AddVariables(
     (
         "SI917_NWP_STACK",
         "NWP stack to use for the SI917 target",
-        "core2_fw/SiWG917-B.2.13.5.2.0.5.rps",      # WARNING path overrided especially for factory branch
+        "#core2_fw/SiWG917-B.2.13.5.2.0.5.rps",      # WARNING path overrided especially for factory branch
     ),
 )
 
