@@ -15,6 +15,8 @@
 #include "ble_worker_util.h"
 #include "../service/ble_service_i.h"
 
+#include "nvm/nvm.h"
+
 #include <m-dict.h>
 
 #define TAG "BleWorker"
@@ -94,6 +96,7 @@ typedef struct {
     FuriSemaphore* indication_sem;
     FuriSemaphore* notification_sem;
     uint8_t pairing_info_available;
+    Nvm* nvm;
     ///TODO: this can be removed
     bool connected;
     BleWorkerState state;
@@ -771,7 +774,19 @@ static int32_t ble_worker_thread_callback(void* context) {
 
         if(events & BLEWorkerSmpEncryptStarted) {
             BLE_LOG_W("BLEWorkerSmpEncryptStarted");
-            ble_worker_instance->pairing_info_available = 1;
+            if(ble_worker_instance->pairing_info_available == 0) {
+                ble_worker_instance->pairing_info_available = 1;
+                bool result = nvm_write(
+                    ble_worker_instance->nvm,
+                    NvmKeyBlePairingData,
+                    &ble_worker_instance->enc_enabled,
+                    sizeof(rsi_bt_event_encryption_enabled_t));
+
+                if(result)
+                    BLE_LOG_I("LTK saved");
+                else
+                    BLE_LOG_W("Failed to save LTK");
+            }
         }
 
         if(events & BLEWorkerSmpLtkRequest) {
@@ -941,6 +956,34 @@ static void ble_prepare_uuid(const Char_UUID_t* temp, const uint8_t size, uuid_t
         ble_worker_prepare_128bit_uuid(temp->Char_UUID_128, uuid);
 }
 
+static bool ble_worker_load_pairing_data(Nvm* nvm, rsi_bt_event_encryption_enabled_t* enc) {
+    size_t key_len = 0;
+    bool result = false;
+    do {
+        if(!nvm_exists(nvm, NvmKeyBlePairingData, &key_len)) {
+            BLE_LOG_W("LTK key not exist");
+            break;
+        }
+
+        const size_t struct_size = sizeof(rsi_bt_event_encryption_enabled_t);
+        if(key_len != struct_size) {
+            BLE_LOG_W("Wrong LTK key size %d != %d", key_len, struct_size);
+            break;
+        }
+
+        BLE_LOG_I("Read LTK key struct of %d bytes", key_len);
+        if(!nvm_read(nvm, NvmKeyBlePairingData, enc, key_len)) {
+            BLE_LOG_W("Failed to read LTK key");
+            break;
+        }
+
+        BLE_LOG_I("LTK read done");
+        result = true;
+    } while(false);
+
+    return result;
+}
+
 void ble_worker_init() {
     ble_worker_instance = malloc(sizeof(BleWorker));
     ble_worker_instance->state = BleWorkerStateIdle;
@@ -950,6 +993,11 @@ void ble_worker_init() {
     ble_worker_instance->indication_sem = furi_semaphore_alloc(1, 0);
     ble_worker_instance->notification_sem = furi_semaphore_alloc(1, 1);
     ble_worker_instance->max_payload_size = BLE_WORKER_MAX_MTU_SIZE - BLE_WORKER_ATTR_HEADER_SIZE;
+    ble_worker_instance->nvm = furi_record_open(RECORD_NVM);
+
+    ble_worker_instance->pairing_info_available =
+        ble_worker_load_pairing_data(ble_worker_instance->nvm, &ble_worker_instance->enc_enabled);
+
     BleServiceEntryDict_init(ble_worker_instance->service_dict);
 
     ble_hw_config();
@@ -1111,4 +1159,18 @@ void ble_worker_receive_confirm(uint16_t handle, uint8_t cccd_value) {
     }
 
     if(status != 0) BLE_LOG_W("Recv fail %08lX", status);
+}
+
+bool ble_worker_forget_pairing() {
+    bool result = nvm_delete(ble_worker_instance->nvm, NvmKeyBlePairingData);
+    if(!ble_worker_instance->connected) {
+        memset(&ble_worker_instance->enc_enabled, 0, sizeof(rsi_bt_event_encryption_enabled_t));
+        ble_worker_instance->pairing_info_available = 0;
+    }
+
+    if(result)
+        BLE_LOG_I("LTK removed");
+    else
+        BLE_LOG_W("LTK remove failed");
+    return result;
 }
