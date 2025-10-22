@@ -46,3 +46,5 @@ struct Ble {
     BleMessage* current_message;
 #endif
 };
+
+bool ble_init(Ble* ble);
