@@ -8,8 +8,6 @@
  */
 #define RECORD_BLE "ble"
 
-#define BLE_AUTO_INIT
-
 typedef enum {
     BleUartChannelNordic,
     BleUartChannelHM10,

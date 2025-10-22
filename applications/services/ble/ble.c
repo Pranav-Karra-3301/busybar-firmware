@@ -1,12 +1,6 @@
 #include "ble_i.h"
 #include "ble_system_command.h"
 
-#if defined(SI917)
-#include "worker/ble_worker.h"
-#else
-#include "http/ble_http_repeater.h"
-#endif
-
 #define TAG "BLE"
 
 static void ble_update_state_from_services(Ble* instance) {
@@ -90,14 +84,6 @@ static void ble_service_state_change_callback(void* context) {
     furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeServiceStateChanged);
 }
 
-#if !defined(SI917) && defined(BLE_AUTO_INIT)
-static void ble_init_timer_callback(void* context) {
-    BLE_LOG_D("ble_init_timer_callback");
-    Ble* instance = context;
-    ble_init(instance);
-}
-#endif
-
 static Ble* ble_alloc() {
     Ble* instance = malloc(sizeof(Ble));
     instance->state = BleServiceStateReset;
@@ -131,11 +117,6 @@ static Ble* ble_alloc() {
             instance);
     }
 
-#if !defined(SI917) && defined(BLE_AUTO_INIT)
-    ble_http_repeater_init();
-    instance->init_timer = furi_timer_alloc(ble_init_timer_callback, FuriTimerTypeOnce, instance);
-    furi_timer_start(instance->init_timer, 3000);
-#endif
     furi_record_create(RECORD_BLE, instance);
 
     return instance;

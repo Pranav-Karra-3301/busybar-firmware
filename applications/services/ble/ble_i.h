@@ -42,7 +42,6 @@ struct Ble {
 
     BleServiceObject* services[BLE_SERVICES_COUNT];
 #if !defined(SI917)
-    FuriTimer* init_timer;
     BleMessage* current_message;
 #endif
 };
