@@ -1,5 +1,6 @@
 #include "ble_i.h"
 #include "ble_system_command.h"
+#include "http/ble_http_repeater.h"
 
 #define TAG "BLE"
 
@@ -117,6 +118,7 @@ static Ble* ble_alloc() {
             instance);
     }
 
+    ble_http_repeater_init();
     furi_record_create(RECORD_BLE, instance);
 
     return instance;

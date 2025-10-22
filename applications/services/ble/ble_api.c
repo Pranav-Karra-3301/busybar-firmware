@@ -21,8 +21,6 @@ bool ble_init(Ble* ble) {
 
     bool result = false;
     if(state == BleServiceStateReset) {
-        ble_http_repeater_init();
-
         BleMessage msg = {0};
         msg.header.frame_type = BleIntercomFrameTypeRequest;
         msg.header.command = BleCommandInit;
