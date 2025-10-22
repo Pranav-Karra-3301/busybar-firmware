@@ -73,7 +73,7 @@ static bool ble_command_disable_response(BleIntercomFrameGeneric* frame, void* c
 
 static bool ble_command_get_state_request(BleIntercomFrameGeneric* frame, void* context) {
     BLE_LOG_D("BleCommandDisable request");
-    frame->header.command.system = BleCommandGetState;
+    frame->header.command = BleCommandGetState;
     return ble_command_request_process(frame, context);
 }
 

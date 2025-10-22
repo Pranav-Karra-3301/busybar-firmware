@@ -58,8 +58,8 @@ void ble_service_prepare_send_intercom_frame(
 
     header->source = BleIntercomFrameSourceService;
     header->frame_type = frame_type;
-    header->command.service.command = command;
-    header->command.service.index = instance->config->index;
+    header->command = command;
+    header->service_index = instance->config->index;
     header->data_size = data_size;
     ///TODO: need more checks if there_is_enough memory in buffer
     if(data_size && data) memcpy(frame->data, data, data_size);
@@ -93,7 +93,7 @@ static bool ble_service_process_input_frame(BleServiceObject* instance) {
     ble_service_target_execute(
         instance,
         frame->header.frame_type,
-        frame->header.command.service.command,
+        frame->header.command,
         frame->header.data_size,
         frame->data);
 
@@ -193,8 +193,8 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
 
         frame->header.source = BleIntercomFrameSourceService;
         frame->header.frame_type = BleIntercomFrameTypeRequest;
-        frame->header.command.service.command = BleServiceCommandInit;
-        frame->header.command.service.index = instance->config->index;
+        frame->header.command = BleServiceCommandInit;
+        frame->header.service_index = instance->config->index;
         frame->header.data_size = 0;
         BLE_LOG_I("%s - enqueue init", instance->config->name);
 

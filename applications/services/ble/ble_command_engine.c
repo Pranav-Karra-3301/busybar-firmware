@@ -7,7 +7,7 @@ struct BleCommandEngine {
     BleEngineCommandPostProcess post_process;
 };
 
-///TODO: Here we should make some factorym which
+///TODO: Here we should make some factory which
 //will return certain type of engine depending on System/Service parameter
 //In that case we can do extern command lists here and not in upper layers
 BleCommandEngine* ble_command_engine_alloc(
@@ -38,8 +38,7 @@ bool ble_command_engine_run(
 
     const BleIntercomFrameType frame_type = frame->header.frame_type;
 
-    ///TODO: deal with different command format
-    const BleCommandCode command = (BleCommandCode)frame->header.command.system;
+    const BleCommandCode command = (BleCommandCode)frame->header.command;
 
     furi_check(command < instance->commands_count);
 

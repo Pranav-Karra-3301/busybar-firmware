@@ -78,7 +78,7 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
         } else
             BLE_LOG_W("Packet lost!");
     } else {
-        BleServiceObject* service = instance->services[frame->header.command.service.index];
+        BleServiceObject* service = instance->services[frame->header.service_index];
         ble_service_process_mailbox(service, frame);
     }
 }

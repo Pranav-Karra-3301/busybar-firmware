@@ -3,9 +3,6 @@
 #include <intercom/intercom.h>
 #include <furi.h>
 
-///TODO: remove this from here by adjusting BleServiceCommand and command types below
-#include "service/ble_service_command.h"
-
 typedef enum {
     BleIntercomFrameSourceSystem,
     BleIntercomFrameSourceService,
@@ -18,19 +15,12 @@ typedef enum {
 
 typedef uint8_t BleCommandCode;
 
-typedef struct {
-    BleCommandCode command;
-    uint16_t index;
-    // uint16_t char_index;
-} BleServiceCommand;
-
 typedef struct /*FURI_PACKED*/ {
     BleIntercomFrameSource source;
     BleIntercomFrameType frame_type;
-    union {
-        BleCommandCode system;
-        BleServiceCommand service;
-    } command;
+    BleCommandCode command;
+    uint16_t service_index;
+
     size_t data_size;
 } BleIntercomFrameHeader;
 
