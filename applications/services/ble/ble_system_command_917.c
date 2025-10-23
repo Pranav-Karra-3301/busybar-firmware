@@ -81,6 +81,11 @@ static bool ble_command_forget_pairing_response(BleIntercomFrameGeneric* frame, 
 }
 
 const BleCommandItem ble_commands[BleCommandCount] = {
+    [BleCommandUnknown] =
+        {
+            .request = NULL,
+            .response = NULL,
+        },
     [BleCommandInit] =
         {
             .request = ble_command_init_request,

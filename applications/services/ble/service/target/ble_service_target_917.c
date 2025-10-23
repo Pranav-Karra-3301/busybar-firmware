@@ -21,27 +21,6 @@ static bool ble_service_target_init(BleServiceObject* instance, size_t data_size
         return false;
     }
 
-    // const BleIntercomServiceData* service_config = data;
-    // BLE_LOG_D("%s - config char_count: %d", instance->config->name, service_config->char_count);
-    // uint8_t offset = 0;
-
-    // for(size_t i = 0; i < service_config->char_count; i++) {
-    //     const BleCharacteristicData* char_init =
-    //         (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
-    //     size_t data_size = char_init->header.data_size;
-
-    //     BLE_LOG_D(
-    //         "%s - char: %d data_size: %d",
-    //         instance->config->name,
-    //         char_init->header.index,
-    //         data_size);
-    //     BleCharacteristicObject* ch = instance->chars[char_init->header.index];
-    //     ble_characteristic_set_data(ch, char_init->data, data_size);
-
-    //     offset += (data_size + sizeof(BleCharacteristicDataHeader));
-    // }
-
-    ///TODO: add callback here, for special action with each character
     ble_service_parse_intercom_service_data(instance, data, NULL);
 
     if(ble_worker_register_service(instance)) {
@@ -192,6 +171,7 @@ bool ble_service_target_execute(
             result = ble_service_command_handler_update(instance, frame_type, data_size, data);
             break;
         default:
+            __furi_crash("Unknown command");
             break;
         }
     }

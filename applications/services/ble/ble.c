@@ -69,6 +69,10 @@ static void ble_backend_intercom_rx_callback(const void* data, size_t data_size,
     furi_assert(data_size < MAX_BLE_INTERCOM_FRAME_SIZE);
     Ble* instance = context;
     const BleIntercomFrameGeneric* const frame = data;
+
+    furi_check(frame->header.source != BleIntercomFrameSourceUnknown);
+    furi_check(frame->header.frame_type != BleIntercomFrameTypeUnknown);
+
     if(frame->header.source == BleIntercomFrameSourceSystem) {
         if(furi_semaphore_acquire(instance->mailbox_lock, 100) == FuriStatusOk) {
             memcpy(&instance->mailbox, data, data_size);
