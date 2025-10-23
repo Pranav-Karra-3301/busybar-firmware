@@ -95,7 +95,7 @@ static bool ble_command_get_state_response(BleIntercomFrameGeneric* frame, void*
 
 static bool ble_command_forget_pairing_request(BleIntercomFrameGeneric* frame, void* context) {
     BLE_LOG_D("BleCommandForgetPairing request");
-    frame->header.command.system = BleCommandForgetPairing;
+    frame->header.command = BleCommandForgetPairing;
     return ble_command_request_process(frame, context);
 }
 
