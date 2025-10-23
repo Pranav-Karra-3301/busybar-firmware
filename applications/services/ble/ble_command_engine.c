@@ -39,9 +39,9 @@ bool ble_command_engine_run(
     const BleIntercomFrameType frame_type = frame->header.frame_type;
 
     const BleCommandCode command = (BleCommandCode)frame->header.command;
-
+    const BleCommandCode unknown_command = 0;
+    furi_check(command != unknown_command);
     furi_check(command < instance->commands_count);
-
     const BleCommandItem* const item = &instance->commands[command];
 
     bool result = false;

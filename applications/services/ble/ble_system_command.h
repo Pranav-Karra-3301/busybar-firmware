@@ -3,6 +3,7 @@
 #include "ble_i.h"
 
 typedef enum {
+    BleCommandUnknown,
     BleCommandInit,
     BleCommandEnable,
     BleCommandDisable,

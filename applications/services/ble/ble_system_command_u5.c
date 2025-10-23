@@ -94,6 +94,11 @@ static bool ble_command_get_state_response(BleIntercomFrameGeneric* frame, void*
 }
 
 const BleCommandItem ble_commands[BleCommandCount] = {
+    [BleCommandUnknown] =
+        {
+            .request = NULL,
+            .response = NULL,
+        },
     [BleCommandInit] =
         {
             .request = ble_command_init_request,
