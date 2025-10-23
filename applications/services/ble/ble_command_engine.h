@@ -8,13 +8,10 @@ typedef void (*BleEngineCommandPostProcess)(BleIntercomFrameGeneric* frame, void
 typedef bool (*BleRequestCommandHandler)(BleIntercomFrameGeneric* frame, void* context);
 typedef bool (*BleResponseCommandHandler)(BleIntercomFrameGeneric* frame, void* context);
 
-///TODO: rename to BleCommand, when enum will renamed to BleSystemCommand
 typedef struct {
     BleRequestCommandHandler request;
     BleResponseCommandHandler response;
 } BleCommandItem;
-
-// const BleCommandItem commands[] = {[0] = {.request = }};
 
 typedef struct BleCommandEngine BleCommandEngine;
 
