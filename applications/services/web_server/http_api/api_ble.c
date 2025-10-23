@@ -103,7 +103,7 @@ static bool api_ble_forget_callback(
     furi_record_close(RECORD_BLE);
 
     int code = 404;
-    const char* message = "Unable to forget LTK";
+    const char* message = "LTK already removed";
     if(result)
         MG_REPLY_OK(conn);
     else

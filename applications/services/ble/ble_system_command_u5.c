@@ -104,7 +104,7 @@ static bool ble_command_forget_pairing_response(BleIntercomFrameGeneric* frame, 
     BLE_LOG_D("BleCommandForgetPairing response");
     Ble* instance = context;
 
-    instance->current_message->result = true;
+    instance->current_message->result = frame->data[0];
     api_lock_unlock(instance->current_message->lock);
     return true;
 }

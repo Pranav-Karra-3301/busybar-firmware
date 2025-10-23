@@ -1169,14 +1169,10 @@ void ble_worker_receive_confirm(uint16_t handle, uint8_t cccd_value) {
 
 bool ble_worker_forget_pairing() {
     bool result = nvm_delete(ble_worker_instance->nvm, NvmKeyBlePairingData);
-    if(!ble_worker_instance->connected) {
-        memset(&ble_worker_instance->enc_enabled, 0, sizeof(rsi_bt_event_encryption_enabled_t));
-        ble_worker_instance->pairing_info_available = 0;
-    }
 
-    if(result)
-        BLE_LOG_I("LTK removed");
-    else
-        BLE_LOG_W("LTK remove failed");
+    memset(&ble_worker_instance->enc_enabled, 0, sizeof(rsi_bt_event_encryption_enabled_t));
+    ble_worker_instance->pairing_info_available = 0;
+
+    if(result) BLE_LOG_I("LTK removed");
     return result;
 }
