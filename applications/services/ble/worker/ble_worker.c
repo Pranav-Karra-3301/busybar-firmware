@@ -33,10 +33,16 @@
 #define BLE_CCCD_INDICATION_ENABLED(cccd_value)   ((cccd_value & 0x02) != 0)
 
 //! Configuration bitmap for attributes
-#define RSI_BLE_ATT_MAINTAIN_IN_HOST BIT(0)
-#define RSI_BLE_ATT_SECURITY_ENABLE  BIT(1)
+#define ATT_REC_MAINTAIN_IN_HOST BIT(0) ///< Attribute record maintained in Host
+#define SEC_MODE_1_LEVEL_1       BIT(1) ///< NO Auth and No Enc
+#define SEC_MODE_1_LEVEL_2       BIT(2) ///< UnAUTH with Enc
+#define SEC_MODE_1_LEVEL_3       BIT(3) ///< AUTH with Enc
+#define SEC_MODE_1_LEVEL_4       BIT(4) ///< AUTH LE_SC Pairing with Enc
+#define ON_BR_EDR_LINK_ONLY      BIT(5) ///< BR/EDR link-only mode
+#define ON_LE_LINK_ONLY          BIT(6) ///< LE link-only mode
+#define VARIABLE_ATT_CHAR_VAL    BIT(7) ///< Variable characteristic value length
 
-#define RSI_BLE_ATT_CONFIG_BITMAP (RSI_BLE_ATT_MAINTAIN_IN_HOST)
+#define RSI_BLE_ATT_CONFIG_BITMAP (SEC_MODE_1_LEVEL_3)
 
 #ifdef RSI_BLE_SMP_IO_CAPABILITY
 #undef RSI_BLE_SMP_IO_CAPABILITY
@@ -938,6 +944,7 @@ static uint16_t ble_worker_add_char_val_att(
         new_att.att_uuid.val.val16 = RSI_BLE_CLIENT_CHAR_UUID;
         new_att.property = RSI_BLE_ATT_PROPERTY_READ | RSI_BLE_ATT_PROPERTY_WRITE;
         new_att.data_len = 2;
+        new_att.config_bitmap = auth_read;
 
         //! add attribute to the service
         int32_t ret = rsi_ble_add_attribute(&new_att);
@@ -1057,7 +1064,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
                 ch_config->char_properties,
                 ble_characteristic_get_data(ch),
                 ble_characteristic_get_data_size(ch),
-                0);
+                RSI_BLE_ATT_CONFIG_BITMAP);
             BleServiceEntry entry = {.service = service, .char_index = ch_config->intercom_index};
             BleServiceEntryDict_set_at(ble_worker_instance->service_dict, value_handle, entry);
 
