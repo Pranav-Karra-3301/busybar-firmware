@@ -2,6 +2,7 @@
 
 #include "ble_service.h"
 #include "ble_characteristic.h"
+#include "ble_service_command.h"
 
 #include <furi.h>
 

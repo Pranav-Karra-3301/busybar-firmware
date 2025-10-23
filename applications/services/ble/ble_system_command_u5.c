@@ -33,7 +33,7 @@ static bool ble_command_init_response(BleIntercomFrameGeneric* frame, void* cont
     ///TODO: need to wait untill all services will call on_state changed callback
     ///And after that change state to Ready and release message
     ///But for now let's keep it as it is.
-    instance->state = BleServiceStateInitialization;
+    instance->state = BleServiceStateReady;
     instance->current_message->result = true;
     api_lock_unlock(instance->current_message->lock);
     return true;
@@ -73,7 +73,7 @@ static bool ble_command_disable_response(BleIntercomFrameGeneric* frame, void* c
 
 static bool ble_command_get_state_request(BleIntercomFrameGeneric* frame, void* context) {
     BLE_LOG_D("BleCommandDisable request");
-    frame->header.command.system = BleCommandGetState;
+    frame->header.command = BleCommandGetState;
     return ble_command_request_process(frame, context);
 }
 

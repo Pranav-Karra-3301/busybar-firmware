@@ -1,4 +1,5 @@
 #include "ble_i.h"
+#include "http/ble_http_repeater.h"
 
 #include "ble_system_command.h"
 
@@ -22,7 +23,7 @@ bool ble_init(Ble* ble) {
     if(state == BleServiceStateReset) {
         BleMessage msg = {0};
         msg.header.frame_type = BleIntercomFrameTypeRequest;
-        msg.header.command.system = BleCommandInit;
+        msg.header.command = BleCommandInit;
         msg.header.data_size = 0;
         ble_send_message(ble, &msg);
         result = msg.result;
@@ -45,7 +46,7 @@ BleServiceState ble_get_state(Ble* ble) {
 
     BleMessage* msg = malloc(msg_size);
     msg->header.frame_type = BleIntercomFrameTypeRequest;
-    msg->header.command.system = BleCommandGetState;
+    msg->header.command = BleCommandGetState;
     msg->header.data_size = sizeof(BleServiceState);
     msg->header.source = BleIntercomFrameSourceSystem;
 
@@ -58,13 +59,15 @@ BleServiceState ble_get_state(Ble* ble) {
 
 bool ble_start(Ble* ble) {
     furi_assert(ble);
+    ble_init(ble);
+
     BleServiceState state = ble_get_state(ble);
 
     bool result = false;
     if(state == BleServiceStateReady) {
         BleMessage msg = {0};
         msg.header.frame_type = BleIntercomFrameTypeRequest;
-        msg.header.command.system = BleCommandEnable;
+        msg.header.command = BleCommandEnable;
         msg.header.data_size = 0;
         msg.header.source = BleIntercomFrameSourceSystem;
 
@@ -81,7 +84,7 @@ bool ble_stop(Ble* ble) {
     furi_assert(ble);
     BleMessage msg = {0};
     msg.header.frame_type = BleIntercomFrameTypeRequest;
-    msg.header.command.system = BleCommandDisable;
+    msg.header.command = BleCommandDisable;
     msg.header.data_size = 0;
     msg.header.source = BleIntercomFrameSourceSystem;
 
