@@ -4,11 +4,13 @@
 #include <furi.h>
 
 typedef enum {
+    BleIntercomFrameSourceUnknown,
     BleIntercomFrameSourceSystem,
     BleIntercomFrameSourceService,
 } BleIntercomFrameSource;
 
 typedef enum {
+    BleIntercomFrameTypeUnknown,
     BleIntercomFrameTypeRequest,
     BleIntercomFrameTypeResponse,
 } BleIntercomFrameType;
