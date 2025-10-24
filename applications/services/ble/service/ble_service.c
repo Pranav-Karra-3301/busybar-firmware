@@ -68,7 +68,7 @@ void ble_service_prepare_send_intercom_frame(
         "%s - TX frame t: %d c: %d ds: %d fs: %d",
         instance->config->name,
         header->frame_type,
-        header->command.service.command,
+        header->command,
         header->data_size,
         frame_size);
 
