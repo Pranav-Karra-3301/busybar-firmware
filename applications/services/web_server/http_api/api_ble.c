@@ -88,6 +88,7 @@ static bool api_ble_get_state_callback(
     return true;
 }
 
+///TODO: Temporary endpoint useful for testing, remove in future
 static bool api_ble_forget_callback(
     FuriString* path,
     struct mg_connection* conn,
