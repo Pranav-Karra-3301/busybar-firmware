@@ -7,14 +7,14 @@
 
 #define TAG "MqttClient"
 
-#define CERT_FILE_CA_BUNDLE    APP_ASSETS_PATH("ca_bundle.crt")
+#define CERT_FILE_CA_BUNDLE    EXT_PATH("apps_assets/ca/cacert.pem")
 #define CERT_FILE_INTERMEDIATE APP_ASSETS_PATH("signing-ca.crt")
 #define CERT_FILE_DEVICE       APP_ASSETS_PATH("device.crt")
-#define CERT_FILE_DEVICE_KEY   APP_ASSETS_PATH("device.key")
 
 #define SESSION_FILE APP_DATA_PATH("session.json")
 
 static void mqtt_connect_callback(void* data);
+static bool mqtt_client_load_ca_bundle(MqttClient* mqtt);
 
 // static void mqtt_wifi_event_callback(const void* message, void* context) {
 //     MqttClient* mqtt = context;
@@ -132,16 +132,24 @@ static void mqtt_event_handler(struct mg_connection* conn, int ev, void* ev_data
     furi_assert(mqtt);
 
     if(ev == MG_EV_CONNECT) {
+        if(!mqtt_client_load_ca_bundle(mqtt)) {
+            conn->is_draining = 1;
+            mqtt->status = MqttClientStatusError;
+            return;
+        }
         const struct mg_str name = mg_url_host(MQTT_SERVER_ADDR);
         const struct mg_tls_opts opts = {
             .name = name,
             .ca = mg_str(mqtt->ca_bundle),
             .cert = mg_str(mqtt->device_cert),
-            .key = mg_str(mqtt->device_key),
         };
-        mg_tls_init(conn, &opts);
+        mqtt_tls_init(conn, &opts);
     } else if(ev == MG_EV_TLS_HS) {
         FURI_LOG_D(TAG, "TLS handshake done!");
+        // Free CA bundle data
+        mqtt_tls_free_ca(conn);
+        free(mqtt->ca_bundle);
+        mqtt->ca_bundle = NULL;
     } else if(ev == MG_EV_MQTT_OPEN) {
         int* conn_code = (int*)ev_data;
         if(*conn_code == 0) {
@@ -158,6 +166,10 @@ static void mqtt_event_handler(struct mg_connection* conn, int ev, void* ev_data
         FURI_LOG_W(TAG, "MQTT Connection close");
         mqtt_status_change_event(mqtt, MqttClientStatusNotConnected);
         mqtt->conn = NULL;
+        if(mqtt->ca_bundle) {
+            free(mqtt->ca_bundle);
+            mqtt->ca_bundle = NULL;
+        }
         if(mqtt->is_wifi_up) {
             if(mqtt->fast_reconnect) {
                 mqtt->fast_reconnect = false;
@@ -286,18 +298,10 @@ static bool mqtt_client_load_certs(MqttClient* mqtt) {
     File* file = storage_file_alloc(storage);
 
     do {
-        uint64_t file_size = 0;
-        if(!storage_file_open(file, CERT_FILE_CA_BUNDLE, FSAM_READ, FSOM_OPEN_EXISTING)) {
-            FURI_LOG_E(TAG, "CA bundle file error: %s", storage_file_get_error_desc(file));
+        if(!storage_file_exists(storage, CERT_FILE_CA_BUNDLE)) {
+            FURI_LOG_E(TAG, "CA bundle file missing");
             break;
         }
-        file_size = storage_file_size(file);
-        mqtt->ca_bundle = malloc(file_size);
-        if(storage_file_read(file, mqtt->ca_bundle, file_size) != file_size) {
-            FURI_LOG_E(TAG, "CA bundle file read error");
-            break;
-        }
-        storage_file_close(file);
 
         FileInfo file_info;
         if(storage_common_stat(storage, CERT_FILE_INTERMEDIATE, &file_info) != FSE_OK) {
@@ -310,7 +314,10 @@ static bool mqtt_client_load_certs(MqttClient* mqtt) {
             FURI_LOG_E(TAG, "Device cert file error: %s", storage_file_get_error_desc(file));
             break;
         }
-        file_size = storage_file_size(file);
+        uint64_t file_size = storage_file_size(file);
+
+        // TODO: read device cert from 917
+        // TODO: verify key on 917
         mqtt->device_cert = malloc(int_cert_size + file_size);
         if(storage_file_read(file, mqtt->device_cert, file_size) != file_size) {
             FURI_LOG_E(TAG, "Device cert file read error");
@@ -330,14 +337,29 @@ static bool mqtt_client_load_certs(MqttClient* mqtt) {
         }
         storage_file_close(file);
 
-        if(!storage_file_open(file, CERT_FILE_DEVICE_KEY, FSAM_READ, FSOM_OPEN_EXISTING)) {
-            FURI_LOG_E(TAG, "Device key file error: %s", storage_file_get_error_desc(file));
+        success = true;
+    } while(0);
+
+    storage_file_free(file);
+    furi_record_close(RECORD_STORAGE);
+    return success;
+}
+
+static bool mqtt_client_load_ca_bundle(MqttClient* mqtt) {
+    furi_assert(mqtt->ca_bundle == NULL);
+    bool success = false;
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* file = storage_file_alloc(storage);
+
+    do {
+        if(!storage_file_open(file, CERT_FILE_CA_BUNDLE, FSAM_READ, FSOM_OPEN_EXISTING)) {
+            FURI_LOG_E(TAG, "CA bundle file error: %s", storage_file_get_error_desc(file));
             break;
         }
-        file_size = storage_file_size(file);
-        mqtt->device_key = malloc(file_size);
-        if(storage_file_read(file, mqtt->device_key, file_size) != file_size) {
-            FURI_LOG_E(TAG, "Device key file read error");
+        uint64_t file_size = storage_file_size(file);
+        mqtt->ca_bundle = malloc(file_size);
+        if(storage_file_read(file, mqtt->ca_bundle, file_size) != file_size) {
+            FURI_LOG_E(TAG, "CA bundle file read error");
             break;
         }
         storage_file_close(file);
