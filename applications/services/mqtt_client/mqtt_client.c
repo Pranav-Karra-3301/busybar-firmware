@@ -114,6 +114,9 @@ static void
 }
 
 static void mqtt_on_message(MqttClient* mqtt, struct mg_mqtt_message* msg) {
+    furi_assert(mqtt);
+    furi_assert(msg);
+
     // TODO: check QOS, serial/session_id
 
     FuriString* topic_str = furi_string_alloc_printf("%.*s", msg->topic.len, msg->topic.buf);
@@ -121,7 +124,7 @@ static void mqtt_on_message(MqttClient* mqtt, struct mg_mqtt_message* msg) {
     if(furi_string_start_with(topic_str, MQTT_DEVICE_ROOT_TOPIC)) {
         mqtt_device_on_message(mqtt, topic_str, &msg->data);
     } else if(furi_string_start_with(topic_str, MQTT_API_ROOT_TOPIC)) {
-        mqtt_api_on_message(mqtt, topic_str, msg);
+        mqtt_topics_on_message(mqtt, topic_str, msg);
     }
 
     furi_string_free(topic_str);
@@ -155,7 +158,7 @@ static void mqtt_event_handler(struct mg_connection* conn, int ev, void* ev_data
         if(*conn_code == 0) {
             FURI_LOG_I(TAG, "MQTT Connected");
             if(mqtt->is_linked) {
-                mqtt_api_subscribe(mqtt);
+                mqtt_topics_subscribe(mqtt);
             } else {
                 mqtt_device_subscribe(mqtt);
             }
@@ -492,7 +495,7 @@ int32_t mqtt_client_start(void* p) {
 
     // Event loop
     while(1) {
-        mg_mgr_poll(&mqtt->mgr, 1000);
+        mg_mgr_poll(&mqtt->mgr, MQTT_POLL_PERIOD);
     }
     return 0;
 }
