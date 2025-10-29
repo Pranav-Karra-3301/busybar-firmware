@@ -120,6 +120,7 @@
         "datetime",
         "targets",
         "furi",
+        "settings_helpers",
         "drivers",
         "version",
         "internal_assets",
