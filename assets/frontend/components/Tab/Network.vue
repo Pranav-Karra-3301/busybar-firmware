@@ -1,14 +1,16 @@
 <template>
   <SectionCard
-    :key="title"
+    :key="title + (connected ? '-connected' : '') + (showNetworksList ? '-networks-list' : '')"
+    data-id="network-section-wifi"
     :title="title"
-    :icon="networks.length ? undefined : connected ? 'i-ri-signal-wifi-fill' : 'i-ri-signal-wifi-line'"
+    :icon="showNetworksList ? undefined : (connected || wifiStore.wifi?.state === 'connecting') ? 'i-bi-wifi-4' : 'i-bi-wifi-off'"
   >
     <template
-      v-if="!connected && networks.length"
+      v-if="!connected && showNetworksList"
       #leading-actions
     >
       <UButton
+        data-id="network-section-wifi-back-button"
         icon="i-ri-arrow-left-line"
         variant="ghost"
         color="neutral"
@@ -16,37 +18,51 @@
         :ui="{
           base: 'p-3 rounded-full'
         }"
-        @click="networks = []"
+        @click="handleReturnFromNetworksList"
       />
     </template>
 
     <template
-      v-if="!networks.length"
+      v-if="!showNetworksList"
       #subtitle
     >
       <div
         v-if="connected"
+        data-id="network-section-wifi-status-connected"
         class="flex items-center gap-2 text-green-500"
       >
         <div class="relative top-[-1px] size-2.5 rounded-full bg-green-500" />
         Connected
       </div>
-      <div v-else>Disconnected</div>
+      <div
+        v-else-if="wifiStore.wifi?.state === 'connecting'"
+        data-id="network-section-wifi-status-connecting"
+      >
+        Connecting...
+      </div>
+      <div
+        v-else
+        data-id="network-section-wifi-status-disconnected"
+      >
+        Disconnected
+      </div>
     </template>
 
     <template #actions>
       <UButton
-        v-if="!connected && !networks.length"
-        label="Select network"
+        v-if="!connected && !showNetworksList"
+        data-id="network-section-wifi-select-button"
+        :label="wifiStore.wifi?.state === 'connecting' ? 'Connecting...' : 'Select network'"
         :ui="{
           base: 'px-2.5 py-2 rounded-full'
         }"
         class="justify-center sm:justify-start"
-        :loading="loading.state || loading.list"
+        :loading="loading.state || loading.list || wifiStore.wifi?.state === 'connecting'"
         @click="listWifiNetworks"
       />
       <UButton
-        v-if="connected && !networks.length"
+        v-if="connected && !showNetworksList"
+        data-id="network-section-wifi-forget-button"
         label="Forget network"
         variant="soft"
         color="error"
@@ -58,11 +74,12 @@
         @click="forgetNetwork"
       />
       <UTooltip
-        v-if="!connected && networks.length"
+        v-if="!connected && showNetworksList"
         text="Add network"
         :delay-duration="0"
       >
         <UButton
+          data-id="network-section-wifi-add-button"
           icon="i-ri-add-line"
           variant="ghost"
           color="neutral"
@@ -78,6 +95,27 @@
           }"
         />
       </UTooltip>
+      <UTooltip
+        v-if="!connected && showNetworksList"
+        text="Refresh networks"
+        :delay-duration="0"
+      >
+        <UButton
+          data-id="network-section-wifi-add-button"
+          icon="i-bi-refresh"
+          variant="ghost"
+          color="neutral"
+          square
+          :ui="{
+            base: 'p-3 rounded-full'
+          }"
+          class="justify-center sm:justify-start"
+          :class="loading.list ? 'animate-spin' : ''"
+          @click="() => {
+            listWifiNetworks();
+          }"
+        />
+      </UTooltip>
     </template>
 
     <div
@@ -88,13 +126,15 @@
       <template v-if="wifiStore.wifi?.ip_config?.address">
         <CopyButton
           v-if="copyAvailable"
+          data-id="network-section-wifi-ip-address-copy-button"
           :text="wifiStore.wifi?.ip_config?.address"
           variant="link"
           color="neutral"
-          class="px-0"
+          class="p-0"
         />
         <div
           v-else
+          data-id="network-section-wifi-ip-address-no-copy"
           class="text-sm text-muted"
         >
           {{ wifiStore.wifi?.ip_config?.address }}
@@ -102,6 +142,7 @@
       </template>
       <div
         v-else
+        data-id="network-section-wifi-ip-address-unavailable"
         class="text-sm text-muted"
       >
         Unable to get IP address
@@ -127,10 +168,13 @@
     </div>
 
     <template
-      v-if="!connected && networks.length"
+      v-if="!connected && showNetworksList"
       #raw-body
     >
-      <div class="flex flex-col gap-1.5">
+      <div
+        data-id="network-section-wifi-networks"
+        class="flex flex-col gap-1.5"
+      >
         <div
           v-for="network in networks"
           :key="network.ssid"
@@ -141,11 +185,15 @@
               return;
             }
             initConnectModel();
-            connectModel.ssid = network.ssid;
+            if (network.ssid) {
+              connectModel.ssid = network.ssid;
+            }
             if (network.security === 'Open') {
               return connectToNetwork();
             }
-            connectModel.security = network.security;
+            if (network.security) {
+              connectModel.security = network.security;
+            }
             connectToExistingNetwork = true;
             showConnectModal = true;
           }"
@@ -167,11 +215,21 @@
               :delay-duration="0"
             >
               <UIcon
-                name="i-ri-lock-line"
+                name="i-bi-lock-simple"
                 class="size-6 text-muted"
               />
             </UTooltip>
           </template>
+        </div>
+        <div
+          v-if="networks.length === 0"
+          class="flex gap-2 items-center px-2.5 py-2.5 rounded-xl"
+        >
+          <UIcon
+            name="i-bi-wifi-no-connection"
+            class="size-6 text-muted"
+          />
+          <div class="grow">Wi-Fi networks not found</div>
         </div>
       </div>
     </template>
@@ -179,13 +237,14 @@
 
   <ModalGeneric
     v-model:open="showConnectModal"
+    data-id="modal-connect-wifi"
     :title="connectToExistingNetwork ? `Connect to ${connectModel.ssid}` : 'Add network'"
     :description="connectToExistingNetwork ? 'Enter the network security password.' : 'Enter the name and security type of the network you want to connect to.'"
     wide
     :primary-action-props="{
       label: 'Connect',
       loading: loading.connect,
-      disabled: connectModel.ssid === '' || (connectModel.security !== 'Open' && connectModel.password === ''),
+      disabled: isConnectInvalid,
       onClick: connectToNetwork
     }"
     :secondary-action-props="{
@@ -200,13 +259,17 @@
         <UFormField label="Network name">
           <UInput
             v-model="connectModel.ssid"
+            name="ssid"
             size="xl"
             variant="soft"
+            :ui="{ base: 'ring-1 ring-glass' }"
+            @keyup.enter="isConnectInvalid || loading.connect ? null : connectToNetwork()"
           />
         </UFormField>
         <UFormField label="Security">
           <USelect
             v-model="connectModel.security"
+            name="security"
             :items="[
               'Open',
               'WPA',
@@ -222,6 +285,7 @@
             ]"
             size="xl"
             variant="soft"
+            :ui="{ base: 'ring-1 ring-glass' }"
             class="w-full"
           />
         </UFormField>
@@ -232,10 +296,13 @@
       >
         <UInput
           v-model="connectModel.password"
+          name="password"
           size="xl"
           variant="soft"
+          :ui="{ base: 'ring-1 ring-glass' }"
           :type="showPassword ? 'text' : 'password'"
           :placeholder="connectToExistingNetwork ? 'Password' : ''"
+          @keyup.enter="isConnectInvalid || loading.connect ? null : connectToNetwork()"
         >
           <template #trailing>
             <UButton
@@ -253,8 +320,12 @@
         </UInput>
       </UFormField>
 
-      <UCollapsible class="flex flex-col gap-6 w-full">
+      <UCollapsible
+        data-id="modal-connect-wifi-advanced-options"
+        class="flex flex-col gap-6 w-full"
+      >
         <UButton
+          data-id="modal-connect-wifi-advanced-options-toggle"
           class="group"
           label="Advanced options"
           color="neutral"
@@ -269,50 +340,52 @@
 
         <template #content>
           <div class="flex flex-col gap-6">
-            <UFormField label="IP Type">
-              <USelect
-                v-model="connectModel.ip_config.ip_type"
-                :items="['ipv4', 'ipv6']"
-                size="xl"
-                variant="soft"
-                class="w-full"
-              />
-            </UFormField>
             <UFormField label="IP Settings">
               <USelect
-                v-model="connectModel.ip_config.ip_method"
+                v-model="connectModel.ipConfig.ipMethod"
+                name="ip-method"
                 :items="['dhcp', 'static']"
                 size="xl"
                 variant="soft"
+                :ui="{ base: 'ring-1 ring-glass' }"
                 class="w-full"
               />
             </UFormField>
-            <template v-if="connectModel.ip_config.ip_method === 'static'">
+            <template v-if="connectModel.ipConfig.ipMethod === 'static'">
               <UFormField label="Address">
                 <UInput
-                  v-model="connectModel.ip_config.address"
+                  v-model="connectModel.ipConfig.address"
                   v-maska="'###.###.###.###'"
+                  name="ip-address"
                   placeholder="___.___.___.___"
                   size="xl"
                   variant="soft"
+                  :ui="{ base: 'ring-1 ring-glass' }"
+                  @keyup.enter="isConnectInvalid || loading.connect ? null : connectToNetwork()"
                 />
               </UFormField>
               <UFormField label="Subnet Mask">
                 <UInput
-                  v-model="connectModel.ip_config.mask"
+                  v-model="connectModel.ipConfig.mask"
                   v-maska="'###.###.###.###'"
+                  name="subnet-mask"
                   placeholder="___.___.___.___"
                   size="xl"
                   variant="soft"
+                  :ui="{ base: 'ring-1 ring-glass' }"
+                  @keyup.enter="isConnectInvalid || loading.connect ? null : connectToNetwork()"
                 />
               </UFormField>
               <UFormField label="Gateway">
                 <UInput
-                  v-model="connectModel.ip_config.gateway"
+                  v-model="connectModel.ipConfig.gateway"
                   v-maska="'###.###.###.###'"
+                  name="gateway"
                   placeholder="___.___.___.___"
                   size="xl"
                   variant="soft"
+                  :ui="{ base: 'ring-1 ring-glass' }"
+                  @keyup.enter="isConnectInvalid || loading.connect ? null : connectToNetwork()"
                 />
               </UFormField>
             </template>
@@ -324,6 +397,7 @@
 
   <SectionCard
     v-if="deviceStore.httpAPIAccess"
+    data-id="network-section-http-api"
     title="HTTP API"
     icon="i-ri-exchange-2-line"
   >
@@ -331,13 +405,13 @@
       <div>Over USB</div>
       <UButton
         variant="link"
-        class="px-0"
+        class="p-0 gap-0.5"
         href="http://10.0.4.20/docs"
         target="_blank"
       >
         <span class="underline">http://10.0.4.20/docs</span>
         <UIcon
-          name="i-ri-external-link-line"
+          name="i-bi-open-in-new"
           class="size-4"
         />
       </UButton>
@@ -348,13 +422,13 @@
         <UButton
           v-if="connected"
           variant="link"
-          class="px-0"
+          class="p-0 gap-0.5"
           :href="`http://${wifiStore.wifi?.ip_config?.address}/docs`"
           target="_blank"
         >
           <span class="underline">http://{{ wifiStore.wifi?.ip_config?.address }}/docs</span>
           <UIcon
-            name="i-ri-external-link-line"
+            name="i-bi-open-in-new"
             class="size-4"
           />
         </UButton>
@@ -374,6 +448,7 @@
 
           <USwitch
             v-model="httpApiSwitchModel"
+            data-id="network-section-http-api-switch"
             :loading="loading.access"
             @update:model-value="handleHttpApiToggle"
           />
@@ -388,6 +463,7 @@
               <div>Security</div>
               <UBadge
                 v-if="deviceStore.httpAPIAccess.mode === 'key'"
+                data-id="network-section-http-api-status-secure"
                 icon="i-ri-lock-fill"
                 label="Secure"
                 color="success"
@@ -396,6 +472,7 @@
               />
               <UBadge
                 v-else-if="deviceStore.httpAPIAccess.mode === 'enabled'"
+                data-id="network-section-http-api-status-insecure"
                 icon="i-ri-alert-fill"
                 label="Insecure"
                 color="warning"
@@ -419,6 +496,7 @@
 
           <UDropdownMenu
             v-if="deviceStore.httpAPIAccess.mode === 'key'"
+            data-id="network-section-http-api-security-dropdown"
             :items="[
               {
                 label: 'Change',
@@ -458,6 +536,7 @@
 
           <UButton
             v-else
+            data-id="network-section-http-api-set-password-button"
             label="Set password"
             variant="soft"
             color="primary"
@@ -473,6 +552,7 @@
 
       <ModalGeneric
         v-model:open="showEnableHttpApiModal"
+        data-id="modal-http-api"
         title="Enable access to HTTP API?"
         description="Anyone on the same Wi-Fi network will be able to access the device via this page. We recommend setting a password that will be asked each time you open this page with a BUSY Bar connected via Wi-Fi."
         show-close-button
@@ -505,6 +585,7 @@
 
 <script setup lang="ts">
 import { vMaska } from 'maska/vue';
+import type { WifiConnectParams, WifiNetwork } from '@busy-app/busy-lib';
 
 const wifiStore = useWifiStore();
 const deviceStore = useDeviceStore();
@@ -526,42 +607,64 @@ async function refreshWifiState () {
 }
 
 const networks = ref<WifiNetwork[]>([]);
-
+const showNetworksList = ref(false);
 async function listWifiNetworks () {
   loading.value.list = true;
   networks.value = await wifiStore.listWifiNetworks();
   loading.value.list = false;
+  showNetworksList.value = true;
+
+  if (!scanTimeout.value) {
+    scanTimeout.value = setTimeout(async () => {
+      if (wifiStore.wifi?.state === 'connected' || loading.value.connect) {
+        return;
+      }
+      scanTimeout.value = null;
+      await listWifiNetworks();
+    }, 10000);
+  }
+}
+
+const scanTimeout = ref<NodeJS.Timeout | null>(null);
+
+function handleReturnFromNetworksList () {
+  showNetworksList.value = false;
+  networks.value = [];
+  if (scanTimeout.value) {
+    clearTimeout(scanTimeout.value);
+    scanTimeout.value = null;
+  }
 }
 
 const showConnectModal = ref(false);
 const showPassword = ref(false);
 const connectToExistingNetwork = ref(false);
-const connectModel = ref({
+const connectModel = ref<WifiConnectParams>({
   ssid: '',
-  security: 'Open' as WifiSecurity,
+  security: 'Open',
   password: '',
-  ip_config: {
-    ip_method: 'dhcp' as 'dhcp' | 'static',
-    ip_type: 'ipv4' as 'ipv4' | 'ipv6',
+  ipConfig: {
+    ipMethod: 'dhcp' as 'dhcp' | 'static',
     address: '',
     mask: '',
     gateway: ''
-  } as WifiConnectIPConfig
+  }
 });
 const initConnectModel = () => {
   connectModel.value = {
     ssid: '',
     security: 'Open',
     password: '',
-    ip_config: {
-      ip_method: 'dhcp',
-      ip_type: 'ipv4',
+    ipConfig: {
+      ipMethod: 'dhcp',
       address: '',
       mask: '',
       gateway: ''
     }
   };
 };
+
+const isConnectInvalid = computed(() => connectModel.value.ssid === '' || (connectModel.value.security !== 'Open' && connectModel.value.password === ''));
 
 async function connectToNetwork () {
   if (!connectModel.value.ssid) {
@@ -571,7 +674,7 @@ async function connectToNetwork () {
   await wifiStore.connectToWifiNetwork(connectModel.value);
   await new Promise(resolve => setTimeout(resolve, 1000));
   await refreshWifiState();
-  networks.value = [];
+  handleReturnFromNetworksList();
   loading.value.connect = false;
   showConnectModal.value = false;
 }
@@ -589,7 +692,7 @@ async function forgetNetwork () {
 const connected = computed(() => wifiStore.wifi?.state === 'connected');
 
 const title = computed(() => {
-  if (wifiStore.wifi?.state === 'connected') {
+  if (wifiStore.wifi?.state === 'connected' || wifiStore.wifi?.state === 'connecting') {
     return wifiStore.wifi?.ssid || 'Wi-Fi';
   } else if (networks.value.length > 0) {
     return 'Select network';
@@ -597,17 +700,20 @@ const title = computed(() => {
   return 'Wi-Fi';
 });
 
-function wifiIconByRssi (rssi: number): string {
+function wifiIconByRssi (rssi: WifiNetwork['rssi']): string {
+  if (!rssi) {
+    return 'i-bi-wifi-1';
+  }
   if (rssi < 60) {
-    return 'i-ri-signal-wifi-fill';
+    return 'i-bi-wifi-4';
   }
   if (rssi < 70) {
-    return 'i-ri-signal-wifi-3-fill';
+    return 'i-bi-wifi-3';
   }
   if (rssi < 80) {
-    return 'i-ri-signal-wifi-2-fill';
+    return 'i-bi-wifi-2';
   }
-  return 'i-ri-signal-wifi-1-fill';
+  return 'i-bi-wifi-2';
 }
 
 const httpApiSwitchModel = ref(false);

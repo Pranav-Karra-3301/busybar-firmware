@@ -6,7 +6,6 @@
 #pragma once
 
 #include <furi.h>
-#include <toolbox/update_lib/common_vals.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,9 +13,7 @@ extern "C" {
 
 #define RECORD_UPDATER "updater"
 
-#define UPDATER_DEFAULT_DOWNLOAD_PATH EXT_PATH("update/bundle.tar")
-#define UPDATER_DEFAULT_STAGING_PATH  EXT_PATH("update/staging")
-#define UPDATER_DEFAULT_MANIFEST_PATH (UPDATER_DEFAULT_STAGING_PATH "/" UPDATE_CONFIG_FILENAME)
+#define UPDATER_UPDATE_STATE_DETAIL_MAX_LENGTH 128
 
 typedef struct Updater Updater;
 
@@ -27,6 +24,8 @@ typedef enum {
 
     UpdaterStatusDownloadFailure, /**< Failed to download update bundle from URL */
     UpdaterStatusDownloadAbort, /**< Download was aborted by user */
+
+    UpdaterStatusShaMismatch, /**< Update bundle SHA256 checksum verification failed */
 
     UpdaterStatusUnpackCreateStagingDirectoryFailure, /**< Failed to create staging directory */
     UpdaterStatusUnpackArchiveOpenFailure, /**< Failed to open .tar archive file */
@@ -44,11 +43,14 @@ typedef enum {
 
 typedef enum {
     UpdaterUpdateActionDownload, /**< Downloading update bundle from URL */
+    UpdaterUpdateActionShaVerification, /**< Downloading update bundle from URL */
     UpdaterUpdateActionUnpack, /**< Unpacking .tar archive to staging directory */
     UpdaterUpdateActionInstallationPrepare, /**< Preparing update for installation (manifest validation, session setup) */
     UpdaterUpdateActionInstallationApply, /**< Rebooting device to install prepared update */
 
     UpdaterUpdateActionNone, /**< No action (initial/idle state) */
+
+    UpdaterUpdateActionsCount,
 } UpdaterUpdateAction;
 
 typedef enum {
@@ -60,6 +62,8 @@ typedef enum {
     UpdaterUpdateEventActionProgress, /**< Progress update (e.g., download bytes received) */
 
     UpdaterUpdateEventNone, /**< No event (initial/idle state) */
+
+    UpdaterUpdateEventsCount,
 } UpdaterUpdateEvent;
 
 /** Update state information accessible via FuriState */
@@ -75,8 +79,41 @@ typedef struct {
     UpdaterUpdateEvent event; /**< Current event type */
     UpdaterUpdateAction action; /**< Current action being performed */
     UpdaterStatus status; /**< Current or last operation status */
-    const FuriString* detail; /**< Optional detail string (e.g., download state message) */
+    char detail[UPDATER_UPDATE_STATE_DETAIL_MAX_LENGTH]; /**< Optional detail string */
 } UpdaterUpdateState;
+
+typedef enum {
+    UpdaterCheckResultAvailable, /**< Update is available */
+    UpdaterCheckResultNotAvailable, /**< No update available */
+    UpdaterCheckResultFailure, /**< Failed to check for update */
+
+    UpdaterCheckResultNone, /**< No check performed (initial/idle state) */
+
+    UpdaterCheckResultsCount,
+} UpdaterCheckResult;
+
+typedef enum {
+    UpdaterCheckEventStart, /**< Update check started */
+    UpdaterCheckEventStop, /**< Update check stopped */
+
+    UpdaterCheckEventNone, /**< No event (initial/idle state) */
+
+    UpdaterCheckEventsCount,
+} UpdaterCheckEvent;
+
+/** Update check state information accessible via FuriState */
+typedef struct {
+    UpdaterCheckResult result; /**< Current check result */
+    UpdaterCheckEvent event; /**< Current check event type */
+} UpdaterCheckState;
+
+typedef struct {
+    FuriString* version; /**< Update version */
+    FuriString* url; /**< Download URL for the update bundle */
+    FuriString* id; /**< Unique update identifier */
+    FuriString* sha256; /**< SHA256 checksum of the update bundle */
+    FuriString* changelog; /**< Update changelog */
+} UpdateCheckInfo;
 
 /** Get human-readable string for a status code
  *
@@ -93,6 +130,21 @@ const char* updater_get_status_string(UpdaterStatus status);
  * @return     FuriState pointer (acquire/release to access UpdaterUpdateState)
  */
 FuriState* updater_get_update_state(Updater* instance);
+
+/** Get update check state object for monitoring update availability
+ *
+ * @param[in]  instance  Updater instance
+ *
+ * @return     FuriState pointer (acquire/release to access UpdaterCheckState)
+ */
+FuriState* updater_get_check_state(Updater* instance);
+
+/** Get update information
+ *
+ * @param[in]   instance  Updater instance
+ * @param[out]  info      Pointer to UpdateCheckInfo struct to populate
+ */
+void updater_get_check_info(Updater* instance, UpdateCheckInfo* info);
 
 /** Check if update is allowed to start
  *
@@ -148,6 +200,24 @@ UpdaterStatus updater_download(Updater* instance, const char* url, const char* p
  */
 void updater_abort_download(Updater* instance);
 
+/** Verify SHA256 checksum of update bundle
+ *
+ * Must be called from inside of updater's session.
+ *
+ * @param[in]  instance  Updater instance
+ * @param[in]  tar_path  Path to .tar archive (NULL for default)
+ * @param[in]  sha       Expected SHA256 checksum string
+ * @param[in]  do_wait   true to block until complete, false for async operation
+ *
+ * @return     UpdaterStatusOk if checksum matches and file is accessible,
+ *             UpdaterStatusShaMismatch if checksum verification failed
+ */
+UpdaterStatus updater_verify_bundle_sha(
+    Updater* instance,
+    const char* tar_path,
+    const char* sha,
+    bool do_wait);
+
 /** Unpack update bundle .tar archive
  *
  * Must be called from inside of updater's session.
@@ -196,6 +266,51 @@ UpdaterStatus
  * @param[in]  do_wait   true to block and reboot, false for async reboot
  */
 void updater_installation_apply(Updater* instance, bool do_wait);
+
+/** Install firmware from URL
+ *
+ * Downloads, verifies, unpacks, prepares, and installs firmware from a remote URL.
+ * Runs asynchronously in a background thread and reboots the device upon completion.
+ * The update session is automatically started and stopped by this function.
+ *
+ * @param[in]  instance  Updater instance
+ * @param[in]  url       URL to download update bundle from
+ * @param[in]  sha256    Expected SHA256 checksum (NULL to skip verification)
+ *
+ * @return     UpdaterStatusOk if background installation started successfully,
+ *             UpdaterStatusBatteryLow if battery level is too low,
+ *             UpdaterStatusBusy if another update is already in progress
+ */
+UpdaterStatus updater_install_from_url(Updater* instance, const char* url, const char* sha256);
+
+/** Check for available firmware updates
+ *
+ * Queries remote server for available updates and populates check state.
+ *
+ * @param[in]  instance  Updater instance
+ *
+* @return     UpdaterStatusOk on success,
+ *            UpdaterStatusBusy if check is already in progress,
+ */
+UpdaterStatus updater_check_for_update(Updater* instance);
+
+/** Pause automatic updates
+ *
+ * @param[in]  instance  Updater instance
+ */
+void updater_pause_autoupdates(Updater* instance);
+
+/** Resume automatic updates
+ *
+ * @param[in]  instance  Updater instance
+ */
+void updater_resume_autoupdates(Updater* instance);
+
+/** Get currently active firmware version string
+ *
+ * @return     Version string
+ */
+const char* updater_get_active_version(void);
 
 #ifdef __cplusplus
 }

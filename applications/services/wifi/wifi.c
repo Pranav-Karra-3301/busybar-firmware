@@ -13,21 +13,6 @@ static void wifi_intercom_rx_callback(const void* data, size_t data_size, void* 
         furi_message_queue_put(instance->response_queue, data, FuriWaitForever) == FuriStatusOk);
 }
 
-static void wifi_save_settings(const WifiCredentials* credentials, const WifiIpConfig* ip_config) {
-    const WifiSettings settings = {
-        .credentials = *credentials,
-        .ip_config = *ip_config,
-    };
-
-    wifi_settings_save(&settings);
-}
-
-static void wifi_save_default_settings(void) {
-    WifiSettings default_settings;
-    wifi_settings_init_defaults(&default_settings);
-    wifi_settings_save(&default_settings);
-}
-
 static void wifi_print_connection_info(Wifi* instance) {
     with_furi_state(instance->state, const WifiInfo* info, {
         const WifiIpv4* addr = &info->ip_config.ip4.address;
@@ -51,12 +36,7 @@ static void wifi_apply_settings_pending_callback(void* context) {
 
     do {
         WifiSettings settings;
-
-        if(!wifi_settings_load(&settings)) {
-            FURI_LOG_W(TAG, "Failed to load settings, using defaults");
-            wifi_settings_init_defaults(&settings);
-            wifi_settings_save(&settings);
-        }
+        wifi_settings_load(&settings);
 
         if(strnlen(settings.credentials.ssid, SSID_MAX_LEN) == 0) {
             FURI_LOG_I(TAG, "No SSID specified");
@@ -76,18 +56,14 @@ static void wifi_process_request(Wifi* instance) {
     const WifiStatus status = wifi_state_check_request_type(instance, request_type);
 
     if(status == WifiStatusOk) {
-        if(request_type == WifiRequestTypeInit) {
-            // TODO [FW-300]: Implement reliable Intercom channel opening
-            furi_delay_ms(250); // Wait for the Wifi service to become ready on Si917
-
-        } else if(request_type == WifiRequestTypeConnect) {
+        if(request_type == WifiRequestTypeConnect) {
             const WifiConnectMessage* connect_message = &message->connect_message;
             const WifiCredentials* credentials = &connect_message->credentials;
 
             WifiConnectRequest* connect_request = &request->connect_request;
             connect_request->credentials = *credentials;
 
-            wifi_state_transition(instance, WifiStateConnecting);
+            wifi_state_transition(instance, WifiStateConnecting, credentials);
 
             FURI_LOG_I(TAG, "Connecting to \"%s\"", credentials->ssid);
 
@@ -97,8 +73,7 @@ static void wifi_process_request(Wifi* instance) {
 
         request->type = request_type;
 
-        intercom_tx(
-            instance->intercom, IntercomChannelWifi, request, sizeof(WifiRequest), FuriWaitForever);
+        intercom_tx(instance->intercom_ch_control, request, sizeof(WifiRequest), FuriWaitForever);
 
     } else {
         FURI_LOG_E(TAG, "Request type: %d failed with status: %d", request_type, status);
@@ -144,8 +119,11 @@ static void wifi_process_response(Wifi* instance, const WifiResponse* response) 
                 WifiIpConfig new_ip_config;
                 wifi_net_get_ip_config(instance, &new_ip_config);
 
-                wifi_state_transition(instance, WifiStateConnected, credentials, &new_ip_config);
-                wifi_save_settings(credentials, ip_config);
+                wifi_state_transition(instance, WifiStateConnected, &new_ip_config);
+                wifi_settings_save(&(WifiSettings){
+                    .credentials = *credentials,
+                    .ip_config = *ip_config,
+                });
 
                 wifi_print_connection_info(instance);
 
@@ -159,7 +137,7 @@ static void wifi_process_response(Wifi* instance, const WifiResponse* response) 
 
             wifi_state_transition(instance, WifiStateDisconnected);
 
-            wifi_save_default_settings();
+            wifi_settings_reset(NULL);
         }
 
     } else {
@@ -167,7 +145,7 @@ static void wifi_process_response(Wifi* instance, const WifiResponse* response) 
 
         if(request_type == WifiRequestTypeConnect) {
             wifi_state_transition(instance, WifiStateDisconnected);
-            wifi_save_default_settings();
+            wifi_settings_reset(NULL);
 
         } else if(request_type == WifiRequestTypeDisconnect) {
             wifi_state_transition(instance, WifiStateDisconnected);
@@ -272,8 +250,8 @@ static Wifi* wifi_alloc(void) {
         wifi_response_queue_callback,
         instance);
 
-    intercom_set_rx_callback(
-        instance->intercom, IntercomChannelWifi, wifi_intercom_rx_callback, instance);
+    instance->intercom_ch_control = intercom_channel_open(
+        instance->intercom, IntercomChannelIdWifiControl, wifi_intercom_rx_callback, instance);
 
     wifi_schedule_init_request(instance);
 

@@ -42,7 +42,8 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      barUrl: ''
+      barUrl: '',
+      disablePolling: false
     }
   },
   experimental: {
@@ -100,12 +101,19 @@ export default defineNuxtConfig({
     }
   },
   icon: {
-    customCollections: [{
-      prefix: 'busy',
-      dir: './assets/icons'
-    }],
+    customCollections: [
+      {
+        prefix: 'busy',
+        dir: './assets/icons/busy'
+      },
+      {
+        prefix: 'bi',
+        dir: './assets/icons/bi'
+      }
+    ],
     clientBundle: {
       icons: [
+        'ri:folder-add-line',
         'ri:account-circle-fill',
         'ri:add-fill',
         'ri:add-line',

@@ -1,4 +1,4 @@
-#include "../busy.h"
+#include "../busy_i.h"
 #include "../widgets/anim_menu.h"
 
 #include <gui/modules/menu.h>
@@ -39,13 +39,17 @@ static void busy_scene_start_on_enter(void* context) {
         scene_manager_get_scene_data(instance->scene_manager, BusyAppSceneIdStart);
 
     with_gui(instance->gui, {
+        nav_bar_reset_location(instance->nav_bar);
+
         widget_set_visible(timer_card_get_base(instance->timer_card), false);
         widget_set_visible(nav_bar_get_base(instance->nav_bar), true);
 
         data->front_layout = flex_layout_alloc(instance->front_window, FlexLayoutTypeRow);
 
         data->front_logo = anim_image_alloc(flex_layout_get_base(data->front_layout));
-        anim_image_set_source(data->front_logo, BUSY_ANIM_PATH("start_logo_41x16.anim"));
+
+        anim_image_set_source(data->front_logo, busy_get_global_preset(instance)->start_anim_path);
+
         anim_image_set_loop(data->front_logo, false);
 
         data->front_menu = anim_menu_alloc(flex_layout_get_base(data->front_layout));

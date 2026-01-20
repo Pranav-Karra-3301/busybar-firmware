@@ -7,10 +7,26 @@
 #include <storage/storage.h>
 #include <toolbox/fetch/fetch_file_save.h>
 #include <applications/system/updater/updater.h>
+#include <applications/system/updater/updater_paths.h>
+#include <cjson/cJSON.h>
 
 #define TAG "HttpApiUpdate"
 
-#define MAX_UPLOAD_FILE_SIZE (100 * 1024 * 1024) /* user-set: 100MB */
+#define MAX_UPLOAD_FILE_SIZE (100 * 1024 * 1024)
+#define MAX_VERSION_LENGTH   64
+
+#define UPDATE_JSON_KEY_INSTALL           "install"
+#define UPDATE_JSON_KEY_CHECK             "check"
+#define UPDATE_JSON_KEY_IS_ALLOWED        "is_allowed"
+#define UPDATE_JSON_KEY_EVENT             "event"
+#define UPDATE_JSON_KEY_ACTION            "action"
+#define UPDATE_JSON_KEY_STATUS            "status"
+#define UPDATE_JSON_KEY_DETAIL            "detail"
+#define UPDATE_JSON_KEY_DOWNLOAD          "download"
+#define UPDATE_JSON_KEY_SPEED_BPS         "speed_bytes_per_sec"
+#define UPDATE_JSON_KEY_RECEIVED_BYTES    "received_bytes"
+#define UPDATE_JSON_KEY_TOTAL_BYTES       "total_bytes"
+#define UPDATE_JSON_KEY_AVAILABLE_VERSION "available_version"
 
 // Context for the update handler (raw upload)
 typedef struct {
@@ -24,11 +40,70 @@ typedef struct {
     bool file_fully_received; // Flag: true if all bytes received and temp file closed
 } HttpUpdateHandlerCtx;
 
+static const char* const update_status_strings[] = {
+    [UpdaterStatusOk] = "ok",
+    [UpdaterStatusBatteryLow] = "battery_low",
+    [UpdaterStatusBusy] = "busy",
+    [UpdaterStatusDownloadFailure] = "download_failure",
+    [UpdaterStatusDownloadAbort] = "download_abort",
+    [UpdaterStatusShaMismatch] = "sha_mismatch",
+    [UpdaterStatusUnpackCreateStagingDirectoryFailure] = "unpack_staging_dir_failure",
+    [UpdaterStatusUnpackArchiveOpenFailure] = "unpack_archive_open_failure",
+    [UpdaterStatusUnpackArchiveUnpackFailure] = "unpack_archive_unpack_failure",
+    [UpdaterStatusInstallationPrepareManifestNotFound] = "install_manifest_not_found",
+    [UpdaterStatusInstallationPrepareManifestInvalid] = "install_manifest_invalid",
+    [UpdaterStatusInstallationPrepareSessionConfigSetupFailure] = "install_session_config_failure",
+    [UpdaterStatusInstallationPreparePointerSetupFailure] = "install_pointer_setup_failure",
+    [UpdaterStatusUnknownFailure] = "unknown_failure",
+};
+
+static_assert(COUNT_OF(update_status_strings) == UpdaterStatusesCount);
+
+static const char* const update_action_strings[] = {
+    [UpdaterUpdateActionDownload] = "download",
+    [UpdaterUpdateActionShaVerification] = "sha_verification",
+    [UpdaterUpdateActionUnpack] = "unpack",
+    [UpdaterUpdateActionInstallationPrepare] = "prepare",
+    [UpdaterUpdateActionInstallationApply] = "apply",
+    [UpdaterUpdateActionNone] = "none",
+};
+
+static_assert(COUNT_OF(update_action_strings) == UpdaterUpdateActionsCount);
+
+static const char* const update_event_strings[] = {
+    [UpdaterUpdateEventSessionStart] = "session_start",
+    [UpdaterUpdateEventSessionStop] = "session_stop",
+    [UpdaterUpdateEventActionBegin] = "action_begin",
+    [UpdaterUpdateEventActionDone] = "action_done",
+    [UpdaterUpdateEventDetailChange] = "detail_change",
+    [UpdaterUpdateEventActionProgress] = "action_progress",
+    [UpdaterUpdateEventNone] = "none",
+};
+
+static_assert(COUNT_OF(update_event_strings) == UpdaterUpdateEventsCount);
+
+static const char* const check_result_strings[] = {
+    [UpdaterCheckResultAvailable] = "available",
+    [UpdaterCheckResultNotAvailable] = "not_available",
+    [UpdaterCheckResultFailure] = "failure",
+    [UpdaterCheckResultNone] = "none",
+};
+
+static_assert(COUNT_OF(check_result_strings) == UpdaterCheckResultsCount);
+
+static const char* const check_event_strings[] = {
+    [UpdaterCheckEventStart] = "start",
+    [UpdaterCheckEventStop] = "stop",
+    [UpdaterCheckEventNone] = "none",
+};
+
+static_assert(COUNT_OF(check_event_strings) == UpdaterCheckEventsCount);
+
 // Forward declarations
 static bool
     handle_completed_upload_and_reboot(HttpUpdateHandlerCtx* ctx, struct mg_connection* conn);
-static void http_api_update_on_data_cb(struct mg_connection* conn, struct mg_iobuf* io);
-static void http_api_update_on_close_cb(struct mg_connection* conn);
+static void api_update_on_data_cb(struct mg_connection* conn, struct mg_iobuf* io);
+static void api_update_on_close_cb(struct mg_connection* conn);
 
 static HttpUpdateHandlerCtx* alloc_raw_update_context() {
     HttpUpdateHandlerCtx* ctx = malloc(sizeof(HttpUpdateHandlerCtx));
@@ -132,7 +207,7 @@ static bool
     return is_success;
 }
 
-static void http_api_update_on_data_cb(struct mg_connection* conn, struct mg_iobuf* io) {
+static void api_update_on_data_cb(struct mg_connection* conn, struct mg_iobuf* io) {
     ConnectionContext* conn_ctx = (ConnectionContext*)conn->data;
     HttpUpdateHandlerCtx* update_ctx = (HttpUpdateHandlerCtx*)conn_ctx->context;
 
@@ -193,7 +268,7 @@ static void http_api_update_on_data_cb(struct mg_connection* conn, struct mg_iob
     }
 }
 
-static void http_api_update_on_close_cb(struct mg_connection* conn) {
+static void api_update_on_close_cb(struct mg_connection* conn) {
     ConnectionContext* conn_ctx = (ConnectionContext*)conn->data;
     HttpUpdateHandlerCtx* update_ctx = (HttpUpdateHandlerCtx*)conn_ctx->context;
 
@@ -209,7 +284,7 @@ static void http_api_update_on_close_cb(struct mg_connection* conn) {
     conn_ctx->on_close = NULL;
 }
 
-bool http_api_update_hdr_callback(
+static bool api_update_raw_hdr_callback(
     FuriString* path,
     struct mg_connection* conn,
     struct mg_http_message* msg,
@@ -219,6 +294,8 @@ bool http_api_update_hdr_callback(
     HttpUpdateHandlerCtx* update_ctx = NULL;
 
     if(!IS_HTTP_ENDPOINT(path)) return false;
+
+    if(!furi_string_empty(path)) return false;
 
     FURI_LOG_I(
         TAG, "on_headers: Received update request for URI: %.*s", (int)msg->uri.len, msg->uri.buf);
@@ -269,14 +346,425 @@ bool http_api_update_hdr_callback(
     FURI_LOG_I(TAG, "on_headers: Initialized file saver for: %s", UPDATER_DEFAULT_DOWNLOAD_PATH);
 
     // Set up raw data handlers
-    conn_ctx->raw.on_data = http_api_update_on_data_cb;
-    conn_ctx->on_close = http_api_update_on_close_cb;
+    conn_ctx->raw.on_data = api_update_on_data_cb;
+    conn_ctx->on_close = api_update_on_close_cb;
 
     mg_iobuf_del(&conn->recv, 0, msg->head.len); // Delete HTTP headers
     conn->pfn = NULL; // Silence HTTP protocol handler, we'll use MG_EV_READ
 
     // Also handle possible data in the buffer
-    http_api_update_on_data_cb(conn, &conn->recv);
+    api_update_on_data_cb(conn, &conn->recv);
 
     return true;
+}
+
+static bool api_update_check_callback(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    UNUSED(ctx);
+    UNUSED(msg);
+
+    if(!IS_HTTP_ENDPOINT(path)) return false;
+
+    FURI_LOG_I(TAG, "Received update check request");
+
+    Updater* updater = furi_record_open(RECORD_UPDATER);
+    UpdaterStatus status = updater_check_for_update(updater);
+    furi_record_close(RECORD_UPDATER);
+
+    int error_code;
+    bool is_success = false;
+    switch(status) {
+    case UpdaterStatusOk:
+        is_success = true;
+        break;
+
+    case UpdaterStatusBusy:
+        error_code = 409;
+        break;
+
+    default:
+        error_code = 500;
+        break;
+    }
+
+    if(is_success) {
+        MG_REPLY_OK(conn);
+    } else {
+        MG_REPLY_ERROR(conn, error_code, updater_get_status_string(status));
+    }
+
+    return true;
+}
+
+static bool api_update_changelog_callback(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    UNUSED(ctx);
+
+    if(!IS_HTTP_ENDPOINT(path)) return false;
+
+    const char* error_text;
+    bool is_error = true;
+    do {
+        char version[MAX_VERSION_LENGTH];
+        int version_length = mg_http_get_var(&msg->query, "version", version, sizeof(version));
+        if(version_length <= 0) {
+            error_text = "Version parameter missing";
+            break;
+        }
+
+        FURI_LOG_I(TAG, "Received update changelog request for version: %s", version);
+
+        Updater* updater = furi_record_open(RECORD_UPDATER);
+
+        UpdaterCheckState check_state;
+        furi_state_get(updater_get_check_state(updater), &check_state);
+
+        FuriString* check_changelog = furi_string_alloc();
+        FuriString* check_version = furi_string_alloc();
+        do {
+            if(check_state.result != UpdaterCheckResultAvailable) {
+                error_text = "Update not available";
+                break;
+            }
+
+            updater_get_check_info(
+                updater,
+                &(UpdateCheckInfo){
+                    .version = check_version,
+                    .url = NULL,
+                    .id = NULL,
+                    .sha256 = NULL,
+                    .changelog = check_changelog,
+                });
+
+            if(strncmp(furi_string_get_cstr(check_version), version, sizeof(version)) != 0) {
+                error_text = "Version mismatch";
+                break;
+            }
+
+            cJSON* response = cJSON_CreateObject();
+            cJSON_AddStringToObject(response, "changelog", furi_string_get_cstr(check_changelog));
+            char* json_str = cJSON_Print(response);
+            MG_REPLY_OK_BODY(conn, "%s\n", json_str);
+            cJSON_free(json_str);
+            cJSON_Delete(response);
+
+            is_error = false;
+        } while(false);
+
+        furi_string_free(check_version);
+        furi_string_free(check_changelog);
+        furi_record_close(RECORD_UPDATER);
+    } while(false);
+
+    if(is_error) {
+        MG_REPLY_ERROR(conn, 400, error_text);
+    }
+
+    return true;
+}
+
+static bool api_update_install_callback(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    UNUSED(ctx);
+
+    if(!IS_HTTP_ENDPOINT(path)) return false;
+
+    int error_code;
+    const char* error_text;
+    bool is_success = false;
+    do {
+        char version[MAX_VERSION_LENGTH];
+        int version_length = mg_http_get_var(&msg->query, "version", version, sizeof(version));
+        if(version_length <= 0) {
+            error_code = 400;
+            error_text = "Version parameter missing";
+            break;
+        }
+
+        FURI_LOG_I(TAG, "Received update install request for version: %s", version);
+
+        Updater* updater = furi_record_open(RECORD_UPDATER);
+        FuriState* update_check_state = updater_get_check_state(updater);
+        UpdaterCheckState check_state;
+        furi_state_get(update_check_state, &check_state);
+
+        FuriString* check_version = furi_string_alloc();
+        FuriString* check_url = furi_string_alloc();
+        FuriString* check_sha256 = furi_string_alloc();
+        do {
+            if(check_state.result != UpdaterCheckResultAvailable) {
+                error_code = 400;
+                error_text = "Update not available";
+                break;
+            }
+
+            updater_get_check_info(
+                updater,
+                &(UpdateCheckInfo){
+                    .version = check_version,
+                    .url = check_url,
+                    .id = NULL,
+                    .sha256 = check_sha256,
+                    .changelog = NULL,
+                });
+
+            if(strncmp(furi_string_get_cstr(check_version), version, sizeof(version)) != 0) {
+                error_code = 400;
+                error_text = "Version mismatch";
+                break;
+            }
+
+            UpdaterStatus update_status = updater_install_from_url(
+                updater, furi_string_get_cstr(check_url), furi_string_get_cstr(check_sha256));
+
+            if(update_status != UpdaterStatusOk) {
+                switch(update_status) {
+                case UpdaterStatusBatteryLow:
+                    error_code = 503;
+                    break;
+
+                case UpdaterStatusBusy:
+                    error_code = 409;
+                    break;
+
+                default:
+                    error_code = 500;
+                    break;
+                }
+
+                error_text = updater_get_status_string(update_status);
+                break;
+            }
+
+            is_success = true;
+        } while(false);
+
+        furi_string_free(check_version);
+        furi_string_free(check_url);
+        furi_string_free(check_sha256);
+        furi_record_close(RECORD_UPDATER);
+    } while(false);
+
+    if(is_success) {
+        MG_REPLY_OK(conn);
+    } else {
+        MG_REPLY_ERROR(conn, error_code, error_text);
+    }
+
+    return true;
+}
+
+static bool api_update_status_callback(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    UNUSED(ctx);
+    UNUSED(msg);
+
+    if(!IS_HTTP_ENDPOINT(path)) return false;
+
+    FURI_LOG_I(TAG, "Received update status request");
+
+    Updater* updater = furi_record_open(RECORD_UPDATER);
+
+    UpdaterStatus allowance_status = updater_get_allowance_status(updater);
+    bool is_allowed = (allowance_status == UpdaterStatusOk);
+
+    UpdaterUpdateState update_state;
+    furi_state_get(updater_get_update_state(updater), &update_state);
+
+    UpdaterCheckState check_state;
+    furi_state_get(updater_get_check_state(updater), &check_state);
+
+    FuriString* check_version = furi_string_alloc();
+    updater_get_check_info(
+        updater,
+        &(UpdateCheckInfo){
+            .version = check_version,
+            .url = NULL,
+            .id = NULL,
+            .sha256 = NULL,
+            .changelog = NULL,
+        });
+
+    cJSON* response = cJSON_CreateObject();
+
+    cJSON* install = cJSON_AddObjectToObject(response, UPDATE_JSON_KEY_INSTALL);
+    cJSON_AddBoolToObject(install, UPDATE_JSON_KEY_IS_ALLOWED, is_allowed);
+
+    cJSON_AddStringToObject(
+        install,
+        UPDATE_JSON_KEY_EVENT,
+        (update_state.event < COUNT_OF(update_event_strings)) ?
+            update_event_strings[update_state.event] :
+            "unknown");
+
+    cJSON_AddStringToObject(
+        install,
+        UPDATE_JSON_KEY_ACTION,
+        (update_state.action < COUNT_OF(update_action_strings)) ?
+            update_action_strings[update_state.action] :
+            "unknown");
+
+    cJSON_AddStringToObject(
+        install,
+        UPDATE_JSON_KEY_STATUS,
+        (update_state.status < COUNT_OF(update_status_strings)) ?
+            update_status_strings[update_state.status] :
+            "unknown");
+
+    cJSON_AddStringToObject(install, UPDATE_JSON_KEY_DETAIL, update_state.detail);
+
+    cJSON* download = cJSON_AddObjectToObject(install, UPDATE_JSON_KEY_DOWNLOAD);
+    cJSON_AddNumberToObject(
+        download, UPDATE_JSON_KEY_SPEED_BPS, update_state.as_download.speed_bytes_per_sec);
+    cJSON_AddNumberToObject(
+        download, UPDATE_JSON_KEY_RECEIVED_BYTES, update_state.as_download.received_size);
+    cJSON_AddNumberToObject(
+        download, UPDATE_JSON_KEY_TOTAL_BYTES, update_state.as_download.total_size);
+
+    cJSON* check = cJSON_AddObjectToObject(response, UPDATE_JSON_KEY_CHECK);
+
+    cJSON_AddStringToObject(
+        check, UPDATE_JSON_KEY_AVAILABLE_VERSION, furi_string_get_cstr(check_version));
+
+    cJSON_AddStringToObject(
+        check,
+        UPDATE_JSON_KEY_EVENT,
+        (check_state.event < COUNT_OF(check_event_strings)) ?
+            check_event_strings[check_state.event] :
+            "unknown");
+
+    cJSON_AddStringToObject(
+        check,
+        UPDATE_JSON_KEY_STATUS,
+        (check_state.result < COUNT_OF(check_result_strings)) ?
+            check_result_strings[check_state.result] :
+            "unknown");
+
+    furi_record_close(RECORD_UPDATER);
+
+    char* json_str = cJSON_Print(response);
+    MG_REPLY_OK_BODY(conn, "%s\n", json_str);
+    cJSON_free(json_str);
+    cJSON_Delete(response);
+
+    furi_string_free(check_version);
+
+    return true;
+}
+
+static bool api_update_abort_download_callback(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    UNUSED(ctx);
+    UNUSED(msg);
+
+    if(!IS_HTTP_ENDPOINT(path)) return false;
+
+    FURI_LOG_I(TAG, "Received download abort request");
+
+    Updater* updater = furi_record_open(RECORD_UPDATER);
+    updater_abort_download(updater);
+    furi_record_close(RECORD_UPDATER);
+
+    MG_REPLY_OK(conn);
+
+    return true;
+}
+
+static const HttpHandler api_update_handlers[] = {
+    {
+        .uri = "check",
+        .method = "POST",
+        .type = HttpHandlerCustom,
+        .on_request = api_update_check_callback,
+    },
+    {
+        .uri = "status",
+        .method = "GET",
+        .type = HttpHandlerCustom,
+        .on_request = api_update_status_callback,
+    },
+    {
+        .uri = "changelog",
+        .method = "GET",
+        .type = HttpHandlerCustom,
+        .on_request = api_update_changelog_callback,
+    },
+    {
+        .uri = "install",
+        .method = "POST",
+        .type = HttpHandlerCustom,
+        .on_request = api_update_install_callback,
+    },
+    {
+        .uri = "abort_download",
+        .method = "POST",
+        .type = HttpHandlerCustom,
+        .on_request = api_update_abort_download_callback,
+    },
+    {
+        .uri = "",
+        .method = "POST",
+        .type = HttpHandlerCustom,
+        .on_headers = api_update_raw_hdr_callback,
+    },
+};
+
+typedef struct {
+    HttpHandlersList_t handlers;
+} ApiUpdateCtx;
+
+void* http_api_update_alloc(void) {
+    ApiUpdateCtx* context = malloc(sizeof(*context));
+    HttpHandlersList_init(context->handlers);
+
+    for(size_t i = COUNT_OF(api_update_handlers); i > 0; i--) {
+        http_handler_add(context->handlers, &api_update_handlers[i - 1]);
+    }
+
+    return context;
+}
+
+void http_api_update_free(void* ctx) {
+    furi_assert(ctx);
+
+    ApiUpdateCtx* context = ctx;
+
+    HttpHandlersList_clear(context->handlers);
+    free(context);
+}
+
+bool http_api_update_callback(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    ApiUpdateCtx* context = ctx;
+
+    return http_handle_request(path, context->handlers, conn, msg);
+}
+
+bool http_api_update_hdr_callback_root(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    ApiUpdateCtx* context = ctx;
+
+    return http_handle_headers(path, context->handlers, conn, msg);
 }
