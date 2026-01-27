@@ -40,6 +40,10 @@ _fw_default_apps_config = {
         "system_apps",
         "crash",
     ],
+    "recovery": [
+        "basic_services",
+        "intercom_services",
+    ],
 }
 
 fw_apps_configs_option = find_variable_config(VARS, "FIRMWARE_APPS")

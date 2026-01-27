@@ -5,6 +5,7 @@
 #define TEMP_PIPE_SZ 128U
 #define CLI_PROMPT   "\r\n917>: "
 
+#ifdef SRV_INTERCOM
 FURI_CHECK_RETURN bool
     cli_command_sl_cli_send_command_get_response(PipeSide* pipe, const char* sl_cmd) {
     if(!furi_record_exists(RECORD_CLI_INTERCOM)) {
@@ -57,3 +58,4 @@ void cli_command_sl_echo(PipeSide* pipe, FuriString* args, void* context) {
     UNUSED(args);
     UNUSED(context);
 }
+#endif // SRV_INTERCOM
