@@ -1,46 +1,55 @@
 <template>
-  <nav class="relative h-12 flex justify-between items-center">
-    <div class="flex gap-4">
+  <nav
+    data-id="layout-default-header"
+    class="relative h-12 flex justify-between items-center"
+  >
+    <div class="flex gap-6">
       <UIcon
+        data-id="layout-default-header-logo"
         name="i-busy-bar-logo"
         class="w-[70px] h-[28px]"
+        @click="onLogoClick"
       />
-      <div class="hidden md:flex items-center gap-2">
-        <div class="flex items-center gap-1">
-          <UIcon
-            name="i-ri-usb-line"
-            class="w-[18px] h-[22px]"
-          />
-          Connected
-        </div>
-        <div class="text-muted">{{ host }}</div>
-      </div>
-    </div>
-
-    <!-- temp -->
-    <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-4">
-      <div class="text-xl">BUSY Bar</div>
       <div
         v-if="power"
+        data-id="layout-default-header-power"
         class="flex items-center gap-1.5"
       >
         <div class="relative flex">
-          <UIcon
-            :name="power?.state === 'charging' ? 'i-busy-battery-charging' : batteryIcon()"
-            class="size-6"
-          />
-          <UIcon
-            v-if="power?.state === 'charging'"
-            name="i-busy-charging-lightning"
-            class="absolute size-6"
+          <BatteryIndicator
+            :charge="power?.battery_charge"
+            :state="power?.state"
+            class="size-7"
           />
         </div>
         <div>{{ power?.battery_charge }}%</div>
       </div>
+      <div class="hidden md:flex items-center gap-2">
+        <div
+          data-id="layout-default-header-connection-state"
+          class="flex items-center gap-1"
+        >
+          <template v-if="deviceStore.isConnected">
+            <UIcon
+              :name="deviceStore.connectionType === 'usb' ? 'i-bi-usb' : 'i-bi-wifi-4'"
+              class="w-[18px] h-[22px]"
+            />
+            Connected
+          </template>
+          <template v-else>
+            <UIcon
+              name="i-bi-alert"
+              class="w-[18px] h-[22px] text-red-500"
+            />
+            Disconnected
+          </template>
+        </div>
+      </div>
     </div>
 
-    <div class="hidden absolute left-1/2 -translate-x-1/2">
+    <div class="absolute left-1/2 -translate-x-1/2">
       <UDropdownMenu
+        data-id="layout-default-header-device-menu"
         :items="[
           {
             label: 'Rename',
@@ -49,12 +58,12 @@
               nameModel = '';
               showRenameModal = true;
             }
-          },
-          {
+          }
+          /* {
             label: 'Restart',
             icon: 'i-ri-restart-line',
             onSelect: () => { showRestartModal = true; }
-          }
+          } */
         ]"
         :content="{
           align: 'start',
@@ -66,17 +75,21 @@
         }"
       >
         <UButton
-          label="BUSY Bar"
+          :label="deviceStore.deviceName"
           size="lg"
-          trailing-icon="i-ri-arrow-down-s-fill"
+          trailing-icon="i-bi-caret-down"
           color="neutral"
           variant="ghost"
-          class="text-xl"
+          class="text-xl rounded-md"
+          :ui="{
+            trailingIcon: 'size-6 text-neutral-500'
+          }"
         />
       </UDropdownMenu>
 
       <ModalGeneric
         v-model:open="showRenameModal"
+        data-id="model-rename"
         title="Rename device"
         :primary-action-props="{
           label: 'Rename',
@@ -94,14 +107,19 @@
         <template #body>
           <UInput
             v-model="nameModel"
+            name="new-name"
             size="xl"
             variant="soft"
+            :ui="{ base: 'ring-1 ring-glass' }"
+            :disabled="loading.rename"
+            @keyup.enter="updateDeviceName"
           />
         </template>
       </ModalGeneric>
 
       <ModalGeneric
         v-model:open="showRestartModal"
+        data-id="model-restart"
         title="Restart BUSY Bar?"
         description="Web control will be back after the reboot."
         :primary-action-props="{
@@ -120,6 +138,7 @@
 
     <div class="flex gap-4 items-center">
       <UDropdownMenu
+        data-id="layout-default-header-user-menu"
         :items="userDropdownItems"
         :content="{
           align: 'end',
@@ -127,19 +146,22 @@
           sideOffset: 8
         }"
         :ui="{
+          itemLabelExternalIcon: 'hidden'
         }"
       >
         <UButton
+          data-id="layout-default-header-user-menu-trigger"
           icon="i-busy-user-fill"
           size="lg"
           square
           color="neutral"
-          variant="soft"
+          variant="ghost"
           class="rounded-full"
         />
+
         <template #signin-trailing>
           <UIcon
-            name="i-ri-external-link-line"
+            name="i-bi-open-in-new"
             class="shrink-0 size-5 ml-4"
           />
         </template>
@@ -152,12 +174,11 @@
 const deviceStore = useDeviceStore();
 const pms = usePasswordModalStore();
 const apiStore = useApiStore();
+const tabStore = useTabStore();
 
 const colorMode = useColorMode();
 
-const host = location.hostname;
-
-const httpApiAccess = ref(await deviceStore.getHttpAPIAccess());
+const httpApiAccess = ref();
 
 const passwordSetItems = [
   {
@@ -213,7 +234,8 @@ const userDropdownItems = computed(() => {
         icon: 'i-ri-account-circle-fill',
         slot: 'signin' as const,
         type: 'link',
-        href: 'https://cloud.busy.app'
+        href: 'https://cloud.busy.app',
+        target: '_blank'
       }
     ],
     [
@@ -258,14 +280,9 @@ const loading = ref({
 
 async function updateDeviceName () {
   loading.value.rename = true;
-  try {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  } catch {
-    //
-  } finally {
-    loading.value.rename = false;
-    showRenameModal.value = false;
-  }
+  await deviceStore.setDeviceName(nameModel.value.trim());
+  showRenameModal.value = false;
+  loading.value.rename = false;
 }
 
 async function restartDevice () {
@@ -282,20 +299,43 @@ async function restartDevice () {
 
 async function lockDown () {
   apiStore.apiKey = null;
+  deviceStore.busyBar.setApiKey('');
   await navigateTo('/login');
 }
 
-// temp
 const power = computed(() => deviceStore.deviceStatus?.power);
 
-function batteryIcon (): string {
-  const charge = power.value?.battery_charge || 0;
-  if (charge >= 75) {
-    return 'i-ri-battery-fill';
+const logoClickCounter = ref(0);
+const clickTimeout = ref<number | null>(null);
+function onLogoClick () {
+  logoClickCounter.value += 1;
+  if (clickTimeout.value) {
+    clearTimeout(clickTimeout.value);
   }
-  if (charge >= 30) {
-    return 'i-ri-battery-low-line';
+  clickTimeout.value = window.setTimeout(() => {
+    logoClickCounter.value = 0;
+    clickTimeout.value = null;
+  }, 2000);
+  if (logoClickCounter.value >= 10) {
+    tabStore.showHiddenTabs = !tabStore.showHiddenTabs;
+    logoClickCounter.value = 0;
   }
-  return 'i-ri-battery-line';
 }
+
+async function init () {
+  httpApiAccess.value = await deviceStore.getHttpAPIAccess();
+
+  await deviceStore.detectConnectionType();
+  if (deviceStore.connectionType === 'usb') {
+    passwordSetItems.splice(0, 1);
+  }
+
+  nameModel.value = await deviceStore.getDeviceName();
+}
+
+onMounted(async () => {
+  await init();
+  window.addEventListener('device-reconnected', init);
+});
+onBeforeUnmount(() => window.removeEventListener('device-reconnected', init));
 </script>

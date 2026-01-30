@@ -1,8 +1,16 @@
 <template>
-  <div class="w-full flex flex-col gap-4">
+  <div
+    data-id="page-index"
+    class="w-full flex flex-col gap-4"
+  >
     <TabNetwork v-if="tabStore.currentTab === 'network'" />
     <TabFirmware v-if="tabStore.currentTab === 'firmware'" />
     <TabSettings v-if="tabStore.currentTab === 'settings'" />
+
+    <template v-if="tabStore.showHiddenTabs">
+      <TabFiles v-if="tabStore.currentTab === 'files'" />
+      <TabAnimations v-if="tabStore.currentTab === 'animations'" />
+    </template>
   </div>
 </template>
 

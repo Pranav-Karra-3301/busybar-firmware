@@ -1,5 +1,8 @@
 <template>
-  <div class="screen-stream-container">
+  <div
+    data-id="screen-stream"
+    class="screen-stream-container"
+  >
     <div class="device-image">
       <img
         src="~/assets/images/busybar-device.png"
@@ -9,6 +12,7 @@
     <div class="canvas-container">
       <canvas
         ref="canvasRef"
+        data-id="screen-stream-canvas"
         :width="canvasWidth"
         :height="canvasHeight"
         class="aspect-[72/16]"
@@ -21,7 +25,6 @@
 import { DeviceScreen } from '@busy-app/busy-lib';
 
 const deviceScreenStreamStore = useDeviceScreenStreamStore();
-const toast = useToast();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const canvasCtx = ref<CanvasRenderingContext2D | null>(null);
 
@@ -32,21 +35,15 @@ const originalDimensions = computed(() => {
 });
 
 const windowWidth = ref(window.innerWidth);
-onMounted(() => {
-  const handleResize = () => {
-    windowWidth.value = window.innerWidth;
-    if (windowWidth.value > 640 && scaleFactor.value !== 5) {
-      scaleFactor.value = 5;
-    } else if (windowWidth.value <= 640 && scaleFactor.value !== 4) {
-      scaleFactor.value = 4;
-    }
-  };
-  window.addEventListener('resize', handleResize);
-  // Clean up on unmount
-  onBeforeUnmount(() => {
-    window.removeEventListener('resize', handleResize);
-  });
-});
+function handleResize () {
+  windowWidth.value = window.innerWidth;
+  if (windowWidth.value > 640 && scaleFactor.value !== 5) {
+    scaleFactor.value = 5;
+  } else if (windowWidth.value <= 640 && scaleFactor.value !== 4) {
+    scaleFactor.value = 4;
+  }
+}
+
 // scale the canvas
 const scaleFactor = ref(windowWidth.value > 640 ? 5 : 4);
 const canvasWidth = computed(() => originalDimensions.value.width * scaleFactor.value);
@@ -163,14 +160,16 @@ function dataCallback (data: Uint8Array) {
 }
 
 function stopCallback () {
-  console.log('Screen stream stopped');
-
   if (canvasCtx.value) {
     canvasCtx.value.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
   }
 }
 
-onMounted(() => {
+async function init () {
+  if (deviceScreenStreamStore.isConnected) {
+    await deviceScreenStreamStore.stopScreenStream();
+  }
+
   if (canvasRef.value) {
     canvasCtx.value = canvasRef.value.getContext('2d', { willReadFrequently: true });
 
@@ -180,9 +179,6 @@ onMounted(() => {
   }
 
   deviceScreenStreamStore.startScreenStream(dataCallback, stopCallback)
-    .then(() => {
-      console.log('Screen stream started');
-    })
     .catch(error => {
       console.error('Error starting screen stream:', error);
       toast.add({
@@ -193,10 +189,18 @@ onMounted(() => {
         duration: 5000
       });
     });
-});
+}
 
-onBeforeUnmount(() => {
-  deviceScreenStreamStore.stopScreenStream();
+onMounted(async () => {
+  window.addEventListener('resize', handleResize);
+
+  await init();
+  window.addEventListener('device-reconnected', init);
+});
+onBeforeUnmount(async () => {
+  window.removeEventListener('resize', handleResize);
+  await deviceScreenStreamStore.stopScreenStream();
+  window.removeEventListener('device-reconnected', init);
 });
 </script>
 

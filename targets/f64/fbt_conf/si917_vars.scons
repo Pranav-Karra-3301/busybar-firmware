@@ -11,7 +11,7 @@ VARS.AddVariables(
     (
         "SI917_NWP_STACK",
         "NWP stack to use for the SI917 target",
-        "#lib/wiseconnect/connectivity_firmware/standard/SiWG917-B.2.14.5.0.0.10.rps",
+        "#lib/wiseconnect/connectivity_firmware/standard/SiWG917-B.2.14.5.2.0.7.rps",
     ),
 )
 
@@ -33,6 +33,16 @@ _fw_default_apps_config = {
         "system_apps",
         "cli",
         "cli_uart",
+    ],
+    "917_crash": [
+        "basic_services",
+        "intercom_services",
+        "system_apps",
+        "crash",
+    ],
+    "recovery": [
+        "basic_services",
+        "intercom_services",
     ],
 }
 

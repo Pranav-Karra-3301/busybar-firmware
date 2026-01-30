@@ -2,7 +2,7 @@
 #include "../helpers/rps.h"
 
 #include <storage/storage.h>
-#include <cli_f20/cli_command_sl_cli.h>
+#include <cli_u5/cli_command_sl_cli.h>
 
 #include <containers/pipe_util.h>
 #include <formatters/sl_rps/sl_rps.h>
@@ -17,10 +17,14 @@
 static int32_t nwp_get_active_version_thread_entry(void* context) {
     PipeSide* tx_pipe = context;
 
-    cli_command_sl_cli_send_command_get_response(tx_pipe, "device_info");
+#ifdef SRV_INTERCOM
+    bool success = cli_command_sl_cli_send_command_get_response(tx_pipe, "device_info");
+#else // SRV_INTERCOM
+    bool success = false;
+#endif // SRV_INTERCOM
 
     pipe_free(tx_pipe);
-    return 0;
+    return success ? 0 : -1;
 }
 
 static bool nwp_get_active_version(FuriString* nwp_version) {

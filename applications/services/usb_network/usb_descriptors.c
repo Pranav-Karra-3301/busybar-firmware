@@ -1,9 +1,12 @@
+#include "usb_network_settings.h"
+
 #include <furi.h>
 #include <furi_hal_version.h>
+#include <toolbox/hex.h>
+
 #include <tusb.h>
 #include <class/net/net_device.h>
 #include <class/net/ncm.h>
-#include "usb_network_settings.h"
 
 #define VERSION_BCD(maj, min, rev) (((maj & 0xFF) << 8) | ((min & 0x0F) << 4) | (rev & 0x0F))
 
@@ -158,7 +161,7 @@ uint8_t const* tud_descriptor_other_speed_configuration_cb(uint8_t index) {
 
 static char const* desc_string_arr[] = {
     [UsbStrLang] = (const char[]){0x09, 0x04},
-    [UsbStrManufacturer] = "Flipper Devices Inc.",
+    [UsbStrManufacturer] = "Flipper FZCO",
     [UsbStrProduct] = "BUSY Bar USB Ethernet",
     [UsbStrSerial] = NULL,
     [UsbStrNcmInterface] = "Network Interface",
@@ -179,7 +182,8 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 
     case UsbStrSerial:
         FuriString* uid = furi_string_alloc();
-        furi_hal_version_get_uid_str(uid);
+        hex_bytes_to_string(furi_hal_version_uid(), furi_hal_version_uid_size(), uid);
+
         size_t uid_len = furi_string_size(uid);
         furi_assert(uid_len < COUNT_OF(desc_string_temp));
         for(uint8_t i = 0; i < uid_len; i++) {

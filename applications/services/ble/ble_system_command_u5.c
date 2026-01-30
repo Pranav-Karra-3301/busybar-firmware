@@ -1,3 +1,4 @@
+#include "settings/settings.h"
 #include "ble_command_engine.h"
 #include "ble_system_command.h"
 #include "ble/service/ble_service.h"
@@ -17,10 +18,19 @@ BleIntercomFrameGeneric* ble_command_preprocess(Ble* instance, uint32_t events) 
     }
 }
 
-void ble_set_service_post_process_callback(Ble* ble, BleServicePostProcessCallback callback) {
-    furi_assert(ble);
-    if(callback) BLE_LOG_I("Subscribe for post process");
-    ble->service_post_process_callback = callback;
+static void ble_restore_state_on_start(const Ble* instance) {
+    BleSettings settings;
+    ble_settings_load(&settings);
+    if(settings.enabled) {
+        furi_event_loop_set_custom_event(instance->event_loop, BleEventTypeEnableOnStart);
+    }
+}
+
+static void ble_save_enabled_state(bool enabled) {
+    BleSettings settings;
+    ble_settings_load(&settings);
+    settings.enabled = enabled;
+    ble_settings_save(&settings);
 }
 
 static void ble_on_name_change_callback(const void* message, void* context) {
@@ -48,16 +58,14 @@ static bool ble_command_set_device_name_request(BleIntercomFrameGeneric* frame, 
     FuriString* name = furi_string_alloc();
     ble_get_name_from_record(name);
 
-    size_t name_size = furi_string_size(name) + 1;
-    const size_t new_msg_size = sizeof(BleIntercomFrameHeader) + name_size;
+    size_t name_size = furi_string_size(name);
+    size_t new_msg_size = sizeof(BleIntercomFrameHeader) + name_size + 1;
 
     BleIntercomFrameGeneric* name_frame = malloc(new_msg_size);
-
     memcpy(&name_frame->header, &frame->header, sizeof(BleIntercomFrameHeader));
     name_frame->header.command = BleCommandSetDeviceName;
     name_frame->header.data_size = name_size;
     memcpy(name_frame->data, furi_string_get_cstr(name), name_size);
-    name_frame->data[name_size] = 0;
 
     bool result = ble_command_request_process(name_frame, context);
     free(name_frame);
@@ -95,6 +103,9 @@ static void ble_service_init_wait_callback(BleServiceObject* service, bool resul
         ble_subscribe_on_name_change(instance);
 
         ble_set_service_post_process_callback(instance, NULL);
+
+        ble_restore_state_on_start(instance);
+
         api_lock_unlock(instance->current_command_api_lock);
     }
 }
@@ -139,7 +150,7 @@ static bool ble_command_init_response(BleIntercomFrameGeneric* frame, void* cont
 }
 
 static bool ble_command_enable_request(BleIntercomFrameGeneric* frame, void* context) {
-    BLE_LOG_I("BleCommandEnable request");
+    BLE_LOG_D("BleCommandEnable request");
     Ble* instance = context;
     const BleServiceState state = instance->state;
 
@@ -168,13 +179,21 @@ static bool ble_command_enable_response(BleIntercomFrameGeneric* frame, void* co
     instance->current_command->header.result = frame->header.result;
     instance->state = frame->header.result ? BleServiceStateAdvertising : BleServiceStateError;
 
+    ble_save_enabled_state(true);
+
+    const FuriThreadId owner_id = furi_mutex_get_owner(instance->current_command_lock);
+    const FuriThreadId current_id = furi_thread_get_current_id();
+    if(owner_id == current_id) {
+        furi_mutex_release(instance->current_command_lock);
+    }
+
     api_lock_unlock(instance->current_command_api_lock);
     ble_http_repeater_start(instance);
     return true;
 }
 
 static bool ble_command_disable_request(BleIntercomFrameGeneric* frame, void* context) {
-    BLE_LOG_I("BleCommandDisable request");
+    BLE_LOG_D("BleCommandDisable request");
     Ble* instance = context;
     const BleServiceState state = instance->state;
 
@@ -199,6 +218,8 @@ static bool ble_command_disable_response(BleIntercomFrameGeneric* frame, void* c
 
     instance->current_command->header.result = frame->header.result;
     instance->state = frame->header.result ? BleServiceStateReady : BleServiceStateError;
+
+    ble_save_enabled_state(false);
 
     api_lock_unlock(instance->current_command_api_lock);
     ble_http_repeater_stop();

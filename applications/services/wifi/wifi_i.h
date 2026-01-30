@@ -3,7 +3,7 @@
 #include "wifi.h"
 
 #include "wifi_common_i.h"
-#include "wifi_settings.h"
+#include "settings/settings.h"
 
 #include <api_lock.h>
 
@@ -50,6 +50,8 @@ struct Wifi {
     FuriSemaphore* dhcp_semaphore;
     FuriState* state;
     Intercom* intercom;
+    IntercomChannel* intercom_ch_control;
+    IntercomChannel* intercom_ch_data;
     struct netif netif;
     WifiMessage api_message;
     WifiRequest request;

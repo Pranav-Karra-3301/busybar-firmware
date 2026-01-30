@@ -9,6 +9,15 @@
 #define ACCESS_KEY_LEN_MIN 4
 #define ACCESS_KEY_LEN_MAX 10
 
+// Always accessible API endpoints
+static const struct {
+    const char* uri;
+    const char* method;
+} api_access_whitelist[] = {
+    {"version", "GET"},
+    {"access", "GET"},
+};
+
 typedef struct {
     HttpHandlersList_t handlers;
     enum {
@@ -127,8 +136,16 @@ static bool http_api_access_callback(
 
 static bool http_api_is_access_allowed(
     ApiRootCtx* context,
+    FuriString* path,
     struct mg_connection* conn,
     struct mg_http_message* msg) {
+    for(size_t i = 0; i < COUNT_OF(api_access_whitelist); i++) {
+        if(furi_string_equal(path, api_access_whitelist[i].uri) &&
+           (mg_strcmp(msg->method, mg_str(api_access_whitelist[i].method)) == 0)) {
+            return true;
+        }
+    }
+
     uint8_t* ip = conn->rem.ip;
     UsbNetwork* usb_network = furi_record_open(RECORD_USB_NETWORK);
     bool is_usb_addr = usb_network_is_dhcp_addr(usb_network, ip);
@@ -278,9 +295,12 @@ static const HttpHandler handlers_api_root[] = {
     },
     {
         .uri = "update",
-        .method = "POST",
+        .method = "*",
         .type = HttpHandlerCustom,
-        .on_headers = http_api_update_hdr_callback,
+        .ctx_alloc = http_api_update_alloc,
+        .ctx_free = http_api_update_free,
+        .on_request = http_api_update_callback,
+        .on_headers = http_api_update_hdr_callback_root,
     },
     {
         .uri = "screen",
@@ -314,7 +334,13 @@ static const HttpHandler handlers_api_root[] = {
     },
     {
         .uri = "name",
-        .method = "*",
+        .method = "GET",
+        .type = HttpHandlerCustom,
+        .on_request = http_api_name_callback,
+    },
+    {
+        .uri = "name",
+        .method = "POST",
         .type = HttpHandlerCustom,
         .on_request = http_api_name_callback,
     },
@@ -322,13 +348,17 @@ static const HttpHandler handlers_api_root[] = {
         .uri = "account",
         .method = "*",
         .type = HttpHandlerCustom,
+        .ctx_alloc = http_api_account_alloc,
+        .ctx_free = http_api_account_free,
         .on_request = http_api_account_callback,
     },
     {
-        .uri = "account/link",
+        .uri = "busy",
         .method = "*",
         .type = HttpHandlerCustom,
-        .on_request = http_api_account_link_callback,
+        .ctx_alloc = http_api_busy_alloc,
+        .ctx_free = http_api_busy_free,
+        .on_request = http_api_busy_callback,
     },
 };
 
@@ -406,7 +436,7 @@ bool http_api_root_hdr_callback(
         FURI_LOG_D(TAG, "Query %.*s", msg->query.len, msg->query.buf);
     }
 
-    if(!http_api_is_access_allowed(context, conn, msg)) {
+    if(!http_api_is_access_allowed(context, path, conn, msg)) {
         MG_REPLY_FORBIDDEN(conn);
         mg_iobuf_del(&conn->recv, 0, msg->head.len);
         conn->pfn = NULL;

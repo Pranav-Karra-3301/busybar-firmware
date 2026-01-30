@@ -1,5 +1,8 @@
 <template>
-  <div class="w-full flex flex-col items-center">
+  <div
+    data-id="layout-default-preview"
+    class="w-full flex flex-col items-center"
+  >
     <ScreenStream class="py-6" />
 
     <div class="hidden max-w-screen overflow-auto">
@@ -53,7 +56,13 @@ function batteryIcon (): string {
   return 'i-ri-battery-line';
 }
 
-onMounted(async () => {
+async function init () {
   await deviceStore.getDeviceStatus();
+}
+
+onMounted(async () => {
+  await init();
+  window.addEventListener('device-reconnected', init);
 });
+onBeforeUnmount(() => window.removeEventListener('device-reconnected', init));
 </script>
