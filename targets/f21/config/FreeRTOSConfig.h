@@ -28,6 +28,7 @@
 #define configMAX_PRIORITIES             (32)
 #define configMINIMAL_STACK_SIZE         ((uint16_t)128)
 #define configUSE_POSIX_ERRNO            1
+#define configENABLE_HEAP_PROTECTOR      1
 
 /* Heap size determined automatically by linker */
 // #define configTOTAL_HEAP_SIZE                    ((size_t)0)
