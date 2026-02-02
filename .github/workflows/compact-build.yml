@@ -3,7 +3,7 @@ name: "Compact build"
 on:
   push:
     branches:
-      - dev
+      - factory2
   pull_request:
 
 env:
