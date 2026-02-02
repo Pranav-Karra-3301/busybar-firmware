@@ -12,7 +12,7 @@
 
 #define DEFAULT_UPDATE_PACKAGE_NAME "firmware" // Define a default package name
 #define MAX_UPDATE_NAME_LEN         (32)
-#define MAX_UPLOAD_FILE_SIZE        (40 * 1024 * 1024) // User-set: 40MB
+#define MAX_UPLOAD_FILE_SIZE        (100 * 1024 * 1024) // 100 MB max upload size
 #define UPDATE_STAGING_ROOT         EXT_PATH("update")
 
 // Context for the update handler (raw upload)
