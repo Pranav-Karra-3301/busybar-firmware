@@ -3,7 +3,7 @@ name: 'Build'
 on:
   push:
     branches:
-      - factory2
+      - factory
     tags:
       - '*'
   pull_request:

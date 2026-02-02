@@ -3,7 +3,7 @@ name: 'Unit tests'
 on:
   push:
     branches:
-      - factory2
+      - factory
     tags:
       - '*'
   pull_request:
