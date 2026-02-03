@@ -77,6 +77,12 @@ installs.extend(
             ),
             u5_env["FW_ENV"]["FW_BIN"][0],
         ),
+        InstallAs(
+            dist_dir.File(
+                u5_env.subst("busybar-${F_TARGET_HW}-firmware-${DIST_SUFFIX}.hex")
+            ),
+            u5_env["FW_ENV"]["FW_HEX"][0],
+        ),
         # Updater artifacts
         InstallAs(
             dist_dir.File(
