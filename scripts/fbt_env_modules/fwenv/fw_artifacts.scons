@@ -18,6 +18,9 @@ AddPostAction(
 fwbin = fwenv["FW_BIN"] = fwenv.Install("${BUILD_DIR}", fwbin_src)
 Alias(fwenv.subst("${FIRMWARE_BUILD_CFG}_bin"), fwbin)
 
+fwhex = fwenv["FW_HEX"] = fwenv.Install("${BUILD_DIR}", fwhex_src)
+Alias(fwenv.subst("${FIRMWARE_BUILD_CFG}_hex"), fwhex)
+
 fwdfu_src = fw_extra_env.DFUBuilder("${FIRMWARE_BUILD_CFG}", fwbin_src)
 fwdfu = fwenv["FW_DFU"] = fwenv.Install("${BUILD_DIR}", fwdfu_src)
 Alias(fwenv.subst("${FIRMWARE_BUILD_CFG}_dfu"), fwdfu)
