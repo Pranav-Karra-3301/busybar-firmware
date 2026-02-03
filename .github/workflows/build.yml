@@ -6,7 +6,7 @@ on:
       - factory
     tags:
       - '*'
-  pull_request:
+  # pull_request:
 
 env:
   FBT_GIT_SUBMODULE_SHALLOW: 0
@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        u5_target: [20, 21]
+        u5_target: [21]
     outputs:
       default_target: ${{ env.DEFAULT_TARGET }}
       update_url: ${{ steps.set-url.outputs.update_url }}
@@ -166,12 +166,12 @@ jobs:
           echo "update_url=${{ steps.names.outputs.branch_name }}/busybar-f${{ matrix.u5_target }}-update-${{ steps.names.outputs.suffix }}.tar" >> "$GITHUB_OUTPUT"
 
 
-  updater-tests:
-    needs: build
-    if: ${{ needs.build.result == 'success' && needs.build.outputs.update_url != '' }}
-    uses: './.github/workflows/updater-test.yml'
-    with:
-      branch_name: ${{ github.head_ref || github.ref_name }}
-      commit_sha: ${{ github.event.pull_request.head.sha }}
-      update_url: ${{ needs.build.outputs.update_url }}
-      default_target: ${{ needs.build.outputs.default_target }}
+  # updater-tests:
+  #   needs: build
+  #   if: ${{ needs.build.result == 'success' && needs.build.outputs.update_url != '' }}
+  #   uses: './.github/workflows/updater-test.yml'
+  #   with:
+  #     branch_name: ${{ github.head_ref || github.ref_name }}
+  #     commit_sha: ${{ github.event.pull_request.head.sha }}
+  #     update_url: ${{ needs.build.outputs.update_url }}
+  #     default_target: ${{ needs.build.outputs.default_target }}

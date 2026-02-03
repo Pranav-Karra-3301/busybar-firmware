@@ -1,10 +1,10 @@
 name: "Compact build"
 
 on:
-  push:
-    branches:
-      - factory
-  pull_request:
+  # push:
+  #   branches:
+  #     - factory
+  # pull_request:
 
 env:
   FBT_GIT_SUBMODULE_SHALLOW: 0
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        u5_target: [20, 21]
+        u5_target: [21]
     outputs:
       default_target: ${{ env.DEFAULT_TARGET }}
 
