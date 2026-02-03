@@ -1,4 +1,4 @@
-#include "mqtt_client_i.h"
+#include <mongoose.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/pk.h>
 #include <pk_wrap.h>
@@ -122,7 +122,7 @@ static bool tls_load_cert_from_file(char* path, mbedtls_x509_crt* crt) {
     do {
         if(!storage_file_open(file, path, FSAM_READ, FSOM_OPEN_EXISTING)) {
             FURI_LOG_E(TAG, "Cert file error: %s", storage_file_get_error_desc(file));
-            return false;
+            break;
         }
 
         cert_len = storage_file_size(file);
@@ -130,26 +130,27 @@ static bool tls_load_cert_from_file(char* path, mbedtls_x509_crt* crt) {
 
         if(storage_file_read(file, cert_buf, cert_len) != cert_len) {
             FURI_LOG_E(TAG, "Cert file read error");
-            return false;
+            break;
         }
+
+        const int parse_result = mbedtls_x509_crt_parse(crt, cert_buf, cert_len + 1);
+
+        if(parse_result != 0) {
+            FURI_LOG_E(TAG, "Cert parse error -0x%04X", -parse_result);
+            break;
+        }
+
         success = true;
     } while(0);
 
-    storage_file_close(file);
+    if(cert_buf) {
+        free(cert_buf);
+    }
+
+    storage_file_free(file);
     furi_record_close(RECORD_STORAGE);
 
-    if(!success) {
-        if(cert_buf) free(cert_buf);
-        return false;
-    }
-
-    int ret = mbedtls_x509_crt_parse(crt, cert_buf, cert_len + 1);
-    free(cert_buf);
-    if(ret != 0) {
-        FURI_LOG_E(TAG, "Cert parse error -0x%04X", -ret);
-        return false;
-    }
-    return true;
+    return success;
 }
 
 static bool tls_load_key_from_file(char* path, mbedtls_pk_context* pk) {
@@ -203,7 +204,7 @@ static int tls_net_send(void* ctx, const unsigned char* buf, size_t len) {
 
 static int tls_net_recv(void* ctx, unsigned char* buf, size_t len) {
     long n = mg_io_recv((struct mg_connection*)ctx, buf, len);
-    if(n == MG_IO_WAIT) return MBEDTLS_ERR_SSL_WANT_WRITE;
+    if(n == MG_IO_WAIT) return MBEDTLS_ERR_SSL_WANT_READ;
     if(n == MG_IO_RESET) return MBEDTLS_ERR_NET_CONN_RESET;
     if(n == MG_IO_ERR) return MBEDTLS_ERR_NET_RECV_FAILED;
     return (int)n;
