@@ -102,10 +102,13 @@ static void input_send(Input* instance, const InputPin* pin, InputAction input_a
             });
         }
 
-        bool start_back_pressed = (instance->absolute_state.buttons & (InputButtonMaskStart | InputButtonMaskBack)) == (InputButtonMaskStart | InputButtonMaskBack);
+        bool start_back_pressed =
+            (instance->absolute_state.buttons & (InputButtonMaskStart | InputButtonMaskBack)) ==
+            (InputButtonMaskStart | InputButtonMaskBack);
 
         if(start_back_pressed) {
-            furi_event_loop_timer_start(instance->reset_timer, furi_ms_to_ticks(INPUT_RESET_TIMEOUT_MS));
+            furi_event_loop_timer_start(
+                instance->reset_timer, furi_ms_to_ticks(INPUT_RESET_TIMEOUT_MS));
         } else {
             if(instance->reset_initiated) {
                 instance->reset_initiated = false;
@@ -244,10 +247,7 @@ int32_t input_srv(void* p) {
         FuriEventLoopTimerTypePeriodic,
         instance);
     instance->reset_timer = furi_event_loop_timer_alloc(
-        instance->event_loop,
-        input_reset_timer_callback,
-        FuriEventLoopTimerTypeOnce,
-        instance);
+        instance->event_loop, input_reset_timer_callback, FuriEventLoopTimerTypeOnce, instance);
     instance->key_states = malloc(sizeof(InputKeyState) * input_pins_count);
     instance->absolute_state = furi_state_alloc(sizeof(InputAbsoluteState));
     instance->reset_initiated = false;

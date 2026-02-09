@@ -6,6 +6,7 @@
 
 #ifdef SRV_INTERCOM
 #include <intercom/intercom.h>
+#include <storage/storage.h>
 #endif
 
 #define INPUT_PRESS_TICKS       150
@@ -190,6 +191,16 @@ static void input_intercom_rx_callback(const void* data, size_t data_size, void*
     } else if(event->device == InputDeviceEncoder) {
         const InputKey key = event->encoder_delta > 0 ? InputKeyUp : InputKeyDown;
         input_key_toggle(input, key);
+    } else if(event->device == InputDeviceReset) {
+        FURI_LOG_I("Input", "reset %b", event->reset_initiated);
+
+        Storage* storage = furi_record_open(RECORD_STORAGE);
+        if(event->reset_initiated) {
+            storage_common_shutdown(storage);
+        } else {
+            storage_common_revive(storage);
+        }
+        furi_record_close(RECORD_STORAGE);
     }
 }
 #endif
