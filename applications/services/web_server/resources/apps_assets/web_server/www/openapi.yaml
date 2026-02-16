@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: BUSY Bar HTTP API
   description: HTTP API for BUSY Bar web server
-  version: 4.1.0
+  version: 5.1.0
   contact:
     name: tbd
 
@@ -659,21 +659,13 @@ paths:
         Set brightness for one or both displays
       operationId: setDisplayBrightness
       parameters:
-        - name: front
+        - name: value
           in: query
           required: false
           schema:
             type: string
             pattern: "^[a-zA-Z0-9._-]+$"
-          description: Front display brightness (0-100/auto)
-          example: "auto"
-        - name: back
-          in: query
-          required: false
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9._/-]+$"
-          description: Back display brightness (0-100/auto)
+          description: Displays brightness (0-100/auto)
           example: "50"
       responses:
         "200":
@@ -1955,14 +1947,10 @@ components:
     DisplayBrightnessInfo:
       type: object
       properties:
-        front:
+        value:
           type: string
-          description: Front display brightness (0-100/auto)
+          description: Displays brightness (0-100/auto)
           example: "auto"
-        back:
-          type: string
-          description: Back display brightness (0-100/auto)
-          example: "50"
 
     AudioVolumeInfo:
       type: object
