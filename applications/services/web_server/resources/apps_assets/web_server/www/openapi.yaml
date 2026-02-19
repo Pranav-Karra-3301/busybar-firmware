@@ -1707,7 +1707,7 @@ components:
               type: string
               enum: ["start", "stop", "none"]
               description: Current check event
-            result:
+            status:
               type: string
               enum: ["available", "not_available", "failure", "none"]
               description: Check result status
@@ -1725,7 +1725,7 @@ components:
         check:
           available_version: "1.2.3"
           event: "stop"
-          result: "available"
+          status: "available"
 
     AutoupdateSettings:
       type: object
