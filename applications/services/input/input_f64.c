@@ -102,9 +102,12 @@ static void input_send(Input* instance, const InputPin* pin, InputAction input_a
             });
         }
 
-        bool start_back_pressed =
-            (instance->absolute_state.buttons & (InputButtonMaskStart | InputButtonMaskBack)) ==
-            (InputButtonMaskStart | InputButtonMaskBack);
+        bool start_back_pressed = false;
+
+        with_furi_state(instance->absolute_state, InputAbsoluteState * st, {
+            start_back_pressed = (st->buttons & (InputButtonMaskStart | InputButtonMaskBack)) ==
+                                 (InputButtonMaskStart | InputButtonMaskBack);
+        });
 
         if(start_back_pressed) {
             furi_event_loop_timer_start(
