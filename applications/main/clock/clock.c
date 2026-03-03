@@ -1,140 +1,233 @@
-#include <sntp/sntp.h>
-#include <gui/gui.h>
-#include <gui/modules/label.h>
+#include "clock_i.h"
+
+#include <settings_helpers/gui_params.h>
 
 #include <furi.h>
+#include <cli/args.h>
 
-#define TAG                      "Clock"
-#define CLOCK_INTERVAL_UPDATE_MS (500) // 500 milliseconds
+#define TAG "clock"
 
-typedef enum {
-    ClockCustomEventExit = 1UL << 0,
-} ClockCustomEvent;
+#define INPUT_QUEUE_CAPACITY   8
+#define INPUT_QUEUE_TIMEOUT_MS 3000
 
-typedef struct {
-    FuriEventLoop* event_loop;
-    FuriEventLoopTimer* timer;
-    Gui* gui;
-    Sntp* sntp;
-    Label* labels[GuiDisplayIdMax];
-    FuriString* time_string;
-} Clock;
+#define EVENT_QUEUE_CAPACITY   8
+#define EVENT_QUEUE_TIMEOUT_MS 3000
 
-static bool clock_input_callback(const InputEvent* event, void* context) {
-    furi_assert(event);
-    furi_assert(context);
-    Clock* instance = context;
+#define TIMER_INTERVAL_MS 100
 
-    bool consumed = false;
+static const ThisArguments default_arguments = {
+    .do_skip_menu = false,
+};
 
-    if(event->type == InputTypeShort) {
-        if(event->key == InputKeyBack) {
-            furi_event_loop_set_custom_event(instance->event_loop, ClockCustomEventExit);
-            consumed = true;
+static void parse_arguments(const char* string, ThisArguments* arguments) {
+    *arguments = default_arguments;
+
+    if(!string) return;
+
+    FuriString* _string = furi_string_alloc_set(string);
+    FuriString* argument = furi_string_alloc();
+    while(args_read_string_and_trim(_string, argument)) {
+        if(furi_string_equal_str(argument, "-s") ||
+           furi_string_equal_str(argument, "--skip-menu")) {
+            arguments->do_skip_menu = true;
+        } else {
+            FURI_LOG_W(TAG, "Unknown argument: %s.", furi_string_get_cstr(argument));
         }
     }
 
-    return consumed;
+    furi_string_free(argument);
 }
 
-static void clock_custom_event_callback(uint32_t events, void* context) {
-    furi_assert(context);
-    Clock* instance = context;
+static bool thread_signal_callback(uint32_t signal, void* argument, void* context) {
+    UNUSED(argument);
 
-    if(events & ClockCustomEventExit) {
+    furi_assert(context);
+
+    ThisInstance* instance = context;
+
+    switch(signal) {
+    case FuriSignalExit:
         furi_event_loop_stop(instance->event_loop);
+        return true;
+
+    default:
+        return false;
     }
 }
 
-const char* clock_get_time_string(Clock* instance) {
-    furi_assert(instance);
+static void input_queue_callback(FuriEventLoopObject* object, void* context) {
+    UNUSED(object);
 
-    DateTime date_time;
-    sntp_get_local_datetime(instance->sntp, &date_time);
+    furi_assert(context);
 
-    furi_string_printf(
-        instance->time_string,
-        "   %02d:%02d:%02d\n%02d-%02d-%04d",
-        date_time.hour,
-        date_time.minute,
-        date_time.second,
-        date_time.day,
-        date_time.month,
-        date_time.year);
+    ThisInstance* instance = context;
 
-    return furi_string_get_cstr(instance->time_string);
+    InputEvent event;
+    while(furi_message_queue_get(instance->input_queue, &event, 0) == FuriStatusOk) {
+        if(event.type == InputTypeShort && event.key == InputKeyBack) {
+            if(!scene_manager_handle_back_event(instance->scene_manager)) {
+                desktop_replace_current_app(instance->desktop, "apps_menu", THIS_APP_NAME);
+            }
+        }
+    }
+}
+
+static void event_queue_callback(FuriEventLoopObject* object, void* context) {
+    UNUSED(object);
+
+    furi_assert(context);
+
+    ThisInstance* instance = context;
+
+    uint32_t event;
+    while(furi_message_queue_get(instance->event_queue, &event, 0) == FuriStatusOk) {
+        scene_manager_handle_custom_event(instance->scene_manager, event);
+    }
+}
+
+static bool gui_input_callback(const InputEvent* event, void* context) {
+    furi_assert(event);
+    furi_assert(context);
+
+    ThisInstance* instance = context;
+
+    if(event->type == InputTypeShort && event->key == InputKeyBack) {
+        FuriStatus queue_status =
+            furi_message_queue_put(instance->input_queue, event, INPUT_QUEUE_TIMEOUT_MS);
+
+        if(queue_status != FuriStatusOk) FURI_LOG_E(TAG, "Input queue failure");
+
+        return true;
+    }
+
+    return false;
 }
 
 static void clock_timer_callback(void* context) {
-    Clock* instance = context;
+    ThisInstance* instance = context;
 
-    // Update the labels with the current time
-    for(GuiDisplayId id = 0; id < GuiDisplayIdMax; ++id) {
-        Label* label = instance->labels[id];
-        if(label) {
-            label_set_text(label, clock_get_time_string(instance));
-        }
-    }
+    clock_app_fire_event(instance, ThisEventTimerUpdate);
 }
 
-static Clock* clock_alloc(void) {
-    Clock* instance = malloc(sizeof(Clock));
+static ThisInstance* this_alloc(const char* arguments) {
+    ThisInstance* instance = malloc(sizeof(*instance));
+
+    parse_arguments(arguments, &instance->arguments);
+
     instance->event_loop = furi_event_loop_alloc();
-    instance->timer = furi_event_loop_timer_alloc(
-        instance->event_loop, clock_timer_callback, FuriEventLoopTimerTypePeriodic, instance);
-    instance->time_string = furi_string_alloc();
+    instance->input_queue = furi_message_queue_alloc(INPUT_QUEUE_CAPACITY, sizeof(InputEvent));
+    instance->event_queue = furi_message_queue_alloc(EVENT_QUEUE_CAPACITY, sizeof(uint32_t));
+    instance->scene_manager = scene_manager_alloc(clock_app_scenes, ThisSceneIdxsCount, instance);
 
     instance->gui = furi_record_open(RECORD_GUI);
     instance->sntp = furi_record_open(RECORD_SNTP);
+    instance->desktop = furi_record_open(RECORD_DESKTOP);
+    instance->updater = furi_record_open(RECORD_UPDATER);
 
-    furi_event_loop_set_custom_event_callback(
-        instance->event_loop, clock_custom_event_callback, instance);
+    instance->timer = furi_event_loop_timer_alloc(
+        instance->event_loop, clock_timer_callback, FuriEventLoopTimerTypePeriodic, instance);
+
+    updater_pause_autoupdates(instance->updater);
 
     with_gui(instance->gui, {
-        GuiLayer* main_layer = gui_get_layer(instance->gui, GuiLayerIdMain);
-        gui_layer_add_input_callback(main_layer, clock_input_callback, instance);
+        GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
+        gui_layer_add_input_callback(layer, gui_input_callback, instance);
 
-        Widget* root;
+        Widget* front_root = gui_layer_get_root_widget(layer, GuiDisplayIdFront);
+        instance->front_scene_window = widget_alloc(front_root);
 
-        for(GuiDisplayId id = 0; id < GuiDisplayIdMax; ++id) {
-            root = gui_layer_get_root_widget(main_layer, id);
+        Widget* back_root = gui_layer_get_root_widget(layer, GuiDisplayIdBack);
+        instance->back_container = flex_layout_alloc(back_root, FlexLayoutTypeColumn);
 
-            Label* label = label_alloc(root);
-            label_set_text(label, clock_get_time_string(instance));
-            widget_set_align(label_get_base(label), AlignCenter);
+        instance->back_nav_bar = nav_bar_alloc(flex_layout_get_base(instance->back_container));
+        nav_bar_set_header_image(
+            instance->back_nav_bar, SHARED_IMG_PATH("apps_menu_back_12x12.bin"));
+        nav_bar_push_location(instance->back_nav_bar, "CLOCK");
+        widget_set_height(nav_bar_get_base(instance->back_nav_bar), 14);
+        widget_set_margin(nav_bar_get_base(instance->back_nav_bar), 1, 0, 0, 2);
 
-            instance->labels[id] = label;
-        }
-
-        furi_event_loop_timer_start(instance->timer, CLOCK_INTERVAL_UPDATE_MS);
+        instance->back_scene_window = widget_alloc(flex_layout_get_base(instance->back_container));
+        flex_layout_set_child_widget_grow(
+            instance->back_container, instance->back_scene_window, 1);
     });
+
+    furi_event_loop_subscribe_message_queue(
+        instance->event_loop,
+        instance->input_queue,
+        FuriEventLoopEventIn,
+        input_queue_callback,
+        instance);
+
+    furi_event_loop_subscribe_message_queue(
+        instance->event_loop,
+        instance->event_queue,
+        FuriEventLoopEventIn,
+        event_queue_callback,
+        instance);
+
+    furi_event_loop_timer_start(instance->timer, furi_ms_to_ticks(TIMER_INTERVAL_MS));
+
+    scene_manager_next_scene(instance->scene_manager, ThisSceneIdxMain);
+
+    if(instance->arguments.do_skip_menu) {
+        with_gui(instance->gui, {
+            widget_set_visible(nav_bar_get_base(instance->back_nav_bar), false);
+        });
+        scene_manager_next_scene(instance->scene_manager, ThisSceneIdxClock);
+    }
 
     return instance;
 }
 
-static void clock_free(Clock* instance) {
+static void this_free(ThisInstance* instance) {
+    scene_manager_free(instance->scene_manager);
+
     with_gui(instance->gui, {
-        GuiLayer* main_layer = gui_get_layer(instance->gui, GuiLayerIdMain);
-        gui_layer_remove_input_callback(main_layer, clock_input_callback);
-        for(GuiDisplayId id = 0; id < GuiDisplayIdMax; ++id) {
-            label_free(instance->labels[id]);
-        }
+        GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
+        gui_layer_remove_input_callback(layer, gui_input_callback);
+
+        widget_free(instance->front_scene_window);
+        flex_layout_free(instance->back_container);
     });
 
+    updater_resume_autoupdates(instance->updater);
+
+    furi_record_close(RECORD_UPDATER);
+    furi_record_close(RECORD_DESKTOP);
     furi_record_close(RECORD_SNTP);
     furi_record_close(RECORD_GUI);
-    furi_event_loop_timer_stop(instance->timer);
+
+    furi_event_loop_unsubscribe(instance->event_loop, instance->input_queue);
+    furi_event_loop_unsubscribe(instance->event_loop, instance->event_queue);
+
+    furi_message_queue_free(instance->input_queue);
+    furi_message_queue_free(instance->event_queue);
+
     furi_event_loop_timer_free(instance->timer);
     furi_event_loop_free(instance->event_loop);
-    furi_string_free(instance->time_string);
+
     free(instance);
 }
 
-int32_t clock_app(void* p) {
-    UNUSED(p);
-    Clock* instance = clock_alloc();
+int32_t clock_app_entry(void* argument) {
+    ThisInstance* instance = this_alloc(argument);
+
+    FuriThread* thread = furi_thread_get_current();
+    furi_thread_set_signal_callback(thread, thread_signal_callback, instance);
     furi_event_loop_run(instance->event_loop);
-    clock_free(instance);
+
+    furi_thread_set_signal_callback(thread, NULL, NULL);
+
+    this_free(instance);
 
     return 0;
+}
+
+void clock_app_fire_event(ThisInstance* instance, uint32_t event) {
+    furi_assert(instance);
+
+    FuriStatus queue_status =
+        furi_message_queue_put(instance->event_queue, &event, EVENT_QUEUE_TIMEOUT_MS);
+
+    if(queue_status != FuriStatusOk) FURI_LOG_E(TAG, "Event queue failure");
 }

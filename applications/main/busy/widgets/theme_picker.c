@@ -3,7 +3,7 @@
 #include <gui/widget_i.h>
 
 #include <gui/modules/image.h>
-#include <gui/modules/anim_image.h>
+#include <gui/modules/anim_player.h>
 
 #define MY_CLASS (&theme_picker_lvgl_class)
 
@@ -15,7 +15,7 @@
 struct ThemePicker {
     Widget base;
     Image* image;
-    AnimImage* anim_image;
+    AnimPlayer* anim_player;
 
     const ThemePickerModel* model;
     uint32_t current_idx;
@@ -68,7 +68,7 @@ static void theme_picker_lvgl_constructor(const lv_obj_class_t* class_p, lv_obj_
     widget_set_input_feed_callback((Widget*)instance, theme_picker_input_callback);
 
     instance->image = image_alloc((Widget*)obj);
-    instance->anim_image = anim_image_alloc((Widget*)obj);
+    instance->anim_player = anim_player_alloc((Widget*)obj);
 
     lv_obj_t* deco_left = theme_picker_create_decoration(obj, false);
     lv_obj_set_style_align(deco_left, LV_ALIGN_TOP_LEFT, LV_PART_MAIN);
@@ -90,16 +90,16 @@ static void theme_picker_update_image(ThemePicker* instance) {
 
     if(bg_type == BusyThemeFileTypeImage) {
         widget_set_visible((Widget*)instance->image, true);
-        widget_set_visible((Widget*)instance->anim_image, false);
+        widget_set_visible((Widget*)instance->anim_player, false);
 
-        anim_image_stop(instance->anim_image);
+        anim_player_pause(instance->anim_player);
         image_set_source(instance->image, bg_path);
 
-    } else if(bg_type == BusyThemeFileTypeAnimImage) {
+    } else if(bg_type == BusyThemeFileTypeAnim) {
         widget_set_visible((Widget*)instance->image, false);
-        widget_set_visible((Widget*)instance->anim_image, true);
+        widget_set_visible((Widget*)instance->anim_player, true);
 
-        anim_image_set_source(instance->anim_image, bg_path);
+        anim_player_set_source(instance->anim_player, bg_path);
     }
 }
 
@@ -109,31 +109,34 @@ static bool theme_picker_input_callback(Widget* widget, const InputEvent* event)
     bool consumed = false;
 
     if(event->type == InputTypeShort) {
-        if(event->key == InputKeyUp) {
+        const InputKey key = event->key;
+
+        if(key == InputKeyUp) {
             if(instance->current_idx == theme_picker_model_get_item_count(instance->model) - 1) {
                 instance->current_idx = 0;
             } else {
                 ++instance->current_idx;
             }
 
+            theme_picker_update_image(instance);
             consumed = true;
 
-        } else if(event->key == InputKeyDown) {
+        } else if(key == InputKeyDown) {
             if(instance->current_idx == 0) {
                 instance->current_idx = theme_picker_model_get_item_count(instance->model) - 1;
             } else {
                 --instance->current_idx;
             }
 
+            theme_picker_update_image(instance);
             consumed = true;
-        }
-    }
 
-    if(consumed) {
-        theme_picker_update_image(instance);
+        } else if(key == InputKeyOk || key == InputKeyStart || key == InputKeyBack) {
+            if(instance->callback) {
+                instance->callback(instance->current_idx, instance->callback_context);
+            }
 
-        if(instance->callback) {
-            instance->callback(instance->current_idx, instance->callback_context);
+            consumed = true;
         }
     }
 

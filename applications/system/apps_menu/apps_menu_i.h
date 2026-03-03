@@ -9,7 +9,11 @@
 #include <gui/modules/flex_layout.h>
 #include <gui/scene_manager.h>
 
+#include "settings/settings.h"
+
 typedef struct {
+    const char* launching_application;
+
     FuriEventLoop* event_loop;
     FuriMessageQueue* input_queue;
     FuriMessageQueue* event_queue;
@@ -22,6 +26,8 @@ typedef struct {
     FlexLayout* back_container;
     NavBar* back_nav_bar;
     Widget* back_scene_window;
+
+    AppsMenuSettings settings;
 } AppsMenu;
 
 typedef enum {

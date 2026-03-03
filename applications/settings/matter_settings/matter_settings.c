@@ -1,4 +1,4 @@
-#include "matter_settings.h"
+#include "matter_settings_i.h"
 #include "scenes/matter_scenes.h"
 #include <settings_helpers/app_desc.h>
 #include <settings_helpers/gui_params.h>
@@ -57,7 +57,7 @@ static void matter_settings_event_queue_callback(FuriEventLoopObject* object, vo
             scene_manager_replace_current_scene(instance->scene_manager, event_to_scene[event]);
 
         } else if(event == AppEventRequiredWifiNotAvailable) {
-            scene_manager_next_scene(instance->scene_manager, SceneIdConnectWifi);
+            desktop_replace_current_app(instance->desktop, WIFI_SETTINGS_APP, NULL);
 
         } else {
             scene_manager_handle_custom_event(instance->scene_manager, event);
@@ -205,9 +205,9 @@ int32_t matter_settings_entry(void* arg) {
         SettingsAppDescriptor* descriptor = arg;
 
         furi_string_set_str(descriptor->front_title, "Smart home");
-        furi_string_set_str(descriptor->back_title, "SMART HOME");
-        furi_string_set_str(descriptor->front_icon, IMG_PATH("house_front_7x7.bin"));
-        furi_string_set_str(descriptor->back_icon, IMG_PATH("house_back_12x12.bin"));
+        furi_string_set_str(descriptor->back_title, "Smart home");
+        furi_string_set_str(descriptor->front_icon, IMG_PATH("house_front_8x8.bin"));
+        furi_string_set_str(descriptor->back_icon, IMG_PATH("house_back_11x11.bin"));
 
         return 0;
     }
@@ -240,9 +240,11 @@ bool matter_settings_check_wifi_connectivity(MatterSettings* instance) {
     }
 }
 
-void matter_settings_exit_if_last(MatterSettings* instance) {
+bool matter_settings_exit_if_last(MatterSettings* instance) {
     furi_assert(instance);
     if(!scene_manager_has_previous_scene(instance->scene_manager, SceneIdMain)) {
         desktop_replace_current_app(instance->desktop, MAIN_SETTINGS_APP, THIS_SETTINGS_APP);
+        return true;
     }
+    return false;
 }

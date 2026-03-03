@@ -1,4 +1,4 @@
-#include "wifi_settings.h"
+#include "wifi_settings_i.h"
 #include <settings_helpers/app_desc.h>
 #include <settings_helpers/gui_params.h>
 #include <wifi/wifi.h>
@@ -156,7 +156,6 @@ static void wifi_settings_free(WifiSettings* instance) {
     furi_record_close(RECORD_GUI);
     furi_record_close(RECORD_FRONT_DISPLAY);
     furi_record_close(RECORD_BACK_DISPLAY);
-    furi_record_close(RECORD_STATUS_LIGHTS);
 
     furi_event_loop_unsubscribe(instance->event_loop, instance->input_queue);
     furi_event_loop_unsubscribe(instance->event_loop, instance->event_queue);
@@ -177,13 +176,13 @@ int32_t wifi_settings_entry(void* arg) {
         furi_string_set_str(descriptor->back_title, "Wi-Fi");
         if(wifi_state == WifiModelStateDisconnected) {
             furi_string_set_str(descriptor->front_icon, IMG_PATH("wifi_front_error_8x8.bin"));
-            furi_string_set_str(descriptor->back_icon, IMG_PATH("wifi_back_error_12x12.bin"));
+            furi_string_set_str(descriptor->back_icon, IMG_PATH("wifi_back_error_11x11.bin"));
         } else if(wifi_state == WifiModelStateConnected) {
             furi_string_set_str(descriptor->front_icon, IMG_PATH("wifi_front_ok_8x8.bin"));
-            furi_string_set_str(descriptor->back_icon, IMG_PATH("wifi_back_ok_12x12.bin"));
+            furi_string_set_str(descriptor->back_icon, IMG_PATH("wifi_back_ok_11x11.bin"));
         } else {
             furi_string_set_str(descriptor->front_icon, IMG_PATH("wifi_front_gray_8x8.bin"));
-            furi_string_set_str(descriptor->back_icon, IMG_PATH("wifi_back_12x12.bin"));
+            furi_string_set_str(descriptor->back_icon, IMG_PATH("wifi_back_11x11.bin"));
         }
 
         wifi_model_free(wifi_model);

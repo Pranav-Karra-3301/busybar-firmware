@@ -22,10 +22,12 @@ typedef struct {
     lv_style_t focused;
     lv_style_t disabled;
     lv_style_t transparent;
+    lv_style_t transparent_all;
     lv_style_t scrollbar;
 
     lv_style_t menu_item;
     lv_style_t menu_icon;
+    lv_style_t menu_icon_animated;
     lv_style_t menu_sublabel;
     lv_style_t menu_arrow;
 
@@ -43,7 +45,6 @@ typedef struct {
 
     lv_style_t title_card;
 
-    lv_style_t slider_view;
     lv_style_t slider_view_image;
     lv_style_t slider_view_text_container;
 
@@ -83,6 +84,9 @@ static void style_init(my_theme_t* theme) {
     lv_style_set_text_opa(&theme->styles.transparent, LV_OPA_TRANSP);
     lv_style_set_image_opa(&theme->styles.transparent, LV_OPA_TRANSP);
 
+    lv_style_init(&theme->styles.transparent_all);
+    lv_style_set_opa(&theme->styles.transparent_all, LV_OPA_TRANSP);
+
     lv_style_init(&theme->styles.scrollbar);
     lv_style_set_bg_opa(&theme->styles.scrollbar, LV_OPA_COVER);
     lv_style_set_bg_color(&theme->styles.scrollbar, COLOR_FG_FOCUSED);
@@ -94,6 +98,9 @@ static void style_init(my_theme_t* theme) {
 
     lv_style_init(&theme->styles.menu_icon);
     lv_style_set_image_opa(&theme->styles.menu_icon, LV_OPA_COVER);
+
+    lv_style_init(&theme->styles.menu_icon_animated);
+    lv_style_set_opa(&theme->styles.menu_icon_animated, LV_OPA_COVER);
 
     lv_style_init(&theme->styles.menu_sublabel);
     lv_style_set_max_width(&theme->styles.menu_sublabel, MENU_SUBLABEL_MAX_WIDTH);
@@ -116,7 +123,8 @@ static void style_init(my_theme_t* theme) {
     lv_style_set_layout(&theme->styles.dialog, LV_LAYOUT_FLEX);
 
     lv_style_init(&theme->styles.dialog_text);
-    lv_style_set_width(&theme->styles.dialog_text, LV_PCT(50));
+    lv_style_set_pad_ver(&theme->styles.dialog_text, 0);
+    lv_style_set_width(&theme->styles.dialog_text, LV_PCT(60));
 
     lv_style_init(&theme->styles.var_item_editor);
     lv_style_set_pad_column(&theme->styles.var_item_editor, 2);
@@ -132,13 +140,9 @@ static void style_init(my_theme_t* theme) {
     lv_style_set_pad_column(&theme->styles.title_card, 2);
     lv_style_set_text_font(&theme->styles.title_card, &lv_font_ark_regular_10);
 
-    lv_style_init(&theme->styles.slider_view);
-    lv_style_set_pad_all(&theme->styles.slider_view, 1);
-
     lv_style_init(&theme->styles.slider_view_image);
     lv_style_set_align(&theme->styles.slider_view_image, LV_ALIGN_LEFT_MID);
     lv_style_set_translate_x(&theme->styles.slider_view_image, 1);
-    lv_style_set_translate_y(&theme->styles.slider_view_image, -1);
 
     lv_style_init(&theme->styles.slider_view_text_container);
     lv_style_set_pad_column(&theme->styles.slider_view_text_container, 3);
@@ -205,6 +209,12 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
         lv_obj_add_style(obj, &theme->styles.margin_right, LV_PART_MAIN);
         lv_obj_add_style(obj, &theme->styles.margin_right, LV_PART_MAIN | LV_STATE_FOCUSED);
 
+    } else if(lv_obj_check_type(obj, &menu_icon_animated_lvgl_class)) {
+        lv_obj_add_style(obj, &theme->styles.menu_icon_animated, LV_PART_MAIN | LV_STATE_FOCUSED);
+        lv_obj_add_style(obj, &theme->styles.transparent_all, LV_PART_MAIN);
+        lv_obj_add_style(obj, &theme->styles.margin_right, LV_PART_MAIN);
+        lv_obj_add_style(obj, &theme->styles.margin_right, LV_PART_MAIN | LV_STATE_FOCUSED);
+
     } else if(lv_obj_check_type(obj, &menu_sublabel_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.menu_sublabel, LV_PART_MAIN);
         lv_obj_add_style(obj, &theme->styles.transparent, LV_PART_MAIN);
@@ -235,8 +245,11 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
         lv_obj_add_style(obj, &theme->styles.dialog, LV_PART_MAIN);
 
     } else if(lv_obj_check_type(obj, &dialog_text_lvgl_class)) {
-        lv_label_set_long_mode(obj, LV_LABEL_LONG_WRAP);
         lv_obj_add_style(obj, &theme->styles.focused, LV_PART_MAIN);
+        lv_obj_add_style(obj, &theme->styles.dialog_text, LV_PART_MAIN);
+
+    } else if(lv_obj_check_type(obj, &dialog_text_sub_lvgl_class)) {
+        lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
         lv_obj_add_style(obj, &theme->styles.dialog_text, LV_PART_MAIN);
 
     } else if(lv_obj_check_type(obj, &dialog_option_lvgl_class)) {
@@ -281,6 +294,7 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
     } else if(lv_obj_check_type(obj, &timer_label_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.timer_label, LV_PART_MAIN);
 #endif // APP_BUSY
+
     } else if(lv_obj_check_type(obj, &title_card_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.title_card, LV_PART_MAIN);
 
@@ -288,9 +302,6 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
         lv_obj_add_style(obj, &theme->styles.title_card, LV_PART_MAIN);
 
 #ifdef SETTINGS_SOUND
-    } else if(lv_obj_check_type(obj, &slider_view_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.slider_view, LV_PART_MAIN);
-
     } else if(lv_obj_check_type(obj, &slider_view_image_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.slider_view_image, LV_PART_MAIN);
 
@@ -300,6 +311,7 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
     } else if(lv_obj_check_type(obj, &slider_view_arrow_label_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.disabled, LV_PART_MAIN | LV_STATE_DISABLED);
 #endif // SETTINGS_SOUND
+
     } else if(lv_obj_check_type(obj, &status_view_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
 

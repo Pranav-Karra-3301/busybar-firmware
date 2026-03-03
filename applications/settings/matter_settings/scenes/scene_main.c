@@ -1,4 +1,4 @@
-#include "../matter_settings.h"
+#include "../matter_settings_i.h"
 #include <settings_helpers/status_view.h>
 
 #include <gui/modules/submenu.h>
@@ -37,7 +37,7 @@ static void matter_scene_on_enter(void* context) {
 
     scene->ui_initialized = false;
 
-    if(!matter_is_commissioned(app->matter)) {
+    if(matter_commissioned_fabrics(app->matter).count == 0) {
         matter_settings_send_custom_event(app, SceneCustomEventSwitchToPairing);
         return;
     }
