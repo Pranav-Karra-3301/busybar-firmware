@@ -193,6 +193,11 @@ static bool ble_command_enable_response(BleIntercomFrameGeneric* frame, void* co
 
     api_lock_unlock(instance->current_command_api_lock);
     ble_http_repeater_start(instance);
+
+    BleState status = {
+        .status = instance->status,
+    };
+    furi_pubsub_publish(instance->on_status_change, &status);
     return true;
 }
 
@@ -227,6 +232,11 @@ static bool ble_command_disable_response(BleIntercomFrameGeneric* frame, void* c
 
     api_lock_unlock(instance->current_command_api_lock);
     ble_http_repeater_stop();
+
+    BleState status = {
+        .status = instance->status,
+    };
+    furi_pubsub_publish(instance->on_status_change, &status);
     return true;
 }
 
