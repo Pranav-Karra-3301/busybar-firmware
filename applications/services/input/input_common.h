@@ -19,7 +19,6 @@ typedef enum {
     InputDeviceButton, /**< Regular button (can be pressed or released) */
     InputDeviceSwitch, /**< Positional switch (can be set) */
     InputDeviceEncoder, /**< Rotational encoder (can be turned) */
-    InputDeviceReset, /**< Virtual device which emits the reset signal */
     InputDeviceMAX, /**< Special value for internal use */
 } InputDevice;
 

@@ -16,7 +16,6 @@
 #define INPUT_QUEUE_SIZE          32
 #define REQUEST_QUEUE_SIZE        4
 #define INPUT_INTERCOM_TIMEOUT_MS 100
-#define INPUT_RESET_TIMEOUT_MS    1000
 
 #ifdef INPUT_DEBUG
 #define INPUT_LOG(...) FURI_LOG_D(TAG, __VA_ARGS__)
@@ -39,14 +38,12 @@ struct Input {
     FuriEventLoop* event_loop;
     FuriMessageQueue* input_queue;
     FuriEventLoopTimer* debounce_timer;
-    FuriEventLoopTimer* reset_timer;
     InputKeyState* key_states;
 #ifdef SRV_INTERCOM
     Intercom* intercom_srv;
     IntercomChannel* intercom_ch;
 #endif
     FuriState* absolute_state;
-    bool reset_initiated;
 };
 
 static void input_send(Input* instance, const InputPin* pin, InputAction input_action);
@@ -65,15 +62,6 @@ static void input_custom_event_callback(uint32_t events, void* context) {
             furi_event_loop_timer_start(instance->debounce_timer, INPUT_DEBOUNCE_TIMEOUT);
         }
     }
-}
-
-static void send_reset_event(Input* instance) {
-    InputCommonEvent event = {
-        .device = InputDeviceReset,
-        .reset_initiated = instance->reset_initiated,
-    };
-
-    furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
 }
 
 static void input_send(Input* instance, const InputPin* pin, InputAction input_action) {
@@ -100,24 +88,6 @@ static void input_send(Input* instance, const InputPin* pin, InputAction input_a
             with_furi_state(instance->absolute_state, InputAbsoluteState * st, {
                 st->buttons &= ~(1 << pin->button);
             });
-        }
-
-        bool start_back_pressed = false;
-
-        with_furi_state(instance->absolute_state, InputAbsoluteState * st, {
-            start_back_pressed = (st->buttons & (InputButtonMaskStart | InputButtonMaskBack)) ==
-                                 (InputButtonMaskStart | InputButtonMaskBack);
-        });
-
-        if(start_back_pressed) {
-            furi_event_loop_timer_start(
-                instance->reset_timer, furi_ms_to_ticks(INPUT_RESET_TIMEOUT_MS));
-        } else {
-            if(instance->reset_initiated) {
-                instance->reset_initiated = false;
-                send_reset_event(instance);
-                furi_event_loop_timer_stop(instance->reset_timer);
-            }
         }
 
         furi_check(furi_message_queue_put(instance->input_queue, &event, 0) == FuriStatusOk);
@@ -161,15 +131,6 @@ static void input_debounce_timer_callback(void* context) {
     }
 }
 
-static void input_reset_timer_callback(void* context) {
-    furi_assert(context);
-
-    Input* instance = context;
-
-    instance->reset_initiated = true;
-    send_reset_event(instance);
-}
-
 static void input_qei_callback(int16_t delta_pos, void* context) {
     Input* instance = context;
 
@@ -210,12 +171,7 @@ static void input_queue_callback(FuriEventLoopObject* object, void* context) {
         const char* name = input_pins[pos + InputButtonMAX].name;
 
         INPUT_LOG("Switch %s %d, event %s", name, pos, "press");
-    } else if(event.device == InputDeviceReset) {
-        if(event.reset_initiated) {
-            INPUT_LOG("Reset initiated");
-        } else {
-            INPUT_LOG("Reset cancelled");
-        }
+
     } else {
         furi_crash();
     }
@@ -249,11 +205,8 @@ int32_t input_srv(void* p) {
         input_debounce_timer_callback,
         FuriEventLoopTimerTypePeriodic,
         instance);
-    instance->reset_timer = furi_event_loop_timer_alloc(
-        instance->event_loop, input_reset_timer_callback, FuriEventLoopTimerTypeOnce, instance);
     instance->key_states = malloc(sizeof(InputKeyState) * input_pins_count);
     instance->absolute_state = furi_state_alloc(sizeof(InputAbsoluteState));
-    instance->reset_initiated = false;
 
     furi_record_create(RECORD_INPUT, instance);
     furi_record_create(RECORD_INPUT_EVENTS, instance->event_pubsub);

@@ -6,7 +6,6 @@
 #include "input_common.h"
 
 #include <stdint.h>
-#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,7 +23,6 @@ typedef struct {
         } button_event; /**< Button event */
         InputSwitchPosition switch_position; /**< New mode switch position */
         int16_t encoder_delta; /**< Speed and direction of encoder rotation */
-        bool reset_initiated; /**< true if reset signal is to be emitted, false if upcoming reset is cancelled */
     };
 } InputCommonEvent;
 
