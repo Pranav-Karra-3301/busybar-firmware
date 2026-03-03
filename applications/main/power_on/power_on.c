@@ -10,6 +10,8 @@
 #include <power/power_service/power.h>
 #include <intercom/intercom.h>
 
+#include <desktop/desktop.h>
+
 #define TAG "PowerON"
 
 #define POWER_ON_START_TIMEOUT_TICKS furi_ms_to_ticks(500)
@@ -178,6 +180,9 @@ int32_t power_on_app(void* arg) {
     } else {
         furi_check(!(flags & FuriFlagError));
     }
+
+    Desktop* desktop = furi_record_open(RECORD_DESKTOP);
+    desktop_replace_current_app(desktop, "back_display_test", NULL);
 
     do {
         if(power_on_done_flag_present(instance)) break;
