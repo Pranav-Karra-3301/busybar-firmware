@@ -40,17 +40,19 @@ typedef struct {
     lv_style_t var_item_editor;
 
     lv_style_t dialog;
-    lv_style_t dialog_text;
+    lv_style_t dialog_text_main;
+    lv_style_t dialog_text_sub;
     lv_style_t dialog_cursor;
     lv_style_t dialog_option;
 
-    lv_style_t timer_card;
+    lv_style_t mirror_card;
 
     lv_style_t title_card;
     lv_style_t title_card_label;
 
     lv_style_t slider_view;
     lv_style_t slider_view_bar;
+    lv_style_t slider_view_image;
     lv_style_t slider_view_text_container;
 
     lv_style_t progress_bar;
@@ -121,7 +123,6 @@ static void style_init(my_theme_t* theme) {
     lv_style_set_image_recolor_opa(&theme->styles.menu_icon, LV_OPA_COVER);
 
     lv_style_init(&theme->styles.menu_arrow);
-    lv_style_set_pad_top(&theme->styles.menu_arrow, MENU_ITEM_PAD_HOR / 2);
     lv_style_set_pad_left(&theme->styles.menu_arrow, MENU_ITEM_PAD_HOR / 2);
     lv_style_set_text_font(&theme->styles.menu_arrow, theme->base.font_small);
 
@@ -160,9 +161,12 @@ static void style_init(my_theme_t* theme) {
     lv_style_set_pad_row(&theme->styles.dialog, MENU_PAD_ALL);
     lv_style_set_pad_right(&theme->styles.dialog, MENU_PAD_ALL);
 
-    lv_style_init(&theme->styles.dialog_text);
-    lv_style_set_width(&theme->styles.dialog_text, LV_PCT(100));
-    lv_style_set_text_color(&theme->styles.dialog_text, COLOR_FG_FOCUSED);
+    lv_style_init(&theme->styles.dialog_text_main);
+    lv_style_set_flex_grow(&theme->styles.dialog_text_main, 1);
+
+    lv_style_init(&theme->styles.dialog_text_sub);
+    lv_style_set_flex_grow(&theme->styles.dialog_text_sub, 0);
+    lv_style_set_max_width(&theme->styles.dialog_text_sub, LV_PCT(60));
 
     lv_style_init(&theme->styles.dialog_option);
     lv_style_set_width(&theme->styles.dialog_option, LV_PCT(100));
@@ -171,11 +175,11 @@ static void style_init(my_theme_t* theme) {
     lv_style_set_width(&theme->styles.dialog_cursor, LV_SIZE_CONTENT);
     lv_style_set_margin_right(&theme->styles.dialog_cursor, 0);
 
-    lv_style_init(&theme->styles.timer_card);
-    lv_style_set_bg_opa(&theme->styles.timer_card, LV_OPA_COVER);
-    lv_style_set_bg_color(&theme->styles.timer_card, COLOR_FG_FOCUSED);
-    lv_style_set_pad_ver(&theme->styles.timer_card, 4);
-    lv_style_set_radius(&theme->styles.timer_card, MENU_ITEM_RADIUS);
+    lv_style_init(&theme->styles.mirror_card);
+    lv_style_set_bg_opa(&theme->styles.mirror_card, LV_OPA_COVER);
+    lv_style_set_bg_color(&theme->styles.mirror_card, COLOR_FG_FOCUSED);
+    lv_style_set_pad_ver(&theme->styles.mirror_card, 4);
+    lv_style_set_radius(&theme->styles.mirror_card, MENU_ITEM_RADIUS);
 
     lv_style_init(&theme->styles.title_card);
     lv_style_set_pad_column(&theme->styles.title_card, 6);
@@ -205,6 +209,10 @@ static void style_init(my_theme_t* theme) {
     lv_style_set_height(&theme->styles.slider_view_bar, 12);
     lv_style_set_bg_opa(&theme->styles.slider_view_bar, LV_OPA_COVER);
     lv_style_set_bg_color(&theme->styles.slider_view_bar, COLOR_FG_DISABLED);
+
+    lv_style_init(&theme->styles.slider_view_image);
+    lv_style_set_recolor(&theme->styles.slider_view_image, COLOR_FG_FOCUSED);
+    lv_style_set_recolor_opa(&theme->styles.slider_view_image, LV_OPA_COVER);
 
     lv_style_init(&theme->styles.slider_view_text_container);
     lv_style_set_pad_column(&theme->styles.slider_view_text_container, 3);
@@ -317,9 +325,13 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
         lv_obj_add_style(obj, &theme->styles.dialog, LV_PART_MAIN);
 
     } else if(lv_obj_check_type(obj, &dialog_text_lvgl_class)) {
-        lv_label_set_long_mode(obj, LV_LABEL_LONG_MODE_SCROLL);
         lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
-        lv_obj_add_style(obj, &theme->styles.dialog_text, LV_PART_MAIN);
+        lv_obj_add_style(obj, &theme->styles.focused, LV_PART_MAIN);
+        lv_obj_add_style(obj, &theme->styles.dialog_text_main, LV_PART_MAIN);
+
+    } else if(lv_obj_check_type(obj, &dialog_text_sub_lvgl_class)) {
+        lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
+        lv_obj_add_style(obj, &theme->styles.dialog_text_sub, LV_PART_MAIN);
 
     } else if(lv_obj_check_type(obj, &dialog_option_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
@@ -338,10 +350,9 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
     } else if(lv_obj_check_type(obj, &progress_bar_fill_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.progress_bar_fill, LV_PART_MAIN);
 
-#ifdef APP_BUSY
-    } else if(lv_obj_check_type(obj, &timer_card_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.timer_card, LV_PART_MAIN);
-#endif // APP_BUSY
+    } else if(lv_obj_check_type(obj, &mirror_card_lvgl_class)) {
+        lv_obj_add_style(obj, &theme->styles.mirror_card, LV_PART_MAIN);
+
     } else if(lv_obj_check_type(obj, &title_card_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.title_card, LV_PART_MAIN);
 
@@ -358,12 +369,16 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
     } else if(lv_obj_check_type(obj, &slider_view_bar_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.slider_view_bar, LV_PART_MAIN);
 
+    } else if(lv_obj_check_type(obj, &slider_view_image_lvgl_class)) {
+        lv_obj_add_style(obj, &theme->styles.slider_view_image, LV_PART_MAIN);
+
     } else if(lv_obj_check_type(obj, &slider_view_text_container_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.slider_view_text_container, LV_PART_MAIN);
 
     } else if(lv_obj_check_type(obj, &slider_view_arrow_label_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.disabled, LV_PART_MAIN | LV_STATE_DISABLED);
 #endif // SETTINGS_SOUND
+
     } else if(lv_obj_check_type(obj, &status_view_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
 

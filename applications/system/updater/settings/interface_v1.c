@@ -2,7 +2,7 @@
 
 #define CHECK_URL_DEFAULT "https://update.flipperzero.one/busybar-firmware/directory.json"
 
-#define CHECK_CHANNEL_ID_DEFAULT "development"
+#define CHECK_CHANNEL_ID_DEFAULT "release"
 
 #define CHECK_STARTUP_INTERVAL_MIN     (1 * 1000 * 60)
 #define CHECK_STARTUP_INTERVAL_MAX     (20 * 1000 * 60)
@@ -12,7 +12,7 @@
 #define CHECK_INTERVAL_MAX     (20 * 1000 * 60 * 60)
 #define CHECK_INTERVAL_DEFAULT (5 * 1000 * 60 * 60)
 
-#define AUTOUPDATE_ENABLED_DEFAULT false
+#define AUTOUPDATE_ENABLED_DEFAULT true
 
 #define AUTOUPDATE_INTERVAL_START_MIN     (0 * 60)
 #define AUTOUPDATE_INTERVAL_START_MAX     (24 * 60 - 1)

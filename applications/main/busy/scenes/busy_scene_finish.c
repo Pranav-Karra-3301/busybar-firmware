@@ -1,12 +1,12 @@
 #include "../busy_i.h"
 
-#include <gui/modules/anim_image.h>
+#include <gui/modules/anim_player.h>
 
 #include "../widgets/prompt_overlay.h"
 #include "../widgets/summary_label.h"
 
 typedef struct {
-    AnimImage* front_anim;
+    AnimPlayer* front_anim;
     SummaryLabel* front_summary;
     PromptOverlay* front_prompt;
 } BusySceneFinish;
@@ -47,6 +47,8 @@ static void busy_scene_finish_prompt_overlay_callback(void* context) {
 static void busy_scene_finish_handle_back(BusyApp* instance) {
     busy_prepare_transition(instance, BusyTransitionTypeDefault);
 
+    busy_timer_finalize(instance->busy_timer);
+
     if(!busy_return_to_start_scene(instance)) {
         busy_exit(instance);
     }
@@ -59,15 +61,17 @@ static void busy_scene_finish_on_enter(void* context) {
     BusySceneFinish* data =
         scene_manager_get_scene_data(instance->scene_manager, BusyAppSceneIdFinish);
 
-    BusyTimerConfig timer_config;
-    busy_timer_get_config(instance->busy_timer, &timer_config);
+    BusyTimerRunInfo timer_info;
+    busy_timer_get_run_info(instance->busy_timer, &timer_info);
+
+    const BusyTimerConfig* timer_config = &timer_info.config;
 
     with_gui(instance->gui, {
         GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
         gui_layer_add_input_callback(layer, busy_scene_finish_input_callback, instance);
 
-        data->front_anim = anim_image_alloc(instance->front_window);
-        anim_image_set_source(data->front_anim, BUSY_ANIM_PATH("finished_confetti_72x16.anim"));
+        data->front_anim = anim_player_alloc(instance->front_window);
+        anim_player_set_source(data->front_anim, BUSY_ANIM_PATH("finished_confetti_72x16.anim"));
 
         data->front_summary = summary_label_alloc(instance->front_window);
         widget_set_pos_y(summary_label_get_base(data->front_summary), 5);
@@ -77,8 +81,9 @@ static void busy_scene_finish_on_enter(void* context) {
         prompt_overlay_set_animation_target(
             data->front_prompt, summary_label_get_base(data->front_summary));
 
-        if(timer_config.mode == BusyTimerModeInterval) {
-            summary_label_set_cycles_count(data->front_summary, timer_config.cycle_count);
+        if(timer_config->mode == BusyTimerModeInterval) {
+            const BusyTimerIntervalConfig* interval_config = &timer_config->interval;
+            summary_label_set_cycles_count(data->front_summary, interval_config->cycles_count);
             prompt_overlay_set_callback(
                 data->front_prompt, busy_scene_finish_prompt_overlay_callback, instance);
         }
@@ -100,7 +105,7 @@ static void busy_scene_finish_on_exit(void* context) {
         GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
         gui_layer_remove_input_callback(layer, busy_scene_finish_input_callback);
 
-        anim_image_free(data->front_anim);
+        anim_player_free(data->front_anim);
         summary_label_free(data->front_summary);
         prompt_overlay_free(data->front_prompt);
     });
@@ -113,10 +118,8 @@ static bool busy_scene_finish_on_event(const SceneManagerEvent* event, void* con
     bool consumed = false;
 
     if(event->type == SceneManagerEventTypeCustom) {
-        if(event->event == BusyCustomEventStartShortPressed) {
-            busy_scene_finish_handle_back(instance);
-
-        } else if(event->event == BusyCustomEventReturnToStart) {
+        if(event->event == BusyCustomEventStartShortPressed ||
+           event->event == BusyCustomEventReturnToStart) {
             busy_scene_finish_handle_back(instance);
         }
 

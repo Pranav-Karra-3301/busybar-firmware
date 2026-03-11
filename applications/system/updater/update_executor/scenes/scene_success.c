@@ -1,9 +1,8 @@
 #include "../update_executor_i.h"
-#include "../../storage_macros.h"
 #include "scenes.h"
 
 #include <gui/modules/flex_layout.h>
-#include <gui/modules/anim_image.h>
+#include <gui/modules/anim_player.h>
 #include <gui/modules/label.h>
 
 #define SUCCESS_SCENE_DELAY_MS 1500
@@ -29,11 +28,11 @@ static void success_scene_on_enter(void* context) {
         widget_set_size_content(flex_layout_get_base(data->back_flex));
         widget_set_align(flex_layout_get_base(data->back_flex), AlignCenter);
 
-        AnimImage* back_spinner_anim_image =
-            anim_image_alloc(flex_layout_get_base(data->back_flex));
-        anim_image_set_source(
-            back_spinner_anim_image, UPDATER_ANIM_PATH("spinner_back_16x16.anim"));
-        widget_set_size_content(anim_image_get_base(back_spinner_anim_image));
+        AnimPlayer* back_spinner_anim_player =
+            anim_player_alloc(flex_layout_get_base(data->back_flex));
+        anim_player_set_source(
+            back_spinner_anim_player, SHARED_ANIM_PATH("spinner_back_16x16.anim"));
+        widget_set_size_content(anim_player_get_base(back_spinner_anim_player));
 
         Label* back_status_label = label_alloc(flex_layout_get_base(data->back_flex));
         label_set_text_font_size(back_status_label, LabelFontSizeLarge);
@@ -46,11 +45,11 @@ static void success_scene_on_enter(void* context) {
         widget_set_size_content(flex_layout_get_base(data->front_flex));
         widget_set_align(flex_layout_get_base(data->front_flex), AlignLeftMid);
 
-        AnimImage* front_spinner_anim_image =
-            anim_image_alloc(flex_layout_get_base(data->front_flex));
-        anim_image_set_source(
-            front_spinner_anim_image, UPDATER_ANIM_PATH("spinner_front_8x8.anim"));
-        widget_set_size_content(anim_image_get_base(front_spinner_anim_image));
+        AnimPlayer* front_spinner_anim_player =
+            anim_player_alloc(flex_layout_get_base(data->front_flex));
+        anim_player_set_source(
+            front_spinner_anim_player, SHARED_ANIM_PATH("spinner_front_8x8.anim"));
+        widget_set_size_content(anim_player_get_base(front_spinner_anim_player));
 
         Label* front_status_label = label_alloc(flex_layout_get_base(data->front_flex));
         label_set_text(front_status_label, "Restarting device...");

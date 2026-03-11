@@ -20,6 +20,7 @@ App(
         "back_display",
         "power_srv",
         "status_bar",
+        "brightness_control",
     ],
     targets=["f20", "f21", "f22"],
 )
@@ -39,7 +40,7 @@ App(
         "lottie",
         "usb_srv",
         "web_server",
-        "mqtt_client",
+        "mqtt",
         "intercom",
         "wifi",
         "status_lights",
@@ -52,6 +53,7 @@ App(
         "matter",
         "device_name",
         "busy_timer",
+        "sl_info",
     ],
     targets=["f20", "f21", "f22"],
 )
@@ -84,6 +86,8 @@ App(
         "cli_intercom",
         "ble",
         "tls_crypto_server",
+        "intercom_watchdog",
+        "sl_info",
     ],
     targets=["f64", "f65"],
 )

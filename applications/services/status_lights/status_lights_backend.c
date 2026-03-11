@@ -11,13 +11,17 @@
 
 #define DEFAULT_BRIGHTNESS 1.f
 
+typedef enum {
+    StatusLightsEventSyncDone = 1UL << 0,
+} StatusLightsEvent;
+
 typedef void (*CommandHandler)(StatusLights* instance, const StatusLightsCommand* command);
 
 struct StatusLights {
     FuriEventLoop* event_loop;
     FuriMessageQueue* command_queue;
     FuriEventLoopTimer* timer;
-    IntercomChannel* intercom_ch;
+    Intercom* intercom;
 
     StatusLightsGenericPreset* preset_instance;
     const StatusLightsPresetBase* preset_api;
@@ -91,6 +95,34 @@ static void status_lights_intercom_rx_callback(const void* data, size_t data_siz
         furi_message_queue_put(instance->command_queue, data, FuriWaitForever) == FuriStatusOk);
 }
 
+static void status_lights_intercom_state_callback(const void* message, void* context) {
+    furi_assert(message);
+    furi_assert(context);
+
+    StatusLights* instance = context;
+
+    const IntercomStatus intercom_status = *(IntercomStatus*)message;
+
+    if(intercom_status == IntercomStatusOk) {
+        furi_event_loop_set_custom_event(instance->event_loop, StatusLightsEventSyncDone);
+    }
+}
+
+static void status_lights_event_callback(uint32_t events, void* context) {
+    furi_assert(context);
+    StatusLights* instance = context;
+
+    if(events & StatusLightsEventSyncDone) {
+        IntercomChannel* intercom_ch = intercom_channel_open(
+            instance->intercom,
+            IntercomChannelIdStatusLights,
+            status_lights_intercom_rx_callback,
+            instance);
+        // Not sending anything to the channel
+        UNUSED(intercom_ch);
+    }
+}
+
 static StatusLights* status_lights_alloc() {
     StatusLights* instance = malloc(sizeof(StatusLights));
     instance->preset_instance = NULL;
@@ -98,6 +130,8 @@ static StatusLights* status_lights_alloc() {
     instance->active_color = (Color){0};
     instance->brightness = DEFAULT_BRIGHTNESS;
     instance->event_loop = furi_event_loop_alloc();
+    furi_event_loop_set_custom_event_callback(
+        instance->event_loop, status_lights_event_callback, instance);
     instance->command_queue = furi_message_queue_alloc(8, sizeof(StatusLightsCommand));
     furi_event_loop_subscribe_message_queue(
         instance->event_loop,
@@ -108,9 +142,10 @@ static StatusLights* status_lights_alloc() {
     instance->timer = furi_event_loop_timer_alloc(
         instance->event_loop, status_lights_run_pattern, FuriEventLoopTimerTypePeriodic, instance);
 
-    Intercom* intercom = furi_record_open(RECORD_INTERCOM);
-    instance->intercom_ch = intercom_channel_open(
-        intercom, IntercomChannelIdStatusLights, status_lights_intercom_rx_callback, instance);
+    instance->intercom = furi_record_open(RECORD_INTERCOM);
+
+    FuriState* intercom_state = intercom_get_state(instance->intercom);
+    furi_state_subscribe(intercom_state, status_lights_intercom_state_callback, instance);
 
     furi_record_create(RECORD_STATUS_LIGHTS, instance);
 

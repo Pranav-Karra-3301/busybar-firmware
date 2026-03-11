@@ -2,7 +2,7 @@
 
 #include <gui/modules/label.h>
 #include <gui/modules/flex_box.h>
-#include <gui/modules/anim_image.h>
+#include <gui/modules/anim_player.h>
 
 #include "../widgets/progress_view.h"
 #include "../widgets/prompt_overlay.h"
@@ -100,10 +100,17 @@ static void busy_scene_next_on_enter(void* context) {
     BusySceneNext* data =
         scene_manager_get_scene_data(instance->scene_manager, BusyAppSceneIdNext);
 
-    BusyTimerCycles timer_cycles;
-    busy_timer_get_cycles(instance->busy_timer, &timer_cycles);
+    BusyTimerRunInfo timer_info;
+    busy_timer_get_run_info(instance->busy_timer, &timer_info);
 
-    const BusyTimerState timer_state = busy_timer_get_state(instance->busy_timer);
+    BusyTimerConfig* timer_config = &timer_info.config;
+    furi_check(timer_config->mode == BusyTimerModeInterval);
+
+    const BusyTimerState timer_state = timer_info.state;
+
+    const uint32_t curr_interval_idx = timer_info.current_interval_idx;
+    const uint32_t prev_interval_idx = curr_interval_idx - 1;
+    const uint32_t num_cycles = timer_config->interval.cycles_count;
 
     with_gui(instance->gui, {
         GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
@@ -122,8 +129,8 @@ static void busy_scene_next_on_enter(void* context) {
         const BusySceneNextPreset* preset = busy_scene_next_get_preset(timer_state);
 
         if(preset->arrow_anim_path) {
-            AnimImage* anim = anim_image_alloc(flex_box_get_base(data->front_flex));
-            anim_image_set_source(anim, preset->arrow_anim_path);
+            AnimPlayer* anim = anim_player_alloc(flex_box_get_base(data->front_flex));
+            anim_player_set_source(anim, preset->arrow_anim_path);
         }
 
         Label* message_label = label_alloc(flex_box_get_base(data->front_flex));
@@ -131,11 +138,7 @@ static void busy_scene_next_on_enter(void* context) {
         label_set_text_color(message_label, preset->label_color);
 
         data->front_progress_view = progress_view_alloc(instance->front_window);
-        progress_view_set_progress(
-            data->front_progress_view,
-            timer_cycles.current_idx - 1,
-            timer_cycles.total_count,
-            true);
+        progress_view_set_progress(data->front_progress_view, prev_interval_idx, num_cycles, true);
         widget_set_align(progress_view_get_base(data->front_progress_view), AlignBottomMid);
 
         data->front_prompt = prompt_overlay_alloc(instance->front_window);

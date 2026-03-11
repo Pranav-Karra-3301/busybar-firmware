@@ -1,11 +1,11 @@
 #include "../busy_i.h"
 
-#include <gui/modules/anim_image.h>
+#include <gui/modules/anim_player.h>
 
 #include "../widgets/overview_label.h"
 
 typedef struct {
-    AnimImage* front_bg_anim;
+    AnimPlayer* front_bg_anim;
     OverviewLabel* front_overview_label;
     RunLater* run_later;
 } BusySceneOverview;
@@ -28,7 +28,11 @@ static bool busy_scene_overview_input_callback(const InputEvent* event, void* co
     BusyCustomEvent custom_event;
 
     if(event->type == InputTypeShort) {
-        if(event->key == InputKeyStart) {
+        if(event->key == InputKeyOk) {
+            custom_event = BusyCustomEventOkShortPressed;
+            consumed = true;
+
+        } else if(event->key == InputKeyStart) {
             custom_event = BusyCustomEventStartShortPressed;
             consumed = true;
         }
@@ -48,20 +52,26 @@ static void busy_scene_overview_on_enter(void* context) {
     BusySceneOverview* data =
         scene_manager_get_scene_data(instance->scene_manager, BusyAppSceneIdOverview);
 
-    BusyTimerConfig timer_config;
-    busy_timer_get_config(instance->busy_timer, &timer_config);
+    BusyTimerRunInfo timer_info;
+    busy_timer_get_run_info(instance->busy_timer, &timer_info);
+
+    furi_check(timer_info.config.mode == BusyTimerModeInterval);
+    const BusyTimerIntervalConfig* interval_config = &timer_info.config.interval;
 
     with_gui(instance->gui, {
         GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
         gui_layer_add_input_callback(layer, busy_scene_overview_input_callback, instance);
 
-        data->front_bg_anim = anim_image_alloc(instance->front_window);
-        anim_image_set_source(data->front_bg_anim, BUSY_ANIM_PATH("overview_72x16.anim"));
-        anim_image_set_loop(data->front_bg_anim, false);
+        data->front_bg_anim = anim_player_alloc(instance->front_window);
+        anim_player_set_source(data->front_bg_anim, BUSY_ANIM_PATH("overview_72x16.anim"));
+        anim_player_set_section(
+            data->front_bg_anim, AnimFilePlayFlagNone, ANIM_FILE_DEFAULT_SECTION);
 
         data->front_overview_label = overview_label_alloc(instance->front_window);
         overview_label_set_intervals(
-            data->front_overview_label, timer_config.work_time_mn, timer_config.rest_time_mn);
+            data->front_overview_label,
+            MS_TO_M(interval_config->work_time_ms),
+            MS_TO_M(interval_config->rest_time_ms));
     });
 
     data->run_later =
@@ -83,7 +93,7 @@ static void busy_scene_overview_on_exit(void* context) {
         GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdMain);
         gui_layer_remove_input_callback(layer, busy_scene_overview_input_callback);
 
-        anim_image_free(data->front_bg_anim);
+        anim_player_free(data->front_bg_anim);
         overview_label_free(data->front_overview_label);
     });
 }
@@ -95,7 +105,8 @@ static bool busy_scene_overview_on_event(const SceneManagerEvent* event, void* c
     bool consumed = false;
 
     if(event->type == SceneManagerEventTypeCustom) {
-        if(event->event == BusyCustomEventStartShortPressed) {
+        if(event->event == BusyCustomEventOkShortPressed ||
+           event->event == BusyCustomEventStartShortPressed) {
             busy_prepare_transition(instance, BusyTransitionTypeSkip);
             scene_manager_next_scene(instance->scene_manager, BusyAppSceneIdTimer);
 

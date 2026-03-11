@@ -188,6 +188,8 @@ void furi_hal_info_get(PropertyValueCallback out, char sep, void* context) {
             &property_context, "otp1", "target", furi_hal_version_get_hw_target_otp());
         property_out_int(&property_context, "otp1", "body", furi_hal_version_get_hw_body());
         property_out_int(&property_context, "otp1", "connect", furi_hal_version_get_hw_connect());
+        property_out_str(
+            &property_context, "otp1", "version_code", furi_hal_version_get_hw_version_code());
         property_out_long(
             &property_context, "otp1", "timestamp", furi_hal_version_get_hw_timestamp());
 
@@ -223,6 +225,9 @@ void furi_hal_info_get(PropertyValueCallback out, char sep, void* context) {
             "otp1_sig",
             furi_hal_version_get_otp1_signature(),
             furi_hal_version_get_signature_size());
+
+        property_context.last = true;
+
         property_out_hex(
             &property_context,
             temp_str,

@@ -10,11 +10,11 @@
 #define FRONT_DISPLAY_BPP      (24)
 #define FRONT_DISPLAY_BUF_SIZE (FRONT_DISPLAY_W * FRONT_DISPLAY_H * FRONT_DISPLAY_BPP / 8)
 
-#define FRONT_DISPLAY_BRIGHTNESS_MIN  (0)
-#define FRONT_DISPLAY_BRIGHTNESS_MAX  (100)
-#define FRONT_DISPLAY_BRIGHTNESS_AUTO (255)
-
 typedef struct FrontDisplaySrv FrontDisplaySrv;
+
+typedef struct FrontDisplayBrightness {
+    uint8_t val;
+} FrontDisplayBrightness;
 
 void front_display_draw(FrontDisplaySrv* instance, const uint8_t* buf);
 
@@ -22,16 +22,16 @@ void front_display_draw(FrontDisplaySrv* instance, const uint8_t* buf);
  * @brief Set the brightness of front display
  * 
  * @param instance Pointer to the FrontDisplaySrv instance
- * @param brightness Brightness value (FRONT_DISPLAY_BRIGHTNESS_MIN to FRONT_DISPLAY_BRIGHTNESS_MAX),
- *                   or FRONT_DISPLAY_BRIGHTNESS_AUTO for automatic brightness adjustment
+ * @param brightness Brightness value (FRONT_DISPLAY_BRIGHTNESS_MIN to FRONT_DISPLAY_BRIGHTNESS_MAX).
  */
-void front_display_set_brightness(FrontDisplaySrv* instance, uint8_t brightness);
+void front_display_set_brightness(FrontDisplaySrv* instance, FrontDisplayBrightness brightness);
 
 /**
- * @brief Get the front display brightness 
- * 
+ * @brief Enable or disable display blanking.
+ *
+ * When the display is blanked, it will not show anything until it is unblanked.
+ *
  * @param instance Pointer to the FrontDisplaySrv instance
- * @return Brightness value (FRONT_DISPLAY_BRIGHTNESS_MIN to FRONT_DISPLAY_BRIGHTNESS_MAX),
- *                   or FRONT_DISPLAY_BRIGHTNESS_AUTO if automatic brightness is enabled
+ * @param is_blanked blank the display if @c true, unblank otherwise
  */
-uint8_t front_display_get_brightness_setting(FrontDisplaySrv* instance);
+void front_display_set_blanked(FrontDisplaySrv* instance, bool is_blanked);

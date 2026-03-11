@@ -141,7 +141,6 @@ bool storage_file_close(File* file) {
         "File %p - %p closed",
         (void*)((uint32_t)file - SRAM_BASE),
         (void*)(file->file_id - SRAM_BASE));
-    file->type = FileTypeClosed;
 
     return S_RETURN_BOOL;
 }
@@ -385,8 +384,6 @@ bool storage_dir_close(File* file) {
         "Dir %p - %p closed",
         (void*)((uint32_t)file - SRAM_BASE),
         (void*)(file->file_id - SRAM_BASE));
-
-    file->type = FileTypeClosed;
 
     return S_RETURN_BOOL;
 }
@@ -1033,6 +1030,7 @@ bool storage_simply_remove_recursive(Storage* storage, const char* path) {
     File* dir = storage_file_alloc(storage);
     cur_dir = furi_string_alloc_set(path);
     bool go_deeper = false;
+    FS_Error error = FSE_OK;
 
     while(1) {
         if(!storage_dir_open(dir, furi_string_get_cstr(cur_dir))) {
@@ -1048,11 +1046,13 @@ bool storage_simply_remove_recursive(Storage* storage, const char* path) {
             }
 
             fullname = furi_string_alloc_printf("%s/%s", furi_string_get_cstr(cur_dir), name);
-            FS_Error error = storage_common_remove(storage, furi_string_get_cstr(fullname));
-            furi_check(error == FSE_OK);
+            error = storage_common_remove(storage, furi_string_get_cstr(fullname));
             furi_string_free(fullname);
+            if(error != FSE_OK) break;
         }
         storage_dir_close(dir);
+
+        if(error != FSE_OK) break;
 
         if(go_deeper) {
             go_deeper = false;
@@ -1075,7 +1075,7 @@ bool storage_simply_remove_recursive(Storage* storage, const char* path) {
     storage_file_free(dir);
     furi_string_free(cur_dir);
     free(name);
-    return result;
+    return result && (error == FSE_OK);
 } //-V773
 
 bool storage_simply_remove(Storage* storage, const char* path) {
@@ -1092,6 +1092,49 @@ bool storage_simply_mkdir(Storage* storage, const char* path) {
     FS_Error result;
     result = storage_common_mkdir(storage, path);
     return result == FSE_OK || result == FSE_EXIST;
+}
+
+size_t storage_simply_read_entire_file(
+    Storage* storage,
+    const char* path,
+    void* buffer,
+    size_t buf_sz) {
+    furi_check(storage);
+    furi_check(path);
+    furi_check(buffer);
+
+    memset(buffer, 0, buf_sz);
+    File* file = storage_file_alloc(storage);
+
+    size_t read = 0;
+    do {
+        if(!storage_file_open(file, path, FSAM_READ, FSOM_OPEN_EXISTING)) break;
+        read = storage_file_read(file, buffer, buf_sz - 1);
+    } while(0);
+
+    storage_file_free(file);
+    return read;
+}
+
+bool storage_simply_write_entire_file(
+    Storage* storage,
+    const char* path,
+    const void* buffer,
+    size_t length) {
+    furi_check(storage);
+    furi_check(path);
+    furi_check(buffer);
+
+    File* file = storage_file_alloc(storage);
+
+    size_t written = 0;
+    do {
+        if(!storage_file_open(file, path, FSAM_WRITE, FSOM_CREATE_ALWAYS)) break;
+        written = storage_file_write(file, buffer, length);
+    } while(0);
+
+    storage_file_free(file);
+    return written;
 }
 
 void storage_get_next_filename(
@@ -1119,4 +1162,19 @@ void storage_get_next_filename(
     }
 
     furi_string_free(temp_str);
+}
+
+void storage_common_shutdown(Storage* storage) {
+    furi_check(storage);
+
+    S_API_PROLOGUE;
+    SAData data = {};
+    S_API_MESSAGE(StorageCommandCommonShutdown);
+    S_API_EPILOGUE;
+}
+
+void storage_common_revive(Storage* storage) {
+    furi_check(storage);
+
+    furi_event_flag_set(storage->shutdown_gate, SHUTDOWN_GATE_FLAG);
 }

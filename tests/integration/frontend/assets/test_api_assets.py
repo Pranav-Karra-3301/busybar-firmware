@@ -5,8 +5,7 @@ import allure
 import pytest
 import requests
 
-from clients.api import AssetsAPI
-
+from clients.api import AssetsAPI, SettingsAPI
 
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 
@@ -60,6 +59,7 @@ class TestAssetsAPI:
         ]
 
         assets_api.draw("test_app", elements)
+        assets_api.clear_display()
 
     @allure.id("2690")
     @allure.title("POST /api/display/draw (image)")
@@ -95,6 +95,7 @@ class TestAssetsAPI:
             ]
 
             assets_api.draw(test_app_id, elements)
+            assets_api.clear_display()
         finally:
             try:
                 assets_api.delete_assets(test_app_id)
@@ -117,11 +118,14 @@ class TestAssetsAPI:
     @allure.title("POST /api/audio/play")
     @pytest.mark.api
     @pytest.mark.frontend
-    def test_api_audio_play(self, assets_api: AssetsAPI):
+    def test_api_audio_play(self, assets_api: AssetsAPI, settings_api: SettingsAPI):
         """Test POST /api/audio/play endpoint"""
         test_app_id = "test_audio_play"
-        test_audio_file = "ping.snd"
+        test_audio_file = "smb_powerup.snd"
         audio_path = ASSETS_DIR / test_audio_file
+        # Set volume to a low level for testing to avoid loud audio during test runs
+        settings_api.set_volume(10)
+
 
         assert audio_path.exists(), f"Test audio file not found: {audio_path}"
 
@@ -135,6 +139,8 @@ class TestAssetsAPI:
 
         try:
             assets_api.play_audio(test_app_id, test_audio_file)
+            sleep(2)
+            assets_api.stop_audio()
         finally:
             try:
                 assets_api.delete_assets(test_app_id)

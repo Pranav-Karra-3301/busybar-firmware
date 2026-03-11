@@ -48,7 +48,16 @@ API_ENDPOINTS = [
     "/api/account/profile",
     "/api/time/timestamp",
     "/api/time/timezone",
+    "/api/time/tzlist",
+    "/api/status/device",
+    "/api/status/firmware",
+    "/api/storage/rename",
+    "/api/update/autoupdate",
     "/api/busy/snapshot",
+    "/api/busy/profiles/busy",
+    "/api/busy/profiles/custom",
+    "/api/matter/commissioning",
+    "/api/matter/endpoint/1",
 ]
 
 
@@ -57,7 +66,7 @@ API_ENDPOINTS = [
 class TestAPICors:
     """Test cases for CORS (Cross-Origin Resource Sharing) support"""
 
-    @allure.id("2750")
+    @allure.id("3833")
     @allure.title("OPTIONS preflight requests")
     @pytest.mark.api
     @pytest.mark.frontend
@@ -84,7 +93,7 @@ class TestAPICors:
                 f"Expected 200 or 204 for CORS preflight."
             )
 
-    @allure.id("2751")
+    @allure.id("3834")
     @allure.title("OPTIONS /api/name (CORS preflight)")
     @pytest.mark.api
     @pytest.mark.frontend

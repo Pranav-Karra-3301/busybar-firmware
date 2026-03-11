@@ -3,14 +3,17 @@
 #include <storage/storage.h>
 #include <gui/gui.h>
 #include <gui/modules/image.h>
+#include <gui/modules/anim_player.h>
 #include <gui/modules/label.h>
 #include <gui/modules/countdown.h>
+#include <loader/loader.h>
 #include <m-dict.h>
 #include <toolbox/m_cstr_dup.h>
 #include <toolbox/api_lock.h>
 #include <furi_hal_rtc.h>
 #include "canvas.h"
 #include <gui/modules/front_display_mirror.h>
+#include <lvgl.h>
 
 typedef struct {
     enum {
@@ -20,6 +23,7 @@ typedef struct {
     FuriApiLock lock;
     bool* result;
     char* app_id;
+    size_t* priority;
     union {
         CanvasElementsArray_t elements;
     };
@@ -37,6 +41,7 @@ typedef struct {
     GuiDisplayId display;
     union {
         Image* image;
+        AnimPlayer* anim_player;
         Label* text;
         Countdown* countdown;
     };
@@ -50,7 +55,9 @@ struct CanvasApp {
     Gui* gui;
     CanvasWidgetsDict_t widgets;
     DisplayMirror* display_mirror;
+    Loader* loader;
     char* app_id;
+    size_t priority;
 };
 
 static bool canvas_app_input_callback(const InputEvent* event, void* context) {
@@ -101,6 +108,9 @@ static void canvas_element_timeout(void* context) {
         if(widget->type == CanvasElementTypeImage) {
             furi_assert(widget->image);
             image_free(widget->image);
+        } else if(widget->type == CanvasElementTypeAnimPlayer) {
+            furi_assert(widget->anim_player);
+            anim_player_free(widget->anim_player);
         } else if(widget->type == CanvasElementTypeText) {
             furi_assert(widget->text);
             label_free(widget->text);
@@ -139,6 +149,8 @@ static void canvas_widget_destroy(CanvasApp* canvas, CanvasWidget* widget) {
     with_gui(canvas->gui, {
         if(widget->type == CanvasElementTypeImage) {
             image_free(widget->image);
+        } else if(widget->type == CanvasElementTypeAnimPlayer) {
+            anim_player_free(widget->anim_player);
         } else if(widget->type == CanvasElementTypeText) {
             label_free(widget->text);
         } else if(widget->type == CanvasElementTypeCountdown) {
@@ -157,6 +169,11 @@ static void canvas_widget_destroy_all(CanvasApp* canvas) {
     }
 }
 
+static void canvas_announce_priority(CanvasApp* canvas, size_t priority) {
+    furi_assert(canvas);
+    loader_set_priority(canvas->loader, priority);
+}
+
 static void canvas_app_clear_all(CanvasApp* canvas) {
     furi_assert(canvas);
 
@@ -168,6 +185,8 @@ static void canvas_app_clear_all(CanvasApp* canvas) {
     if(CanvasWidgetsDict_empty_p(canvas->widgets)) {
         furi_event_loop_stop(canvas->event_loop);
     }
+
+    canvas_announce_priority(canvas, 0);
 }
 
 static Widget* canvas_element_update_specific(
@@ -182,8 +201,21 @@ static Widget* canvas_element_update_specific(
         if(!widget->image) {
             widget->image = image_alloc(root);
         }
-        image_set_source(widget->image, furi_string_get_cstr(element->image.file_path));
+        image_set_source_no_cache(widget->image, furi_string_get_cstr(element->image.file_path));
         return image_get_base(widget->image);
+
+    } else if(widget->type == CanvasElementTypeAnimPlayer) {
+        if(!widget->anim_player) {
+            widget->anim_player = anim_player_alloc(root);
+        }
+        if(anim_player_set_source(
+               widget->anim_player, furi_string_get_cstr(element->anim_player.file_path))) {
+            anim_player_set_section(
+                widget->anim_player,
+                element->anim_player.flags,
+                furi_string_get_cstr(element->anim_player.section));
+        }
+        return anim_player_get_base(widget->anim_player);
 
     } else if(widget->type == CanvasElementTypeText) {
         if(!widget->text) {
@@ -311,48 +343,56 @@ static bool canvas_element_update(CanvasApp* canvas, const CanvasElement* elemen
         memcpy(&widget, widget_old, sizeof(CanvasWidget));
     }
 
-    with_gui(canvas->gui, {
-        widget.type = element->type;
-        widget.display = element->display;
-        GuiLayer* gui_layer = gui_get_layer(canvas->gui, GuiLayerIdMain);
-        Widget* root = gui_layer_get_root_widget(gui_layer, element->display);
-        Widget* base = canvas_element_update_specific(&widget, root, element);
-        canvas_element_update_generic(base, root, element);
-    });
-
-    uint32_t effective_timeout = 0;
+    int32_t effective_timeout = -1;
     if(element->timeout > 0) {
         furi_check(element->display_until == 0);
         effective_timeout = element->timeout;
     } else if(element->display_until > 0) {
         furi_check(element->timeout == 0);
         time_t current_stamp = furi_hal_rtc_get_timestamp();
-        effective_timeout = MAX(1, element->display_until - current_stamp);
+        effective_timeout = MAX(0, element->display_until - current_stamp);
     }
 
-    if((effective_timeout > 0) || (widget.timeout_timer)) {
-        if(!widget.timeout_context) {
-            widget.timeout_context = malloc(sizeof(CanvasWidgetTimeoutContext));
-            widget.timeout_context->id = strdup(element->id);
-            widget.timeout_context->canvas = canvas;
+    if(effective_timeout == 0) {
+        if(widget_old) {
+            canvas_widget_destroy(canvas, widget_old);
+            CanvasWidgetsDict_erase(canvas->widgets, element->id);
+            return true;
         }
-    }
+    } else {
+        with_gui(canvas->gui, {
+            widget.type = element->type;
+            widget.display = element->display;
+            GuiLayer* gui_layer = gui_get_layer(canvas->gui, GuiLayerIdMain);
+            Widget* root = gui_layer_get_root_widget(gui_layer, element->display);
+            Widget* base = canvas_element_update_specific(&widget, root, element);
+            canvas_element_update_generic(base, root, element);
+        });
 
-    if(effective_timeout > 0) {
-        if(!widget.timeout_timer) {
-            widget.timeout_timer = furi_event_loop_timer_alloc(
-                canvas->event_loop,
-                canvas_element_timeout,
-                FuriEventLoopTimerTypeOnce,
-                widget.timeout_context);
+        if((effective_timeout > 0) || (widget.timeout_timer)) {
+            if(!widget.timeout_context) {
+                widget.timeout_context = malloc(sizeof(CanvasWidgetTimeoutContext));
+                widget.timeout_context->id = strdup(element->id);
+                widget.timeout_context->canvas = canvas;
+            }
         }
-        furi_event_loop_timer_start(widget.timeout_timer, effective_timeout * 1000);
-    } else if((widget.timeout_timer) && (effective_timeout == 0)) {
-        furi_event_loop_timer_free(widget.timeout_timer);
-        widget.timeout_timer = NULL;
-    }
 
-    CanvasWidgetsDict_set_at(canvas->widgets, element->id, widget);
+        if(effective_timeout > 0) {
+            if(!widget.timeout_timer) {
+                widget.timeout_timer = furi_event_loop_timer_alloc(
+                    canvas->event_loop,
+                    canvas_element_timeout,
+                    FuriEventLoopTimerTypeOnce,
+                    widget.timeout_context);
+            }
+            furi_event_loop_timer_start(widget.timeout_timer, effective_timeout * 1000);
+        } else if((widget.timeout_timer) && (effective_timeout == -1)) {
+            furi_event_loop_timer_free(widget.timeout_timer);
+            widget.timeout_timer = NULL;
+        }
+
+        CanvasWidgetsDict_set_at(canvas->widgets, element->id, widget);
+    }
 
     return true;
 }
@@ -370,6 +410,9 @@ static bool canvas_update_all(CanvasApp* canvas, CanvasElementsArray_t elements)
         }
     }
     canvas_check_back_screen_empty(canvas);
+    if(CanvasWidgetsDict_empty_p(canvas->widgets)) {
+        furi_event_loop_stop(canvas->event_loop);
+    }
     return success;
 }
 
@@ -380,10 +423,12 @@ static void canvas_app_queue_event_callback(FuriEventLoopObject* object, void* c
 
     CanvasAppQueueEvent event;
     furi_check(furi_message_queue_get(canvas->event_queue, &event, 0) == FuriStatusOk);
+    furi_assert(event.result);
 
     bool success = false;
 
     if(event.type == CanvasAppEventUpdate) {
+        furi_assert(event.priority);
         if(canvas->app_id) {
             bool new_id = (strcmp(event.app_id, canvas->app_id) != 0);
             if(new_id) {
@@ -395,6 +440,7 @@ static void canvas_app_queue_event_callback(FuriEventLoopObject* object, void* c
         } else {
             canvas->app_id = strdup(event.app_id);
         }
+        canvas_announce_priority(canvas, *event.priority);
         success = canvas_update_all(canvas, event.elements);
         CanvasElementsArray_clear(event.elements);
 
@@ -410,6 +456,7 @@ static void canvas_app_queue_event_callback(FuriEventLoopObject* object, void* c
             success = true;
         }
     }
+
     if(event.app_id) {
         free(event.app_id);
         event.app_id = NULL;
@@ -433,12 +480,16 @@ static CanvasApp* canvas_app_alloc() {
     canvas->gui = furi_record_open(RECORD_GUI);
     CanvasWidgetsDict_init(canvas->widgets);
 
+    canvas->loader = furi_record_open(RECORD_LOADER);
+
     with_gui(canvas->gui, {
         GuiLayer* main_layer = gui_get_layer(canvas->gui, GuiLayerIdMain);
         gui_layer_add_input_callback(main_layer, canvas_app_input_callback, canvas);
         Widget* back_root = gui_layer_get_root_widget(main_layer, GuiDisplayIdBack);
         canvas->display_mirror = display_mirror_alloc(back_root);
     });
+
+    canvas_announce_priority(canvas, 0);
 
     return canvas;
 }
@@ -451,7 +502,7 @@ static void canvas_app_free(CanvasApp* canvas) {
         display_mirror_free(canvas->display_mirror);
     });
 
-    furi_record_close(RECORD_GUI);
+    furi_record_close(RECORD_LOADER);
     furi_record_close(RECORD_GUI);
 
     CanvasWidgetsDict_clear(canvas->widgets);
@@ -490,7 +541,11 @@ int32_t canvas_app(void* arg) {
     return 0;
 }
 
-bool canvas_show_elements(CanvasApp* canvas, const char* app_id, CanvasElementsArray_t elements) {
+bool canvas_show_elements(
+    CanvasApp* canvas,
+    const char* app_id,
+    size_t priority,
+    CanvasElementsArray_t elements) {
     furi_assert(canvas);
     furi_assert(app_id);
 
@@ -500,6 +555,7 @@ bool canvas_show_elements(CanvasApp* canvas, const char* app_id, CanvasElementsA
         .lock = api_lock_alloc_locked(),
         .type = CanvasAppEventUpdate,
         .app_id = strdup(app_id),
+        .priority = &priority,
         .result = &success,
     };
 

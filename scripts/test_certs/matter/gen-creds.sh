@@ -9,7 +9,7 @@ usage() {
   echo "  type: test|certification"
   echo "    Use \"test\" for regular testing."
   echo "    Use \"certification\" for devices going into certification testing."
-  echo "  ver: see \"MATTER_SOFTWARE_VERSION\" in \"matter_f64.cpp\""
+  echo "  ver: see \"MATTER_SOFTWARE_VER_NUM\" in \"ConfigurationManagerImpl.cpp\""
   echo ""
   echo "Required env vars:"
   echo "  - MATTER_DIR: path to cloned repo:"
@@ -40,7 +40,7 @@ matter_cd_dir="$matter_cert_dir/certification-declaration"
 chip_cert_tool=$CHIP_CERT
 
 vendor_id="158A"
-product_id="0001"
+product_id="BB01"
 device_type_id="100"
 
 pai_key_file="test-PAI-${vendor_id}-key.pem"

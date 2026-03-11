@@ -23,6 +23,10 @@ extern "C" {
 #define APP_DATA_PATH(path)   STORAGE_APP_DATA_PATH_PREFIX "/" path
 #define APP_ASSETS_PATH(path) STORAGE_APP_ASSETS_PATH_PREFIX "/" path
 
+#define SHARED_ASSETS_PATH(path) EXT_PATH("apps_assets/shared/" path)
+#define SHARED_ANIM_PATH(path)   SHARED_ASSETS_PATH("animations/" path)
+#define SHARED_IMG_PATH(path)    SHARED_ASSETS_PATH("images/" path)
+
 #define RECORD_STORAGE "storage"
 
 typedef struct Storage Storage;
@@ -423,6 +427,24 @@ bool storage_common_equivalent_path(Storage* storage, const char* path1, const c
  */
 bool storage_common_is_subdir(Storage* storage, const char* parent, const char* child);
 
+/**
+ * @brief Sync all files with write access and put storage in shutdown mode.
+ *
+ * In shutdown mode calls to most of the storage methods are blocked until storage_common_revive is called.
+ *
+ * @param storage pointer to a storage API instance.
+ */
+void storage_common_shutdown(Storage* storage);
+
+/**
+ * @brief Exit the shutdown mode (previously enabled by storage_common_shutdown) and continue normal operation.
+ *
+ * All pending blocked storage methods will be unblocked.
+ *
+ * @param storage pointer to a storage API instance.
+ */
+void storage_common_revive(Storage* storage);
+
 /******************* Error Functions *******************/
 
 /**
@@ -560,6 +582,36 @@ bool storage_simply_remove_recursive(Storage* storage, const char* path);
  * @return true on success or if directory does already exist, false otherwise.
  */
 bool storage_simply_mkdir(Storage* storage, const char* path);
+
+/**
+ * @brief Simply read the entire file into memory.
+ * 
+ * @param storage pointer to a storage API instance.
+ * @param path pointer to a zero-terminated string containing the file path.
+ * @param buffer pointer to buffer to read the file into
+ * @param buf_sz size of the provided buffer. At most `buf_sz - 1` bytes will be read.
+ * @return number of bytes read, always 0 on failure
+ */
+size_t storage_simply_read_entire_file(
+    Storage* storage,
+    const char* path,
+    void* buffer,
+    size_t buf_sz);
+
+/**
+ * @brief Simply truncate and write the entire file from memory.
+ * 
+ * @param storage pointer to a storage API instance.
+ * @param path pointer to a zero-terminated string containing the file path.
+ * @param buffer pointer to buffer to write to the file
+ * @param length number of bytes to write from the buffer
+ * @return whether all of the requested bytes were written
+ */
+bool storage_simply_write_entire_file(
+    Storage* storage,
+    const char* path,
+    const void* buffer,
+    size_t length);
 
 /**
  * @brief Get the next free filename in a directory.
