@@ -311,13 +311,9 @@ bool ble_security_rpa_disable() {
 bool ble_security_init(BleSecurityData* instance) {
     furi_assert(instance);
 
-    bool result = false;
-    do {
-        ble_security_load_data(instance);
-
-        ble_security_rpa_init(instance);
-    } while(false);
-    return result;
+    ble_security_load_data(instance);
+    ble_security_rpa_init(instance);
+    return ble_security_pairing_present(instance);
 }
 
 bool ble_security_pairing_present(BleSecurityData* security) {
