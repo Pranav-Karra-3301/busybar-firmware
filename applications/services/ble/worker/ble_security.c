@@ -298,6 +298,10 @@ bool ble_security_rpa_disable() {
             BLE_LOG_W("Unable to clear resolvlist %08lX", status);
             break;
         }
+
+        //Re-generate and set new IRK for future connection
+        ble_security_generate_and_set_irk();
+
         BLE_LOG_I("RPA disabled");
         result = true;
     } while(false);
