@@ -8,6 +8,7 @@
 #include <back_display/back_display.h>
 #include <front_display/front_display.h>
 #include <furi_hal_rtc.h>
+#include <font_registry/fonts.h>
 #include <brightness_control/brightness_control.h>
 
 #define TAG "HttpDisplay"
@@ -16,8 +17,7 @@
 #define DISPLAY_BUILTIN_IMAGES_FORMATTER EXT_PATH("apps_assets/%s/images/%s.bin")
 #define DISPLAY_BUILTIN_ANIM_FORMATTER   EXT_PATH("apps_assets/%s/animations/%s.anim")
 
-#define BUILTIN_APP_PRIORITY     5
-#define DEFAULT_ELEMENT_PRIORITY 6
+#define DEFAULT_ELEMENT_PRIORITY 50
 
 static bool api_display_draw_parse_text_element(
     CanvasElement* canvas_element,
@@ -30,21 +30,26 @@ static bool api_display_draw_parse_text_element(
         canvas_element->text.text_str = mg_json_get_str(json_element, "$.text");
         if(!canvas_element->text.text_str) break;
 
-        canvas_element->text.font = GuiFontTiny5_8;
         canvas_element->text.color = (Color)COLOR_MAKE_HEXA(0xFFFFFFFF);
 
         char* font_name = mg_json_get_str(json_element, "$.font");
         if(!font_name) break;
-        static const char* const font_names[GuiFontMax] = {
-            [GuiFontBf4x5] = "small",
-            [GuiFontBf5x7] = "medium",
-            [GuiFontBf5x7CondensedNumerals] = "medium_condensed",
-            [GuiFontBf7x10] = "big",
+        static const char* const font_names[] = {
+            "small",
+            "medium",
+            "medium_condensed",
+            "big",
         };
-        size_t font = value_index_string(font_name, font_names, COUNT_OF(font_names));
-        canvas_element->text.font = font;
+        static const char* const font_paths[] = {
+            FONT_BUSY_REGULAR_5,
+            FONT_BUSY_REGULAR_7,
+            FONT_BUSY_CONDENSED_7,
+            FONT_BUSY_BOLD_10,
+        };
+        const char* font_path =
+            value_index_map_string(font_names, font_paths, COUNT_OF(font_names), font_name);
+        canvas_element->text.font_path = strdup(font_path);
         free(font_name);
-        if(font == 0) break;
 
         char* color_hex = mg_json_get_str(json_element, "$.color");
         if(color_hex) {
@@ -338,29 +343,10 @@ static bool api_display_draw_check_elements_visible(CanvasElementsArray_t elemen
     return elemets_visible > 0;
 }
 
-static int api_display_active_priority(void) {
-    int priority = INT_MIN;
-
+static size_t api_display_active_priority(void) {
     Loader* loader = furi_record_open(RECORD_LOADER);
-    FuriString* app_name = furi_string_alloc();
-
-    do {
-        bool canvas_running = furi_record_exists(RECORD_CANVAS);
-        if(canvas_running) {
-            CanvasApp* canvas = furi_record_open(RECORD_CANVAS);
-            priority = MAX(priority, canvas_active_priority(canvas));
-            furi_record_close(RECORD_CANVAS);
-        }
-
-        if(!loader_get_application_name(loader, app_name)) break;
-        if(furi_string_search_str(app_name, "Settings") != FURI_STRING_FAILURE) break;
-        if(furi_string_cmp_str(app_name, "Software Power Off") == 0) break;
-        priority = MAX(priority, BUILTIN_APP_PRIORITY);
-    } while(0);
-
-    furi_string_free(app_name);
+    size_t priority = loader_get_priority(loader);
     furi_record_close(RECORD_LOADER);
-
     return priority;
 }
 
@@ -383,18 +369,28 @@ static bool api_display_draw_callback(
 
     do {
         app_id = mg_json_get_str(msg->body, "$.app_id");
-        if(!app_id) break;
+        if(!app_id) {
+            MG_REPLY_ERROR(conn, 400, "Missing app_id");
+            break;
+        }
 
         if(mg_json_get_num(msg->body, "$.priority", &json_num)) {
             priority = json_num;
         }
-        if(priority <= 0) break;
-        if(priority > 10) break;
+        if(priority <= 0) {
+            MG_REPLY_ERROR(conn, 400, "Priority must be >= 1");
+            break;
+        }
+        if((size_t)priority > LOADER_MAX_PRIORITY) {
+            MG_REPLY_ERROR(conn, 400, "Priority must be <= 100");
+            break;
+        }
 
         struct mg_str elements_obj = mg_json_get_tok(msg->body, "$.elements");
-        if(!elements_obj.buf) break;
-        if(elements_obj.len < 2) break;
-        if(elements_obj.buf[0] != '[') break;
+        if(!elements_obj.buf || elements_obj.len < 2 || elements_obj.buf[0] != '[') {
+            MG_REPLY_ERROR(conn, 400, "Missing or invalid elements array");
+            break;
+        }
 
         size_t offset = 0;
         struct mg_str element;
@@ -409,8 +405,13 @@ static bool api_display_draw_callback(
             break;
         }
 
-        int active_priority = api_display_active_priority();
-        if(priority < active_priority) {
+        if(CanvasElementsArray_size(elements_array) == 0) {
+            MG_REPLY_ERROR(conn, 400, "Elements array is empty");
+            break;
+        }
+
+        size_t active_priority = api_display_active_priority();
+        if((size_t)priority < active_priority) {
             MG_REPLY_ERROR(conn, 409, "Not drawn due to low priority");
             break;
         }
@@ -432,10 +433,13 @@ static bool api_display_draw_callback(
         }
 
         CanvasApp* canvas = furi_record_open(RECORD_CANVAS);
-        if(!canvas_show_elements(canvas, app_id, priority, elements_array)) {
-            MG_REPLY_BAD_REQUEST(conn);
-        }
+        bool shown = canvas_show_elements(canvas, app_id, priority, elements_array);
         furi_record_close(RECORD_CANVAS);
+
+        if(!shown) {
+            MG_REPLY_BAD_REQUEST(conn);
+            break;
+        }
 
         MG_REPLY_OK(conn);
     } while(0);

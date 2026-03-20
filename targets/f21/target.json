@@ -94,6 +94,7 @@
     "platform_desc": "../../scripts/debug/platforms/stm32u595.json",
     "rtos_flavor": "freertos-cm33-ntz",
     "lib_modules": [
+        "stb",
         "fw_updater_opts",
         "lib_base",
         "mlib",
@@ -122,6 +123,7 @@
         "targets",
         "furi",
         "settings_helpers",
+        "setting_provider",
         "drivers",
         "version",
         "internal_assets",

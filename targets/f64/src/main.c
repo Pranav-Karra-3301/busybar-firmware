@@ -8,7 +8,7 @@ static int32_t init_task(void* context) {
     UNUSED(context);
 
     furi_hal_init();
-    furi_hal_serial_control_set_logging_config(FuriHalSerialIdUlpuart, 230400);
+
     flipper_init_services();
 
     furi_background();
@@ -22,7 +22,7 @@ int main(void) {
 
     furi_hal_init_early();
 
-    FuriThread* main_thread = furi_thread_alloc_ex("Init", 1024 * 2, init_task, NULL);
+    FuriThread* main_thread = furi_thread_alloc_ex("Init", 1024, init_task, NULL);
     furi_thread_start(main_thread);
 
     furi_run();

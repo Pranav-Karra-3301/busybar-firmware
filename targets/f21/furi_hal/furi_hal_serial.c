@@ -16,7 +16,8 @@ typedef struct {
     USART_TypeDef* periph_ptr;
     FuriHalSerialRxCallback rx_callback;
     FuriHalSerialTxCallback tx_callback;
-    void* callback_context;
+    void* tx_callback_context;
+    void* rx_callback_context;
     uint32_t dma_rx_channel;
     uint32_t dma_tx_channel;
 } FuriHalSerial;
@@ -176,7 +177,7 @@ static void furi_hal_serial_irq_callback(void* context) {
         events |= FuriHalSerialRxEventOverrunError;
     }
     if(serial->rx_callback) {
-        serial->rx_callback(handle, events, serial->callback_context);
+        serial->rx_callback(handle, events, serial->rx_callback_context);
     }
 }
 
@@ -192,7 +193,7 @@ static void furi_hal_serial_dma_irq_callback(void* context) {
         LL_DMA_DisableChannel(GPDMA1, dma_rx_channel);
 
         if(serial->rx_callback) {
-            serial->rx_callback(handle, FuriHalSerialRxEventData, serial->callback_context);
+            serial->rx_callback(handle, FuriHalSerialRxEventData, serial->rx_callback_context);
         }
     }
 
@@ -201,7 +202,7 @@ static void furi_hal_serial_dma_irq_callback(void* context) {
         LL_DMA_DisableChannel(GPDMA1, dma_tx_channel);
 
         if(serial->tx_callback) {
-            serial->tx_callback(handle, FuriHalSerialTxEventComplete, serial->callback_context);
+            serial->tx_callback(handle, FuriHalSerialTxEventComplete, serial->tx_callback_context);
         }
     }
 }
@@ -330,10 +331,6 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud_rate) {
     serial->handle = handle;
     serial->periph_ptr = periph;
 
-    // TODO: This should not be called by default
-    furi_hal_serial_dma_tx_init(handle);
-    furi_hal_serial_dma_rx_init(handle);
-
     switch(handle->id) {
     case FuriHalSerialIdUsart1:
         LL_RCC_SetUSARTClockSource(LL_RCC_USART1_CLKSOURCE_SYSCLK);
@@ -424,9 +421,6 @@ void furi_hal_serial_deinit(FuriHalSerialHandle* handle) {
     if(serial == NULL) return;
 
     LL_USART_Disable(serial->periph_ptr);
-
-    furi_hal_serial_dma_rx_deinit(handle);
-    furi_hal_serial_dma_tx_deinit(handle);
 
     furi_hal_serial_set_transfer_direction(handle, FuriHalSerialDirectionNone);
 
@@ -629,19 +623,30 @@ void furi_hal_serial_set_hw_flow_control(
     }
 }
 
-void furi_hal_serial_set_callback(
+void furi_hal_serial_set_tx_callback(
     FuriHalSerialHandle* handle,
-    FuriHalSerialTxCallback tx_callback,
-    FuriHalSerialRxCallback rx_callback,
+    FuriHalSerialTxCallback callback,
     void* context) {
     furi_check(handle);
 
     FuriHalSerial* serial = furi_hal_serial[handle->id];
     furi_check(serial);
 
-    serial->tx_callback = tx_callback;
-    serial->rx_callback = rx_callback;
-    serial->callback_context = context;
+    serial->tx_callback = callback;
+    serial->tx_callback_context = context;
+}
+
+void furi_hal_serial_set_rx_callback(
+    FuriHalSerialHandle* handle,
+    FuriHalSerialRxCallback callback,
+    void* context) {
+    furi_check(handle);
+
+    FuriHalSerial* serial = furi_hal_serial[handle->id];
+    furi_check(serial);
+
+    serial->rx_callback = callback;
+    serial->rx_callback_context = context;
 }
 
 size_t furi_hal_serial_tx(
@@ -730,6 +735,20 @@ void furi_hal_serial_async_rx_stop(FuriHalSerialHandle* handle) {
     FURI_CRITICAL_EXIT();
 }
 
+void furi_hal_serial_dma_init(FuriHalSerialHandle* handle) {
+    furi_check(handle);
+
+    furi_hal_serial_dma_tx_init(handle);
+    furi_hal_serial_dma_rx_init(handle);
+}
+
+void furi_hal_serial_dma_deinit(FuriHalSerialHandle* handle) {
+    furi_check(handle);
+
+    furi_hal_serial_dma_rx_deinit(handle);
+    furi_hal_serial_dma_tx_deinit(handle);
+}
+
 void furi_hal_serial_dma_tx(FuriHalSerialHandle* handle, const uint8_t* buffer, size_t buffer_size) {
     furi_check(handle);
 
@@ -804,6 +823,14 @@ void furi_hal_serial_clear(FuriHalSerialHandle* handle, FuriHalSerialDirection d
         while(LL_USART_IsActiveFlag_RXNE_RXFNE(periph))
             ;
     }
+}
+
+bool furi_hal_serial_get_pin_state(FuriHalSerialHandle* handle, FuriHalSerialPin pin) {
+    furi_check(handle);
+    furi_check(pin < FuriHalSerialPinMax);
+
+    const GpioPin* gpio_pin = furi_hal_serial_resources[handle->id].gpio[pin];
+    return furi_hal_gpio_read(gpio_pin);
 }
 
 void furi_hal_serial_set_transfer_direction(

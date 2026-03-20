@@ -1,0 +1,16 @@
+name: "Post-release hooks"
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  reindex:
+    name: "Post-release hooks"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Trigger reindex"
+        run: |
+          curl --fail -L -H "Token: ${{ secrets.INDEXER_TOKEN }}" \
+              "${{ secrets.INDEXER_URL }}"/busybar-firmware/reindex;

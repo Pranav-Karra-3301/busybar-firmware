@@ -158,7 +158,9 @@ static void busy_scene_timer_update_lights(BusyApp* instance) {
 static void busy_scene_timer_update_matter(BusyApp* instance) {
     const BusySceneTimer* data =
         scene_manager_get_scene_data(instance->scene_manager, BusyAppSceneIdTimer);
-    busy_set_matter(instance, (data->timer_state == BusyTimerStateWork) && !data->is_paused);
+    bool is_active = (data->timer_state == BusyTimerStateWork) && !data->is_paused;
+    busy_set_matter(instance, is_active);
+    busy_set_priority(instance, is_active);
 }
 
 static void busy_scene_timer_update_front_display_blanking(BusyApp* instance) {
@@ -473,7 +475,7 @@ static void busy_scene_timer_on_enter(void* context) {
         data->timer_label = timer_label_alloc(instance->front_window);
         data->pause_overlay = pause_overlay_alloc(instance->front_window);
 
-        widget_set_align(timer_label_get_base(data->timer_label), AlignRightMid);
+        widget_set_align(timer_label_get_base(data->timer_label), AlignTopRight);
 
         widget_set_visible(mirror_card_get_base(instance->timer_card), true);
         mirror_card_set_show_header(instance->timer_card, true);
@@ -507,6 +509,7 @@ static void busy_scene_timer_on_exit(void* context) {
 
     busy_set_status_lights(instance, BusyStatusLightsTypeOff);
     busy_set_matter(instance, false);
+    busy_set_priority(instance, false);
 
     BusySceneTimer* data =
         scene_manager_get_scene_data(instance->scene_manager, BusyAppSceneIdTimer);
