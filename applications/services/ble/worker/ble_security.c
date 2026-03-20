@@ -3,6 +3,8 @@
 #include "../ble_common.h"
 #include "nvm/nvm.h"
 
+#include <furi_hal_random.h>
+
 #define TAG "BleSecurity"
 
 struct BleSecurityData {
@@ -13,6 +15,7 @@ struct BleSecurityData {
 #define BLE_SECURITY_RPA_ENABLE         1
 #define BLE_SECURITY_RPA_DISABLE        0
 #define BLE_SECURITY_RPA_UPDATE_TIMEOUT (900U) //15 min
+#define BLE_SECURITY_RPA_IRK_SIZE       16
 
 #define BLE_SECURITY_LOG_KEYS
 
@@ -192,7 +195,15 @@ bool ble_security_delete_data(BleSecurityData* security) {
     return result;
 }
 
-static bool ble_security_rpa_init(BleSecurityData* security) {
+static void ble_security_generate_and_set_irk() {
+    uint8_t irk[BLE_SECURITY_RPA_IRK_SIZE];
+    furi_hal_random_fill_buf(irk, sizeof(irk));
+    sl_status_t status = rsi_ble_set_local_irk_value(irk);
+    if(status != RSI_SUCCESS) {
+        BLE_LOG_W("Failed to set generated IRK: %08lX", status);
+    }
+}
+
     furi_assert(security);
 
     rsi_bt_event_le_security_keys_t* rpa_keys = &security->irk;
