@@ -55,7 +55,6 @@ typedef enum {
     SupervisorEventTypeOKPressed,
     SupervisorEventTypeResetComboPressed,
     SupervisorEventTypeResetComboReleased,
-    SupervisorEventTypeResetComboTimer,
 } SupervisorEventType;
 
 typedef struct {
@@ -220,7 +219,8 @@ static void supervisor_timer_bat_critical_callback(void* context) {
 
 static void supervisor_timer_reset_combo_callback(void* context) {
     Supervisor* instance = context;
-    supervisor_send_event(instance, SupervisorEventTypeResetComboTimer);
+    FURI_LOG_I(TAG, "Reset imminent");
+    storage_common_shutdown(instance->storage);
 }
 
 static int32_t supervisor_get_topmost_warning(SupervisorGui* gui) {
@@ -439,16 +439,6 @@ static void supervisor_update_time_to_die(Supervisor* supervisor, size_t seconds
     });
 }
 
-static void supervisor_prepare_to_reset(Supervisor* instance, bool reset_imminent) {
-    if(reset_imminent) {
-        FURI_LOG_I(TAG, "Reset imminent");
-        storage_common_shutdown(instance->storage);
-    } else {
-        FURI_LOG_I(TAG, "False alarm, reset cancelled");
-        storage_common_revive(instance->storage);
-    }
-}
-
 static void supervisor_process(FuriEventLoopObject* object, void* context) {
     Supervisor* instance = context;
     furi_assert(object == instance->message_queue);
@@ -505,12 +495,9 @@ static void supervisor_process(FuriEventLoopObject* object, void* context) {
         if(furi_event_loop_timer_is_running(instance->reset_combo_timer)) {
             furi_event_loop_timer_stop(instance->reset_combo_timer);
         } else {
-            supervisor_prepare_to_reset(instance, false);
+            FURI_LOG_I(TAG, "False alarm, reset cancelled");
+            storage_common_revive(instance->storage);
         }
-        break;
-    case SupervisorEventTypeResetComboTimer:
-        FURI_LOG_I(TAG, "Reset combo timer event received");
-        supervisor_prepare_to_reset(instance, true);
         break;
     case SupervisorEventTypeTickToDie: {
         size_t topmost_warning_type = supervisor_get_topmost_warning(&instance->gui);
