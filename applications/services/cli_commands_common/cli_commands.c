@@ -58,7 +58,7 @@ static void cli_command_log_usage(void) {
     printf(ANSI_FG_YELLOW
            "  log " ANSI_FG_BR_WHITE "info " ANSI_FG_YELLOW "but " ANSI_FG_BR_WHITE
            "trace Desktop " ANSI_RESET
-           "- all messages coming from Loader, and 'error'..'info' for all other tags\r\n");
+           "- all messages coming from Desktop, and 'error'..'info' for all other tags\r\n");
     printf(ANSI_FG_YELLOW "  log " ANSI_FG_YELLOW "configure " ANSI_FG_BR_WHITE "trace " ANSI_RESET
                           "- all messages with all tags on the UART interface\r\n");
     printf(ANSI_RESET);
