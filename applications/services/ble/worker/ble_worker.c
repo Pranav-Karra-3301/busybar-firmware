@@ -36,7 +36,8 @@
 
 #define BLE_DEFAULT_LOCAL_NAME "BUSY Bar"
 
-#define BLE_WORKER_RECEIVE_TIMEOUT_MS (10000)
+#define BLE_WORKER_RX_TIMEOUT_MS      (10000)
+#define BLE_WORKER_TX_TIMEOUT_MS      (1000)
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
 #define BLE_WORKER_MAX_MTU_SIZE       240
 #define BLE_WORKER_ATTR_HEADER_SIZE   3
@@ -662,7 +663,7 @@ static int32_t ble_worker_thread_callback(void* context) {
 
                 if(entry) {
                     if(furi_semaphore_acquire(
-                           ble_worker_instance->receive_sem, BLE_WORKER_RECEIVE_TIMEOUT_MS) ==
+                           ble_worker_instance->receive_sem, BLE_WORKER_RX_TIMEOUT_MS) ==
                        FuriStatusOk) {
                         BLE_LOG_D("Entry present");
                         BleServiceObject* service = entry->service;
@@ -1204,7 +1205,8 @@ static inline bool ble_worker_indicate_chunk(
             break;
         }
 
-        if(furi_semaphore_acquire(ble_worker_instance->indication_sem, 2000) != FuriStatusOk) {
+        if(furi_semaphore_acquire(ble_worker_instance->indication_sem, BLE_WORKER_TX_TIMEOUT_MS) !=
+           FuriStatusOk) {
             BLE_LOG_W("Indicate timeout expired");
             break;
         }
