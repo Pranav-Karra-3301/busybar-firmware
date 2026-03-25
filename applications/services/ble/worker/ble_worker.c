@@ -1172,27 +1172,51 @@ void ble_worker_stop() {
     BLE_LOG_I("BLE Stopped");
 }
 
-static void ble_worker_send_chunk(
+static inline bool ble_worker_indicate_chunk(
+    const uint8_t* dev_addr,
+    uint16_t handle,
+    uint16_t data_size,
+    const uint8_t* data) {
+    bool result = false;
+    do {
+        sl_status_t status = rsi_ble_indicate_value(dev_addr, handle, data_size, data);
+
+        if(status != RSI_SUCCESS) {
+            BLE_LOG_W("Indicate fail %08lX", status);
+            // rsi_ble_disconnect((int8_t*)ble_worker_instance->remote_dev_address);
+            break;
+        }
+
+        if(furi_semaphore_acquire(ble_worker_instance->indication_sem, 2000) != FuriStatusOk) {
+            BLE_LOG_W("Indicate timeout expired");
+            break;
+        }
+        result = true;
+    } while(false);
+    return result;
+}
+
+static inline bool ble_worker_set_chunk(uint16_t handle, uint16_t data_size, const uint8_t* data) {
+    sl_status_t status = rsi_ble_set_local_att_value(handle, data_size, data);
+    if(status != RSI_SUCCESS) BLE_LOG_W("Send fail %08lX", status);
+    return status == RSI_SUCCESS;
+}
+
+static bool ble_worker_send_chunk(
     uint16_t handle,
     uint16_t data_size,
     const uint8_t* data,
     uint16_t cccd_value) {
-    sl_status_t status;
     BLE_LOG_D("Data_size: %d", data_size);
 
+    bool result = false;
     if(ble_worker_instance->connected && BLE_CCCD_INDICATION_ENABLED(cccd_value)) {
-        status = rsi_ble_indicate_value(
+        result = ble_worker_indicate_chunk(
             ble_worker_instance->remote_dev_address, handle, data_size, data);
-        if(status == RSI_SUCCESS)
-            furi_semaphore_acquire(ble_worker_instance->indication_sem, FuriWaitForever);
-        else {
-            BLE_LOG_W("Indicate fail %08lX", status);
-            rsi_ble_disconnect((int8_t*)ble_worker_instance->remote_dev_address);
-        }
     } else {
-        status = rsi_ble_set_local_att_value(handle, data_size, data);
-        if(status != RSI_SUCCESS) BLE_LOG_W("Send fail %08lX", status);
+        result = ble_worker_set_chunk(handle, data_size, data);
     }
+    return result;
 }
 
 void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, uint16_t cccd_value) {
@@ -1205,6 +1229,10 @@ void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, u
                                total_size;
 
         BLE_LOG_PAYLOAD(handle, index, &data[index], send_size);
+        if(!ble_worker_send_chunk(handle, send_size, &data[index], cccd_value)) {
+            BLE_LOG_W("Tx terminated!");
+            break;
+        }
         index += send_size;
         total_size -= send_size;
     }
