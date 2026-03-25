@@ -223,3 +223,30 @@ bool ble_find_characteristic_value_handle_by_uiid(
 
     return found;
 }
+
+static inline void
+    ble_worker_util_format_payload(FuriString* output, const uint8_t* data, size_t send_size) {
+    furi_string_reset(output);
+    for(size_t i = 0; i < send_size; i++) {
+        char sym = data[i];
+        if(sym == '\n')
+            furi_string_cat_printf(output, "\\n");
+        else if(sym == '\r')
+            furi_string_cat_printf(output, "\\r");
+        else if(sym == '\0')
+            furi_string_cat_printf(output, "\\0");
+        else
+            furi_string_cat_printf(output, "%c", sym);
+    }
+}
+
+void ble_worker_util_log_payload(
+    const uint16_t handle,
+    const uint8_t chunk_num,
+    const uint8_t* data,
+    const size_t data_size) {
+    FuriString* str = furi_string_alloc();
+    ble_worker_util_format_payload(str, data, data_size);
+    BLE_LOG_I("H[%04X] C[%d] S[%d]: %s", handle, chunk_num, data_size, furi_string_get_cstr(str));
+    furi_string_free(str);
+}

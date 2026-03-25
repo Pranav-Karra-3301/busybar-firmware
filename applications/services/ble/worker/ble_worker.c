@@ -25,6 +25,15 @@
 // Uncomment macro below in order to force ble advertising with public address only
 // #define BLE_DEBUG_ADVERTISE_FORCE_PUBLIC
 
+// #define BLE_WORKER_LOG_TX
+
+#ifdef BLE_WORKER_LOG_TX
+#define BLE_LOG_PAYLOAD(handle, index, data, send_size) \
+    (ble_worker_util_log_payload(handle, index, data, send_size))
+#else
+#define BLE_LOG_PAYLOAD(handle, index, data, send_size)
+#endif
+
 #define BLE_DEFAULT_LOCAL_NAME "BUSY Bar"
 
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
@@ -1194,7 +1203,8 @@ void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, u
         size_t send_size = total_size > ble_worker_instance->max_payload_size ?
                                ble_worker_instance->max_payload_size :
                                total_size;
-        ble_worker_send_chunk(handle, send_size, &data[index], cccd_value);
+
+        BLE_LOG_PAYLOAD(handle, index, &data[index], send_size);
         index += send_size;
         total_size -= send_size;
     }
