@@ -36,6 +36,7 @@
 
 #define BLE_DEFAULT_LOCAL_NAME "BUSY Bar"
 
+#define BLE_WORKER_RECEIVE_TIMEOUT_MS (10000)
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
 #define BLE_WORKER_MAX_MTU_SIZE       240
 #define BLE_WORKER_ATTR_HEADER_SIZE   3
@@ -655,30 +656,33 @@ static int32_t ble_worker_thread_callback(void* context) {
                     BleServiceEntryDict_get(ble_worker_instance->service_dict, handle);
 
                 if(entry) {
-                    furi_semaphore_acquire(ble_worker_instance->receive_sem, FuriWaitForever);
+                    if(furi_semaphore_acquire(
+                           ble_worker_instance->receive_sem, BLE_WORKER_RECEIVE_TIMEOUT_MS) ==
+                       FuriStatusOk) {
+                        BLE_LOG_D("Entry present");
+                        BleServiceObject* service = entry->service;
+                        if(ble_service_lock(service)) {
+                            BleCharacteristicObject* ch = service->chars[entry->char_index];
 
-                    BLE_LOG_D("Entry present");
-                    BleServiceObject* service = entry->service;
-                    if(ble_service_lock(service)) {
-                        BleCharacteristicObject* ch = service->chars[entry->char_index];
+                            if(ble_characteristic_is_cccd_handle(ch, handle)) {
+                                uint8_t ccd_val = *((uint8_t*)data);
+                                ble_characteristic_set_cccd_value(ch, ccd_val);
+                                status = rsi_ble_gatt_write_response(
+                                    ble_worker_instance->remote_dev_address, 0);
+                                if(handle == 0x001D) BLE_LOG_W("Subscribed!");
 
-                        if(ble_characteristic_is_cccd_handle(ch, handle)) {
-                            uint8_t ccd_val = *((uint8_t*)data);
-                            ble_characteristic_set_cccd_value(ch, ccd_val);
-                            status = rsi_ble_gatt_write_response(
-                                ble_worker_instance->remote_dev_address, 0);
-                            if(handle == 0x001D) BLE_LOG_W("Subscribed!");
+                                furi_semaphore_release(ble_worker_instance->receive_sem);
+                            } else {
+                                furi_check(data_size > 0);
+                                ble_characteristic_set_data(ch, data, data_size);
+                                ble_service_enqueue_run(service);
+                            }
 
-                            furi_semaphore_release(ble_worker_instance->receive_sem);
-                        } else {
-                            furi_check(data_size > 0);
-                            ble_characteristic_set_data(ch, data, data_size);
-                            ble_service_enqueue_run(service);
+                            ble_service_unlock(service);
                         }
-
-                        ble_service_unlock(service);
-                    } else
-                        furi_crash("FAIL!");
+                    } else {
+                        BLE_LOG_W("receive_sem timeout!");
+                    }
                 } else {
                     BLE_LOG_W("Not found: %04X", handle);
                     status =
