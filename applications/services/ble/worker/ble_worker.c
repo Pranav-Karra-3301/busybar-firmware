@@ -95,6 +95,7 @@ typedef enum {
     BLEWorkerSmpEncryptStarted = (1 << 14),
     BLEWorkerSmpLtkRequest = (1 << 15),
     BLEWorkerSmpSecurityKeys = (1 << 16),
+    BLEWorkerAdjustConnectionRequest = (1 << 17),
 } BLEWorkerEvt;
 
 #define BLE_USART_ECHO_ALL_EVENTS                                                                \
@@ -103,7 +104,7 @@ typedef enum {
      BLEWorkerEvtDataLengthChange | BLEWorkerEvtReceveRemoteFeatures | BLEWorkerEvtMoreDataReq | \
      BLEWorkerEvtWrite | BLEWorkerEvtDataTransmit | BLEWorkerEvtMtu |                            \
      BLEWorkerEvtIndicateConfirm | BLEWorkerSmpResponse | BLEWorkerSmpLtkRequest |               \
-     BLEWorkerSmpEncryptStarted | BLEWorkerSmpSecurityKeys)
+     BLEWorkerSmpEncryptStarted | BLEWorkerSmpSecurityKeys | BLEWorkerAdjustConnectionRequest)
 
 typedef struct {
     ///TODO: for now this is ok, for future maybe it is worth to make each characteristic
@@ -125,6 +126,7 @@ typedef struct {
     FuriThread* thread;
     FuriSemaphore* receive_sem;
     FuriSemaphore* indication_sem;
+    FuriTimer* retry_phy_trimer;
     uint8_t pairing_info_available;
     ///TODO: this can be removed
     bool connected;
@@ -474,6 +476,11 @@ static void rsi_ble_on_sc_method(rsi_bt_event_sc_method_t* scmethod) {
     BLE_LOG_W("rsi_ble_on_sc_method");
 }
 //===========================================================================================
+static void retry_phy_timer_callback(void* ctx) {
+    BleWorker* instance = ctx;
+    furi_thread_flags_set(furi_thread_get_id(instance->thread), BLEWorkerEvtDataLengthChange);
+}
+//===========================================================================================
 static bool ble_worker_start_advertising(
     bool advertise_to_paired_only,
     const rsi_bt_event_le_security_keys_t* key,
@@ -755,50 +762,52 @@ static int32_t ble_worker_thread_callback(void* context) {
         }
 
         if(events & BLEWorkerEvtReceveRemoteFeatures) {
-            //! event invokes when remote features were received
             BLE_LOG_I(
                 "Feature received is 0x%04X",
                 *(uint16_t*)instance->remote_dev_feature.remote_features);
-
-            ///TODO: Commented due to issues with connect to different phones remove when interaction logic will be finalized
-            ///This particularly causes problems with iphone 17
-            // if(instance->remote_dev_feature.remote_features[0] & 0x20) {
-            //     status = rsi_ble_set_data_len(instance->remote_dev_address, TX_LEN, TX_TIME);
-            //     if(status != RSI_SUCCESS) {
-            //         BLE_LOG_W("Failed to set data length, error code : 0x%08lx", status);
-            //     } else
-            //         BLE_LOG_I("LEN set done");
-            // }
         }
 
         if(events & BLEWorkerEvtDataLengthChange) {
-            ///TODO: Commented due to issues with connect to different phones remove when interaction logic will be finalized
-            // if(instance->remote_dev_feature.remote_features[1] & 0x01) {
-            //     status = rsi_ble_setphy(
-            //         (int8_t*)instance->remote_dev_address,
-            //         TX_PHY_RATE,
-            //         RX_PHY_RATE,
-            //         CODDED_PHY_RATE);
-            //     if(status != RSI_SUCCESS) {
-            //         if(status != BLE_WORKER_BT_HCI_COMMAND_DISALLOWED) {
-            //             //retry the same command
-            //             BLE_LOG_W("Failed to set phy, error code : 0x%08lx", status);
-            //         } else {
-            //             osDelay(500);
-            //             BLE_LOG_W("Retry setphy");
-            //             furi_thread_flags_set(
-            //                 furi_thread_get_id(ble_worker_instance->thread),
-            //                 BLEWorkerEvtDataLengthChange);
-            //         }
-            //     } else {
-            //         BLE_LOG_I(
-            //             "PHY set done max_tx_octets: %d\r\nMax_tx_time: %d\r\nMax_rx_octets: %d\r\nMax_rx_time: %d",
-            //             instance->data_length_update.MaxTxOctets,
-            //             instance->data_length_update.MaxTxTime,
-            //             instance->data_length_update.MaxRxOctets,
-            //             instance->data_length_update.MaxRxTime);
-            //     }
-            // }
+            if(instance->remote_dev_feature.remote_features[1] & 0x01) {
+                BLE_LOG_I("[BLEWorkerEvtDataLengthChange] rsi_ble_setphy");
+                status = rsi_ble_setphy(
+                    (int8_t*)instance->remote_dev_address,
+                    TX_PHY_RATE,
+                    RX_PHY_RATE,
+                    CODDED_PHY_RATE);
+                if(status != RSI_SUCCESS) {
+                    if(status == BLE_WORKER_BT_HCI_COMMAND_DISALLOWED) {
+                        //retry the same command
+                        BLE_LOG_W("Retry setphy");
+                        furi_timer_start(instance->retry_phy_trimer, furi_ms_to_ticks(500));
+                    } else {
+                        BLE_LOG_W("Failed to set phy, error code : 0x%08lx", status);
+                    }
+                } else {
+                    BLE_LOG_I(
+                        "PHY set done max_tx_octets: %d\r\nMax_tx_time: %d\r\nMax_rx_octets: %d\r\nMax_rx_time: %d",
+                        instance->data_length_update.MaxTxOctets,
+                        instance->data_length_update.MaxTxTime,
+                        instance->data_length_update.MaxRxOctets,
+                        instance->data_length_update.MaxRxTime);
+                }
+            } else {
+                BLE_LOG_W("[BLEWorkerEvtDataLengthChange] 2M Phy not supported");
+            }
+        }
+
+        if(events & BLEWorkerAdjustConnectionRequest) {
+            if(instance->remote_dev_feature.remote_features[0] & 0x20) {
+                BLE_LOG_I("[BLEWorkerReconfigure] rsi_ble_set_data_len");
+                status = rsi_ble_set_data_len(instance->remote_dev_address, TX_LEN, TX_TIME);
+                if(status != RSI_SUCCESS) {
+                    BLE_LOG_W("Failed to set data length, error code : 0x%08lx", status);
+                } else
+                    BLE_LOG_I("LEN set done");
+            } else {
+                furi_thread_flags_set(
+                    furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtDataLengthChange);
+            }
         }
 
         if(events & BLEWorkerEvtPhyUpdateComplete) {
@@ -891,6 +900,9 @@ static int32_t ble_worker_thread_callback(void* context) {
                     ble_worker_instance->on_connection_changed_ctx,
                     ble_worker_instance->connected,
                     ble_worker_instance->str_remote_address);
+                furi_thread_flags_set(
+                    furi_thread_get_id(ble_worker_instance->thread),
+                    BLEWorkerAdjustConnectionRequest);
             } else {
                 BLE_LOG_I("Not paired device");
                 rsi_ble_ltk_req_reply(ble_worker_instance->remote_dev_address, 0, NULL);
@@ -1075,6 +1087,9 @@ void ble_worker_init(BleConnectionStateChanged connect_callback, void* ctx) {
     ble_advertise_set_name(ble_worker_instance->advertise, BLE_DEFAULT_LOCAL_NAME);
 
     BleServiceEntryDict_init(ble_worker_instance->service_dict);
+
+    ble_worker_instance->retry_phy_trimer =
+        furi_timer_alloc(retry_phy_timer_callback, FuriTimerTypeOnce, ble_worker_instance);
 
     ble_hw_config();
 
