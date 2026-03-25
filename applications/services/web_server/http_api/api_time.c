@@ -1,6 +1,6 @@
 #include "http_api.h"
 
-#include <sntp/sntp.h>
+#include <time/time.h>
 #include <furi_hal_rtc.h>
 #include <datetime.h>
 #include <furi.h>
@@ -21,10 +21,10 @@ static bool api_time_get_timestamp_callback(
 
     if(!IS_HTTP_ENDPOINT(path)) return false;
 
-    Sntp* sntp = furi_record_open(RECORD_SNTP);
-    LocalTime local_time = sntp_get_local_time(sntp);
+    Time* time = furi_record_open(RECORD_TIME);
+    LocalTime local_time = time_get_local_time(time);
 
-    furi_record_close(RECORD_SNTP);
+    furi_record_close(RECORD_TIME);
 
     char timestamp_buf[DATETIME_TIMESTAMP_STR_LEN + 1];
 
@@ -103,43 +103,16 @@ static bool api_time_set_timezone_callback(
 
         FURI_LOG_D(TAG, "Set timezone %s", zone.name);
 
-        Sntp* sntp = furi_record_open(RECORD_SNTP);
-        SntpSettings settings;
-        sntp_get_settings(sntp, &settings);
+        Time* time = furi_record_open(RECORD_TIME);
+        TimeSettings settings;
+        time_get_settings(time, &settings);
         settings.timezone = zone;
-        is_success = sntp_set_settings(sntp, &settings);
-        furi_record_close(RECORD_SNTP);
+        is_success = time_set_settings(time, &settings);
+        furi_record_close(RECORD_TIME);
     } while(false);
 
     if(is_success) {
         MG_REPLY_OK(conn);
-    } else {
-        MG_REPLY_BAD_REQUEST(conn);
-    }
-
-    return true;
-}
-
-static bool api_time_get_timezone_callback(
-    FuriString* path,
-    struct mg_connection* conn,
-    struct mg_http_message* msg,
-    void* ctx) {
-    UNUSED(ctx);
-    UNUSED(msg);
-
-    if(!IS_HTTP_ENDPOINT(path)) return false;
-
-    bool is_success = true;
-
-    Sntp* sntp = furi_record_open(RECORD_SNTP);
-    SntpSettings settings;
-    sntp_get_settings(sntp, &settings);
-
-    furi_record_close(RECORD_SNTP);
-
-    if(is_success) {
-        MG_REPLY_OK_BODY(conn, "{\"timezone\":\"%s\"}\n", settings.timezone.name);
     } else {
         MG_REPLY_BAD_REQUEST(conn);
     }
@@ -179,6 +152,46 @@ static FuriString* generate_zone_list_json(const TzutilTzInfoList* infos) {
     }
     furi_string_cat(r, "]}");
     return r;
+}
+
+static bool api_time_get_timezone_callback(
+    FuriString* path,
+    struct mg_connection* conn,
+    struct mg_http_message* msg,
+    void* ctx) {
+    UNUSED(ctx);
+    UNUSED(msg);
+
+    if(!IS_HTTP_ENDPOINT(path)) return false;
+
+    bool success = false;
+    FuriString* response = NULL;
+
+    do {
+        Time* time = furi_record_open(RECORD_TIME);
+        TimeSettings settings;
+        time_get_settings(time, &settings);
+        furi_record_close(RECORD_TIME);
+
+        DateTime now = furi_hal_rtc_get_datetime().dt;
+        TzutilTzInfo info;
+        if(!tzutil_get_info_by_name(settings.timezone.name, &now, &info)) break;
+
+        response = format_zone_info_json(&info);
+
+        success = true;
+    } while(false);
+
+    if(success) {
+        furi_check(response);
+        MG_REPLY_OK_BODY(conn, "%s", furi_string_get_cstr(response));
+        furi_string_free(response);
+    } else {
+        furi_check(!response);
+        MG_REPLY_BAD_REQUEST(conn);
+    }
+
+    return true;
 }
 
 static bool api_time_get_timezone_list_callback(
