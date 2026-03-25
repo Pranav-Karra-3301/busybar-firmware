@@ -630,8 +630,6 @@ static void ble_hw_config() {
 
     ble_advertise_print_data(ble_worker_instance->advertise);
 
-    // ble_adjust_gap_service_data();
-
     status = rsi_ble_set_random_address_with_value(rsi_app_resp_get_dev_addr);
     if(status != RSI_SUCCESS) {
         BLE_LOG_W("Failed to set address: %08lX", status);
