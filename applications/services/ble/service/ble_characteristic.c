@@ -20,11 +20,17 @@ struct BleCharacteristicObject {
     void* tx_done_ctx;
 
     const BleCharacteristicDescriptor* descriptor;
+    BleServiceObject* service;
 };
 
-BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristicDescriptor* config) {
+BleCharacteristicObject* ble_characteristic_alloc(
+    const BleCharacteristicDescriptor* config,
+    BleServiceObject* parent_service) {
     furi_assert(config);
+    furi_assert(parent_service);
+
     BleCharacteristicObject* instance = malloc(sizeof(BleCharacteristicObject));
+    instance->service = parent_service;
     instance->descriptor = config;
     if(config->initial_data_size > 0) {
         instance->data = malloc(config->initial_data_size);

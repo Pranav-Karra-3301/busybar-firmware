@@ -1,10 +1,13 @@
 #pragma once
 
+#include "ble_service.h"
 #include "ble_service_config_types.h"
 
 typedef struct BleCharacteristicObject BleCharacteristicObject;
 
-BleCharacteristicObject* ble_characteristic_alloc(const BleCharacteristicDescriptor* config);
+BleCharacteristicObject* ble_characteristic_alloc(
+    const BleCharacteristicDescriptor* config,
+    BleServiceObject* parent_service);
 void ble_characteristic_free(BleCharacteristicObject* instance);
 
 const void* ble_characteristic_get_data(BleCharacteristicObject* instance);
