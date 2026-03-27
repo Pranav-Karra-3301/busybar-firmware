@@ -5,6 +5,8 @@
 #define TAG "BleChar"
 
 struct BleCharacteristicObject {
+    FuriMutex* lock;
+    FuriTimer* response_wait_timer;
     bool modified;
     uint8_t max_data_size;
     uint8_t data_size; ///TODO: set data_type of proper size
@@ -23,6 +25,13 @@ struct BleCharacteristicObject {
     BleServiceObject* service;
 };
 
+static void ble_characteristic_response_wait_timer_cb(void* ctx) {
+    BleCharacteristicObject* instance = ctx;
+
+    instance->modified = true;
+    ble_service_enqueue_run(instance->service);
+}
+
 BleCharacteristicObject* ble_characteristic_alloc(
     const BleCharacteristicDescriptor* config,
     BleServiceObject* parent_service) {
@@ -30,7 +39,12 @@ BleCharacteristicObject* ble_characteristic_alloc(
     furi_assert(parent_service);
 
     BleCharacteristicObject* instance = malloc(sizeof(BleCharacteristicObject));
+
+    instance->lock = furi_mutex_alloc(FuriMutexTypeNormal);
     instance->service = parent_service;
+    instance->response_wait_timer =
+        furi_timer_alloc(ble_characteristic_response_wait_timer_cb, FuriTimerTypeOnce, instance);
+
     instance->descriptor = config;
     if(config->initial_data_size > 0) {
         instance->data = malloc(config->initial_data_size);
@@ -43,6 +57,7 @@ BleCharacteristicObject* ble_characteristic_alloc(
 void ble_characteristic_free(BleCharacteristicObject* instance) {
     furi_assert(instance);
     if(instance->data) free(instance->data);
+    furi_mutex_free(instance->lock);
     free(instance);
 }
 
@@ -64,6 +79,8 @@ void ble_characteristic_set_data(
     furi_assert(instance);
     furi_assert(data);
     furi_assert(data_size > 0);
+
+    furi_mutex_acquire(instance->lock, FuriWaitForever);
 
     if(instance->data == NULL && instance->descriptor->initial_data_size == 0) {
         instance->data = malloc(data_size);
