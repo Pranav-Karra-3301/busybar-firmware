@@ -39,7 +39,6 @@ typedef void (*BleParseIntercomServiceDataCharacteristicExtraAction)(
     BleCharacteristicObject* characteristic);
 
 void ble_service_enqueue_message(BleServiceObject* instance);
-void ble_service_enqueue_run(BleServiceObject* instance);
 
 void ble_service_prepare_send_intercom_frame(
     BleServiceObject* instance,
