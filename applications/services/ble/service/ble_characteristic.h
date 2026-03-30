@@ -41,6 +41,11 @@ uint8_t ble_characteristic_fill_update_struct(
     BleCharacteristicObject* instance,
     BleCharacteristicData* output);
 
+size_t ble_characteristic_encode(BleCharacteristicObject* instance, BleCharacteristicData* output);
+void ble_characteristic_decode(
+    BleCharacteristicObject* instance,
+    const BleCharacteristicData* input);
+
 void ble_characteristic_register_update_callback(
     BleCharacteristicObject* instance,
     BleDataUpdatedCallback callback,

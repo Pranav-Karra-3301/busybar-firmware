@@ -181,6 +181,115 @@ uint8_t ble_characteristic_fill_update_struct(
     return (instance->data_size + sizeof(BleCharacteristicDataHeader));
 }
 
+static BleCharacteristicFrameType
+    ble_characteristic_encode_get_frame_type_by_state(const BleCharacteristicState state) {
+    BleCharacteristicFrameType frame_type = BleCharacteristicFrameTypeUnknown;
+
+#if !defined(BSB_MCU_SI917)
+    switch(state) {
+    case BleCharacteristicStateInit:
+    case BleCharacteristicStateModifiedLocal:
+        frame_type = BleCharacteristicFrameTypeRequest;
+        break;
+    case BleCharacteristicStateModifiedRemote:
+        frame_type = BleCharacteristicFrameTypeResponse;
+        break;
+    default:
+        furi_crash("Wrong encode state");
+    }
+#else
+    switch(state) {
+    case BleCharacteristicStateModifiedLocal:
+        frame_type = BleCharacteristicFrameTypeRequest;
+        break;
+    case BleCharacteristicStateInit: ///TODO: remove this when state will be fine
+        BLE_LOG_W("How can we be here??");
+        frame_type = BleCharacteristicFrameTypeResponse;
+        break;
+    case BleCharacteristicStateModifiedRemote:
+        frame_type = BleCharacteristicFrameTypeResponse;
+        break;
+    default:
+        furi_crash("Wrong encode state");
+    }
+#endif
+    return frame_type;
+}
+
+size_t
+    ble_characteristic_encode(BleCharacteristicObject* instance, BleCharacteristicData* output) {
+    furi_assert(instance);
+    furi_assert(output);
+    BleCharacteristicFrameType frame_type =
+        ble_characteristic_encode_get_frame_type_by_state(instance->state);
+    if(frame_type == BleCharacteristicFrameTypeRequest) {
+        BLE_LOG_D("%s - char_encode_request", instance->descriptor->name);
+
+        output->header.data_size = instance->data_size;
+        output->header.frame_type = frame_type;
+        output->header.index = instance->descriptor->intercom_index;
+        output->header.seq_num = instance->sequence_num;
+
+        memcpy(output->data, instance->data, instance->data_size);
+        instance->state = BleCharacteristicStateWaitResponse;
+
+        // furi_timer_start(instance->response_wait_timer, BLE_CHAR_RESPONSE_WAIT_TIMEOUT_MS);
+    } else if(frame_type == BleCharacteristicFrameTypeResponse) {
+        BLE_LOG_D("%s - char_encode_response", instance->descriptor->name);
+
+        output->header.data_size = 0;
+        output->header.frame_type = frame_type;
+        output->header.index = instance->descriptor->intercom_index;
+        output->header.seq_num = instance->sequence_num;
+
+        instance->state = BleCharacteristicStateIdle;
+        instance->sequence_num += 1;
+        furi_semaphore_release(instance->lock);
+    }
+    return (output->header.data_size + sizeof(BleCharacteristicDataHeader));
+}
+
+static bool ble_characteristic_decode_validate(
+    const BleCharacteristicState state,
+    BleCharacteristicFrameType frame_type) {
+#if !defined(BSB_MCU_SI917)
+    return (
+        (state == BleCharacteristicStateWaitResponse &&
+         frame_type == BleCharacteristicFrameTypeResponse) ||
+        (state == BleCharacteristicStateIdle && frame_type == BleCharacteristicFrameTypeRequest));
+#else
+    return (frame_type == BleCharacteristicFrameTypeRequest &&
+            (state == BleCharacteristicStateInit || state == BleCharacteristicStateIdle)) ||
+           (frame_type == BleCharacteristicFrameTypeResponse &&
+            state == BleCharacteristicStateWaitResponse);
+#endif
+}
+
+void ble_characteristic_decode(
+    BleCharacteristicObject* instance,
+    const BleCharacteristicData* input) {
+    furi_assert(instance);
+    furi_assert(input);
+    BLE_LOG_D("%s - ble_characteristic_decode", instance->descriptor->name);
+
+    bool result = ble_characteristic_decode_validate(instance->state, input->header.frame_type);
+    furi_assert(result);
+
+    if(input->header.frame_type == BleCharacteristicFrameTypeResponse) {
+        furi_timer_stop(instance->response_wait_timer);
+        instance->sequence_num += 1;
+
+        ble_characteristic_tx_done(instance);
+        instance->state = BleCharacteristicStateIdle;
+        furi_semaphore_release(instance->lock);
+    }
+
+    else if(input->header.frame_type == BleCharacteristicFrameTypeRequest) {
+        furi_assert(input->header.seq_num == instance->sequence_num);
+        ble_characteristic_set_data_from_remote(instance, input->data, input->header.data_size);
+    }
+}
+
 void ble_characteristic_register_update_callback(
     BleCharacteristicObject* instance,
     BleDataUpdatedCallback callback,
