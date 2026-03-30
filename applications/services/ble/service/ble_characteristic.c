@@ -116,7 +116,7 @@ void ble_characteristic_set_data(
     instance->state = BleCharacteristicStateModifiedLocal;
 }
 
-void ble_characteristic_set_data_from_remote(
+static void ble_characteristic_set_data_from_remote(
     BleCharacteristicObject* instance,
     const void* data,
     const size_t data_size) {
