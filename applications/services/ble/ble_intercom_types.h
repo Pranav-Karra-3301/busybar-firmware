@@ -1,6 +1,7 @@
 #pragma once
 
 #include <intercom/intercom.h>
+#include <intercom/intercom_frame.h>
 #include <furi.h>
 
 typedef enum {
@@ -27,7 +28,7 @@ typedef struct /*FURI_PACKED*/ {
     size_t data_size;
 } BleIntercomFrameHeader;
 
-#define MAX_BLE_INTERCOM_FRAME_SIZE (512U - sizeof(BleIntercomFrameHeader))
+#define MAX_BLE_INTERCOM_FRAME_SIZE (INTERCOM_FRAME_DATA_SIZE - sizeof(BleIntercomFrameHeader))
 
 typedef struct {
     BleIntercomFrameHeader header;
@@ -36,9 +37,17 @@ typedef struct {
 
 //==========================================================================================================
 
-typedef struct {
+typedef enum {
+    BleCharacteristicFrameTypeUnknown,
+    BleCharacteristicFrameTypeRequest,
+    BleCharacteristicFrameTypeResponse,
+} BleCharacteristicFrameType;
+
+typedef struct FURI_PACKED {
+    uint32_t seq_num;
+    BleCharacteristicFrameType frame_type;
     uint8_t index;
-    uint8_t data_size;
+    uint16_t data_size;
 } BleCharacteristicDataHeader;
 
 typedef struct /*FURI_PACKED*/ {
