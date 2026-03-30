@@ -79,7 +79,7 @@ size_t ble_characteristic_get_data_size(BleCharacteristicObject* instance) {
     return instance->data_size;
 }
 
-void ble_characteristic_set_data(
+static void ble_characteristic_set_data_common(
     BleCharacteristicObject* instance,
     const void* data,
     const size_t data_size) {
@@ -97,7 +97,14 @@ void ble_characteristic_set_data(
     furi_assert(instance->max_data_size >= data_size);
     memcpy(instance->data, data, data_size);
     instance->data_size = data_size;
-    instance->modified = true;
+}
+
+void ble_characteristic_set_data(
+    BleCharacteristicObject* instance,
+    const void* data,
+    const size_t data_size) {
+    ble_characteristic_set_data_common(instance, data, data_size);
+    instance->state = BleCharacteristicStateModifiedLocal;
 }
 
 void ble_characteristic_set_data_from_remote(
@@ -108,10 +115,10 @@ void ble_characteristic_set_data_from_remote(
     furi_assert(data);
     furi_assert(data_size > 0);
 
-    ble_characteristic_set_data(instance, data, data_size);
+    ble_characteristic_set_data_common(instance, data, data_size);
+    instance->state = BleCharacteristicStateModifiedRemote;
     if(instance->update_cb) {
         instance->update_cb(data_size, instance->data, instance->update_ctx);
-        instance->modified = false;
     }
 }
 
