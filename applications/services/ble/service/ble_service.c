@@ -55,13 +55,15 @@ static inline void ble_service_prepare_intercom_frame_header(
     BleServiceCommandEnum command,
     bool result,
     uint16_t service_index,
-    size_t data_size) {
+    size_t data_size,
+    uint32_t num) {
     header->source = BleIntercomFrameSourceService;
     header->frame_type = frame_type;
     header->command = command;
     header->service_index = service_index;
     header->data_size = data_size;
     header->result = result;
+    header->num = num;
 }
 
 void ble_service_prepare_send_intercom_frame(
@@ -77,7 +79,13 @@ void ble_service_prepare_send_intercom_frame(
     BleIntercomFrameGeneric* frame = (BleIntercomFrameGeneric*)instance->frame_buf;
 
     ble_service_prepare_intercom_frame_header(
-        &frame->header, frame_type, command, result, instance->config->index, data_size);
+        &frame->header,
+        frame_type,
+        command,
+        result,
+        instance->config->index,
+        data_size,
+        instance->sequence_num);
 
     if(data_size && data) memcpy(frame->data, data, data_size);
 
@@ -92,6 +100,7 @@ void ble_service_prepare_send_intercom_frame(
     size_t tx =
         intercom_tx(instance->intercom_ch, instance->frame_buf, frame_size, FuriWaitForever);
     furi_assert(tx == frame_size);
+    instance->sequence_num += 1;
 }
 
 bool ble_service_is_ready(BleServiceObject* instance) {

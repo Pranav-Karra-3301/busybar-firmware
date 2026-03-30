@@ -19,6 +19,7 @@ typedef enum {
 typedef uint8_t BleCommandCode;
 
 typedef struct /*FURI_PACKED*/ {
+    uint32_t num;
     BleIntercomFrameSource source;
     BleIntercomFrameType frame_type;
     BleCommandCode command;

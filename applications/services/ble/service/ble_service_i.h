@@ -28,6 +28,7 @@ struct BleServiceObject {
     FuriString* error;
 
     void* context;
+    uint32_t sequence_num;
 #if defined(BSB_MCU_SI917)
     void* service_handler;
     uint16_t handle;
