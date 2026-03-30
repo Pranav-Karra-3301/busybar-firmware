@@ -61,102 +61,6 @@ static bool ble_service_command_handler_init(
     return result;
 }
 
-// static bool ble_service_update_request(BleServiceObject* instance, size_t data_size, void* data) {
-//     if(instance->config->index == BleServiceIndexNordicUart) {
-//         FuriString* str = furi_string_alloc();
-
-//         const BleIntercomServiceData* service_config = data;
-//         furi_string_printf(str, "Ch_cnt: %d ", service_config->char_count);
-//         size_t offset = 0;
-//         for(uint8_t i = 0; i < service_config->char_count; i++) {
-//             const BleCharacteristicData* ch =
-//                 (BleCharacteristicData*)service_config->chars_config + offset;
-
-//             furi_string_cat_printf(
-//                 str, "Ch_ind: %d, Ch_sz: %d", ch->header.index, ch->header.data_size);
-
-//             offset += ch->header.data_size + sizeof(BleCharacteristicDataHeader);
-//         }
-
-//         BLE_LOG_I("In_Request[%ld]: %s", instance->frame_num, furi_string_get_cstr(str));
-//         furi_string_free(str);
-//     }
-
-//     ///TODO: think of moving this to ble_service_parse_intercom_service_data
-//     if(data_size == 0) {
-//         BLE_LOG_W("Data_size == 0");
-//         return false;
-//     }
-
-//     bool result = ble_service_parse_intercom_service_data(instance, data, NULL);
-
-//     if(instance->config->index == BleServiceIndexNordicUart) {
-//         FuriString* str = furi_string_alloc();
-
-//         const BleIntercomServiceData* service_config = data;
-//         furi_string_printf(str, "Ch_cnt: %d ", service_config->char_count);
-//         size_t offset = 0;
-//         for(uint8_t i = 0; i < service_config->char_count; i++) {
-//             const BleCharacteristicData* ch =
-//                 (BleCharacteristicData*)service_config->chars_config + offset;
-
-//             furi_string_cat_printf(
-//                 str, "Ch_ind: %d, Ch_sz: %d", ch->header.index, ch->header.data_size);
-
-//             offset += ch->header.data_size + sizeof(BleCharacteristicDataHeader);
-//         }
-
-//         BLE_LOG_I("Out_Response[%ld]: %s", instance->frame_num, furi_string_get_cstr(str));
-//         furi_string_free(str);
-//     }
-
-//     size_t total_size = sizeof(BleCharacteristicCountType) + sizeof(uint8_t);
-//     ble_service_prepare_send_intercom_frame(
-//         instance, BleIntercomFrameTypeResponse, BleServiceCommandUpdate, result, total_size, data);
-
-//     return result;
-// }
-// static bool ble_service_update_response(BleServiceObject* instance, size_t data_size, void* data) {
-//     if(instance->config->index == BleServiceIndexNordicUart) {
-//         BLE_LOG_I("Update response");
-//     }
-//     UNUSED(data_size);
-
-//     const BleIntercomServiceData* service_config = data;
-//     uint8_t offset = 0;
-
-//     if(instance->config->index == BleServiceIndexNordicUart) {
-//         FuriString* str = furi_string_alloc();
-
-//         const BleIntercomServiceData* service_config = data;
-//         furi_string_printf(str, "Ch_cnt: %d ", service_config->char_count);
-//         size_t offset = 0;
-//         for(uint8_t i = 0; i < service_config->char_count; i++) {
-//             const BleCharacteristicData* ch =
-//                 (BleCharacteristicData*)service_config->chars_config + offset;
-
-//             furi_string_cat_printf(
-//                 str, "Ch_ind: %d, Ch_sz: %d", ch->header.index, ch->header.data_size);
-
-//             offset += ch->header.data_size + sizeof(BleCharacteristicDataHeader);
-//         }
-
-//         BLE_LOG_I(
-//             "In_Response[%ld]: %s", *(uint32_t*)instance->frame_buf, furi_string_get_cstr(str));
-//         furi_string_free(str);
-//     }
-
-//     for(size_t i = 0; i < service_config->char_count; i++) {
-//         const BleCharacteristicData* char_init =
-//             (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
-
-//         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
-//         ble_characteristic_tx_done(ch);
-//     }
-
-//     return true;
-// }
-
 static bool ble_service_command_handler_update(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
@@ -214,25 +118,6 @@ static bool ble_service_command_handler_run(
         size_t total_size = 0;
         BleIntercomServiceData* config =
             ble_service_create_intercom_service_data_pack(instance, true, &total_size);
-
-        // if(instance->config->index == BleServiceIndexBattery) {
-        //     FuriString* str = furi_string_alloc();
-
-        //     furi_string_printf(str, "Ch_cnt: %d ", config->char_count);
-        //     size_t offset = 0;
-        //     for(uint8_t i = 0; i < config->char_count; i++) {
-        //         const BleCharacteristicData* ch =
-        //             (BleCharacteristicData*)config->chars_config + offset;
-
-        //         furi_string_cat_printf(
-        //             str, "Ch_ind: %d, Ch_sz: %d ", ch->header.index, ch->header.data_size);
-
-        //         offset += ch->header.data_size + sizeof(BleCharacteristicDataHeader);
-        //     }
-
-        //     BLE_LOG_I("Out_Request[%ld]: %s", instance->frame_num, furi_string_get_cstr(str));
-        //     furi_string_free(str);
-        // }
 
         if(config->char_count > 0) {
             BLE_LOG_D("%s - config size: %d", instance->config->name, total_size);
