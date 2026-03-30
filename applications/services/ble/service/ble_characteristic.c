@@ -12,7 +12,7 @@ typedef enum {
 } BleCharacteristicState;
 
 struct BleCharacteristicObject {
-    FuriMutex* lock;
+    FuriSemaphore* lock;
     FuriTimer* response_wait_timer;
     BleCharacteristicState state;
     uint8_t max_data_size;
@@ -47,7 +47,7 @@ BleCharacteristicObject* ble_characteristic_alloc(
 
     BleCharacteristicObject* instance = malloc(sizeof(BleCharacteristicObject));
 
-    instance->lock = furi_mutex_alloc(FuriMutexTypeNormal);
+    instance->lock = furi_semaphore_alloc(1, 1);
     instance->service = parent_service;
     instance->response_wait_timer =
         furi_timer_alloc(ble_characteristic_response_wait_timer_cb, FuriTimerTypeOnce, instance);
@@ -64,7 +64,7 @@ BleCharacteristicObject* ble_characteristic_alloc(
 void ble_characteristic_free(BleCharacteristicObject* instance) {
     furi_assert(instance);
     if(instance->data) free(instance->data);
-    furi_mutex_free(instance->lock);
+    furi_semaphore_free(instance->lock);
     free(instance);
 }
 
@@ -87,7 +87,10 @@ static void ble_characteristic_set_data_common(
     furi_assert(data);
     furi_assert(data_size > 0);
 
-    furi_mutex_acquire(instance->lock, FuriWaitForever);
+    if(furi_semaphore_acquire(instance->lock, 250) != FuriStatusOk) {
+        BLE_LOG_W("Unable to set, char is locked!");
+        return;
+    }
 
     if(instance->data == NULL && instance->descriptor->initial_data_size == 0) {
         instance->data = malloc(data_size);
@@ -128,6 +131,7 @@ void ble_characteristic_tx_done(BleCharacteristicObject* instance) {
         instance->tx_done_cb(instance->tx_done_ctx);
         instance->modified = false;
     }
+    furi_semaphore_release(instance->lock);
 }
 
 bool ble_characteristic_is_modified(BleCharacteristicObject* instance) {
