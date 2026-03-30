@@ -3,6 +3,9 @@
 #include <furi.h>
 
 #define TAG "BleChar"
+
+#define BLE_CHAR_RESPONSE_WAIT_TIMEOUT_MS (250)
+
 typedef enum {
     BleCharacteristicStateInit,
     BleCharacteristicStateIdle,
@@ -37,7 +40,9 @@ struct BleCharacteristicObject {
 static void ble_characteristic_response_wait_timer_cb(void* ctx) {
     BleCharacteristicObject* instance = ctx;
 
-    instance->modified = true;
+    ///TODO: temporary disabled, need to consider do we need this at all
+    BLE_LOG_W("[Char: %s] - retry send", instance->descriptor->name);
+    // instance->state = BleCharacteristicStateModifiedLocal;
     ble_service_enqueue_run(instance->service);
 }
 
