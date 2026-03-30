@@ -330,7 +330,7 @@ BleIntercomServiceData* ble_service_create_intercom_service_data_pack(
         BleCharacteristicData* char_init =
             (BleCharacteristicData*)((uint8_t*)config->chars_config + offset);
 
-        offset += ble_characteristic_fill_update_struct(ch_obj, char_init);
+        offset += ble_characteristic_encode(ch_obj, char_init);
     }
 
     *output_pack_size = total_config_size;
@@ -350,9 +350,7 @@ bool ble_service_parse_intercom_service_data(
         size_t data_size = char_init->header.data_size;
 
         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
-        ble_characteristic_set_data_from_remote(ch, char_init->data, data_size);
-
-        BLE_LOG_D("Ch: %s new data size: %d", ble_characteristic_get_config(ch)->name, data_size);
+        ble_characteristic_decode(ch, char_init);
 
         if(action) action(ch);
 
