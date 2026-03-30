@@ -70,7 +70,6 @@ void ble_characteristic_free(BleCharacteristicObject* instance) {
 
 const void* ble_characteristic_get_data(BleCharacteristicObject* instance) {
     furi_assert(instance);
-    instance->modified = false;
     return instance->data;
 }
 
@@ -129,14 +128,14 @@ void ble_characteristic_tx_done(BleCharacteristicObject* instance) {
     furi_assert(instance);
     if(instance->tx_done_cb) {
         instance->tx_done_cb(instance->tx_done_ctx);
-        instance->modified = false;
     }
     furi_semaphore_release(instance->lock);
 }
 
 bool ble_characteristic_is_modified(BleCharacteristicObject* instance) {
     furi_assert(instance);
-    return instance->modified;
+    return instance->state == BleCharacteristicStateModifiedLocal ||
+           instance->state == BleCharacteristicStateModifiedRemote;
 }
 
 const BleCharacteristicDescriptor*
@@ -188,7 +187,6 @@ uint8_t ble_characteristic_fill_update_struct(
     BLE_LOG_D("%s - char size: %d", instance->descriptor->name, instance->data_size);
 
     memcpy(output->data, instance->data, instance->data_size);
-    instance->modified = false;
     return (instance->data_size + sizeof(BleCharacteristicDataHeader));
 }
 
