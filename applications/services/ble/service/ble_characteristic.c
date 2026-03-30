@@ -3,11 +3,18 @@
 #include <furi.h>
 
 #define TAG "BleChar"
+typedef enum {
+    BleCharacteristicStateInit,
+    BleCharacteristicStateIdle,
+    BleCharacteristicStateModifiedLocal,
+    BleCharacteristicStateModifiedRemote,
+    BleCharacteristicStateWaitResponse,
+} BleCharacteristicState;
 
 struct BleCharacteristicObject {
     FuriMutex* lock;
     FuriTimer* response_wait_timer;
-    bool modified;
+    BleCharacteristicState state;
     uint8_t max_data_size;
     uint8_t data_size; ///TODO: set data_type of proper size
     uint8_t cccd_value;
