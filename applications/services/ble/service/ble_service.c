@@ -144,7 +144,7 @@ static bool ble_service_process_input_frame(BleServiceObject* instance) {
             instance, hdr->frame_type, hdr->command, hdr->data_size, frame->data);
     } else {
         ble_service_set_error(
-            instance, "Error, frame_type: %d, cmd: %d,", hdr->frame_type, hdr->command);
+            instance, "Error, frame_type: %d, cmd: %d", hdr->frame_type, hdr->command);
     }
     ble_service_unlock_input_frame(instance);
     return result;
