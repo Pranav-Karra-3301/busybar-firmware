@@ -15,6 +15,8 @@ struct BleCharacteristicObject {
     FuriSemaphore* lock;
     FuriTimer* response_wait_timer;
     BleCharacteristicState state;
+    uint32_t sequence_num;
+
     uint8_t max_data_size;
     uint8_t data_size; ///TODO: set data_type of proper size
     uint8_t cccd_value;
