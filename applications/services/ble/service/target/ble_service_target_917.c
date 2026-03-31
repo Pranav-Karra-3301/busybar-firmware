@@ -48,22 +48,9 @@ static bool ble_service_command_handler_init(
             break;
         }
 
-        result = true;
-        size_t total_size = 0;
-        BleIntercomServiceData* config =
-            ble_service_create_intercom_service_data_pack(instance, false, &total_size);
+        result = ble_service_send_data(
+            instance, BleServiceCommandInit, BleIntercomFrameTypeResponse, false);
 
-        if(config->char_count > 0) {
-            ble_service_prepare_send_intercom_frame(
-                instance,
-                BleIntercomFrameTypeResponse,
-                BleServiceCommandInit,
-                result,
-                total_size,
-                config);
-        }
-
-        free(config);
     } while(false);
     return result;
 }
@@ -77,31 +64,12 @@ static bool ble_service_command_handler_update(
     UNUSED(data_size);
 
     bool result = false;
-    do {
-        if(!ble_service_parse_intercom_service_data(instance, data, NULL)) {
-            BLE_LOG_W("Update command error");
-            break;
-        }
-
-        size_t total_size = 0;
-        BleIntercomServiceData* config =
-            ble_service_create_intercom_service_data_pack(instance, true, &total_size);
-
-        if(config->char_count > 0) {
-            result = true;
-            ble_service_prepare_send_intercom_frame(
-                instance,
-                BleIntercomFrameTypeRequest,
-                BleServiceCommandUpdate,
-                result,
-                total_size,
-                config);
-        } else {
-            BLE_LOG_W("not send, char = 0");
-        }
-
-        free(config);
-    } while(false);
+    if(!ble_service_parse_intercom_service_data(instance, data, NULL)) {
+        BLE_LOG_W("%s - update decode error", instance->config->name);
+    } else {
+        result = ble_service_send_data(
+            instance, BleServiceCommandUpdate, BleIntercomFrameTypeResponse, true);
+    }
 
     return result;
 }
@@ -117,27 +85,8 @@ static bool ble_service_command_handler_run(
     UNUSED(data_size);
     UNUSED(data);
 
-    bool result = false;
-    do {
-        size_t total_size = 0;
-        BleIntercomServiceData* config =
-            ble_service_create_intercom_service_data_pack(instance, true, &total_size);
-
-        BLE_LOG_D("%s - config size: %d", instance->config->name, total_size);
-        result = true;
-
-        ble_service_prepare_send_intercom_frame(
-            instance,
-            BleIntercomFrameTypeRequest,
-            BleServiceCommandUpdate,
-            result,
-            total_size,
-            config);
-
-        free(config);
-
-    } while(false);
-    return result;
+    return ble_service_send_data(
+        instance, BleServiceCommandUpdate, BleIntercomFrameTypeRequest, true);
 }
 
 bool ble_service_target_execute(
