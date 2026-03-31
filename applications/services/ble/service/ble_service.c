@@ -353,6 +353,10 @@ bool ble_service_parse_intercom_service_data(
     const BleIntercomServiceData* service_config = data;
     size_t offset = 0;
 
+    if(service_config->char_count > 1) {
+        BLE_LOG_W("More than one!");
+    }
+
     for(size_t i = 0; i < service_config->char_count; i++) {
         const BleCharacteristicData* char_init =
             (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);

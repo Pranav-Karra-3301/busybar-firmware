@@ -25,7 +25,7 @@
 // Uncomment macro below in order to force ble advertising with public address only
 // #define BLE_DEBUG_ADVERTISE_FORCE_PUBLIC
 
-// #define BLE_WORKER_LOG_TX
+#define BLE_WORKER_LOG_TX
 
 #ifdef BLE_WORKER_LOG_TX
 #define BLE_LOG_PAYLOAD(handle, index, data, send_size) \
@@ -129,8 +129,10 @@ typedef struct {
     FuriSemaphore* indication_sem;
     FuriTimer* retry_phy_trimer;
     uint8_t pairing_info_available;
+    uint16_t rx_pending_handle;
     ///TODO: this can be removed
     bool connected;
+    bool first_pack;
     BleWorkerState state;
     uint16_t max_payload_size;
     uint8_t device_found;
@@ -680,6 +682,8 @@ static int32_t ble_worker_thread_callback(void* context) {
                                 furi_semaphore_release(ble_worker_instance->receive_sem);
                             } else {
                                 furi_check(data_size > 0);
+                                BLE_LOG_I("RX H:%04X S:%d", handle, data_size);
+                                instance->rx_pending_handle = handle;
                                 ble_characteristic_set_data(ch, data, data_size);
                                 ble_service_enqueue_run(service);
                             }
@@ -718,6 +722,7 @@ static int32_t ble_worker_thread_callback(void* context) {
             //     BLE_LOG_I("MTU sent");
             // }
             ble_worker_instance->connected = true;
+            ble_worker_instance->first_pack = true;
         }
 
         if(events & BLEWorkerEvtDisconnected) {
@@ -1230,9 +1235,17 @@ static bool ble_worker_send_chunk(
 
     bool result = false;
     if(ble_worker_instance->connected && BLE_CCCD_INDICATION_ENABLED(cccd_value)) {
+        if(ble_worker_instance->first_pack) {
+            BLE_LOG_W("INDICATE: %04X", handle);
+            ble_worker_instance->first_pack = false;
+        }
         result = ble_worker_indicate_chunk(
             ble_worker_instance->remote_dev_address, handle, data_size, data);
     } else {
+        if(ble_worker_instance->first_pack) {
+            BLE_LOG_W("SET_VALUE: %04X", handle);
+            ble_worker_instance->first_pack = false;
+        }
         result = ble_worker_set_chunk(handle, data_size, data);
     }
     return result;
@@ -1247,11 +1260,14 @@ void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, u
                                ble_worker_instance->max_payload_size :
                                total_size;
 
-        BLE_LOG_PAYLOAD(handle, index, &data[index], send_size);
+        if(ble_worker_instance->first_pack)
+            BLE_LOG_PAYLOAD(handle, index, &data[index], send_size);
         if(!ble_worker_send_chunk(handle, send_size, &data[index], cccd_value)) {
             BLE_LOG_W("Tx terminated!");
             break;
         }
+        BLE_LOG_W("TX: %04X", handle);
+
         index += send_size;
         total_size -= send_size;
     }
@@ -1265,6 +1281,9 @@ void ble_worker_receive_confirm(uint16_t handle, uint8_t cccd_value) {
     } else {
         status = rsi_ble_gatt_write_response(ble_worker_instance->remote_dev_address, 0);
     }
+
+    BLE_LOG_I("Rx_done H:%04X", handle);
+    furi_assert(handle == ble_worker_instance->rx_pending_handle);
 
     furi_semaphore_release(ble_worker_instance->receive_sem);
     if(status != 0) BLE_LOG_W("Recv fail %08lX", status);
