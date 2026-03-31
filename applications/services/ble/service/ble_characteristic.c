@@ -94,7 +94,7 @@ static void ble_characteristic_set_data_common(
     furi_assert(data_size > 0);
 
     if(furi_semaphore_acquire(instance->lock, 250) != FuriStatusOk) {
-        BLE_LOG_W("Unable to set, char is locked!");
+        BLE_LOG_W("%s - Unable to set, char is locked!", instance->descriptor->name);
         return;
     }
 
