@@ -1201,13 +1201,17 @@ static inline bool ble_worker_indicate_chunk(
     uint16_t data_size,
     const uint8_t* data) {
     bool result = false;
+    uint8_t retry_count = 0;
     do {
+        ///TODO: Get rid of goto!!!
+    retry:
         sl_status_t status = rsi_ble_indicate_value(dev_addr, handle, data_size, data);
 
-        if(status != RSI_SUCCESS) {
-            BLE_LOG_W("Indicate fail %08lX", status);
-            // rsi_ble_disconnect((int8_t*)ble_worker_instance->remote_dev_address);
-            break;
+        if((int)status == RSI_ERROR_BLE_ATT_CMD_IN_PROGRESS && retry_count < 4) {
+            furi_delay_ms(100);
+            BLE_LOG_W("Indicate retry!");
+            retry_count += 1;
+            goto retry;
         }
 
         if(furi_semaphore_acquire(ble_worker_instance->indication_sem, BLE_WORKER_TX_TIMEOUT_MS) !=
