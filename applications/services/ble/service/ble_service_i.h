@@ -69,3 +69,9 @@ bool ble_service_parse_intercom_service_data(
     BleServiceObject* instance,
     const BleIntercomServiceData* data,
     BleParseIntercomServiceDataCharacteristicExtraAction action);
+
+bool ble_service_send_data(
+    BleServiceObject* instance,
+    BleServiceCommandEnum command,
+    BleIntercomFrameType frame_type,
+    bool modified_only);

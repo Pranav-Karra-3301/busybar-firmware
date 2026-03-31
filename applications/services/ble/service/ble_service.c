@@ -372,3 +372,23 @@ bool ble_service_parse_intercom_service_data(
 
     return true;
 }
+
+bool ble_service_send_data(
+    BleServiceObject* instance,
+    BleServiceCommandEnum command,
+    BleIntercomFrameType frame_type,
+    bool modified_only) {
+    bool result = false;
+    size_t total_size = 0;
+    BleIntercomServiceData* config =
+        ble_service_create_intercom_service_data_pack(instance, modified_only, &total_size);
+
+    if(config->char_count > 0) {
+        result = true;
+        ble_service_prepare_send_intercom_frame(
+            instance, frame_type, command, result, total_size, config);
+    }
+
+    free(config);
+    return result;
+}
