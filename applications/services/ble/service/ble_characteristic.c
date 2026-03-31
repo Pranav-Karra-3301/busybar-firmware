@@ -183,20 +183,6 @@ uint8_t ble_characteristic_get_cccd_value(BleCharacteristicObject* instance) {
     return instance->cccd_value;
 }
 
-uint8_t ble_characteristic_fill_update_struct(
-    BleCharacteristicObject* instance,
-    BleCharacteristicData* output) {
-    furi_assert(instance);
-    furi_assert(output);
-
-    output->header.index = instance->descriptor->intercom_index;
-    output->header.data_size = instance->data_size;
-    BLE_LOG_D("%s - char size: %d", instance->descriptor->name, instance->data_size);
-
-    memcpy(output->data, instance->data, instance->data_size);
-    return (instance->data_size + sizeof(BleCharacteristicDataHeader));
-}
-
 static BleCharacteristicFrameType
     ble_characteristic_encode_get_frame_type_by_state(const BleCharacteristicState state) {
     BleCharacteristicFrameType frame_type = BleCharacteristicFrameTypeUnknown;

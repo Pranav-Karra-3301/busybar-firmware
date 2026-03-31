@@ -32,10 +32,6 @@ bool ble_characteristic_is_cccd_handle(BleCharacteristicObject* instance, uint16
 void ble_characteristic_set_cccd_value(BleCharacteristicObject* instance, uint8_t value);
 uint8_t ble_characteristic_get_cccd_value(BleCharacteristicObject* instance);
 
-uint8_t ble_characteristic_fill_update_struct(
-    BleCharacteristicObject* instance,
-    BleCharacteristicData* output);
-
 size_t ble_characteristic_encode(BleCharacteristicObject* instance, BleCharacteristicData* output);
 void ble_characteristic_decode(
     BleCharacteristicObject* instance,
