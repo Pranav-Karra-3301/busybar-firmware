@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: BUSY Bar HTTP API
   description: HTTP API for BUSY Bar web server
-  version: 14.0.0
+  version: 15.0.0
   contact:
     name: tbd
 
@@ -1044,6 +1044,26 @@ paths:
                 $ref: "#/components/schemas/StatusPower"
         "500":
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/status/ws:
+    get:
+      tags:
+        - Streaming
+      summary: Device status streaming WebSocket endpoint
+      description: |
+        WebSocket connection for real-time device status and screen streaming.
+        Upgrade from HTTP to WebSocket protocol is required.
+        After connection, client must enable streaming by sending JSON: {"enable": true}
+      operationId: connectWebSocket
+      responses:
+        "101":
+          description: WebSocket connection established
+        "400":
+          description: Exceed max clients count
           content:
             application/json:
               schema:
