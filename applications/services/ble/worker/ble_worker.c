@@ -684,10 +684,10 @@ static int32_t ble_worker_thread_callback(void* context) {
                                 furi_semaphore_release(ble_worker_instance->receive_sem);
                             } else {
                                 furi_check(data_size > 0);
-                                BLE_LOG_I("RX H:%04X S:%d", handle, data_size);
                                 instance->rx_pending_handle = handle;
                                 ble_characteristic_set_data(ch, data, data_size);
                                 ble_service_enqueue_run(service);
+                                if(handle == 0x001F) BLE_LOG_W("Session modified!");
                             }
 
                             ble_service_unlock(service);
@@ -1291,7 +1291,6 @@ void ble_worker_send(uint16_t handle, uint16_t data_size, const uint8_t* data, u
             BLE_LOG_W("Tx terminated!");
             break;
         }
-        BLE_LOG_W("TX: %04X", handle);
 
         index += send_size;
         total_size -= send_size;
@@ -1308,7 +1307,6 @@ void ble_worker_receive_confirm(uint16_t handle, uint8_t cccd_value) {
         status = rsi_ble_gatt_write_response(ble_worker_instance->remote_dev_address, 0);
     }
 
-    BLE_LOG_I("Rx_done H:%04X", handle);
     furi_assert(handle == ble_worker_instance->rx_pending_handle);
 
     furi_semaphore_release(ble_worker_instance->receive_sem);
