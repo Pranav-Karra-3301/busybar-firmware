@@ -275,7 +275,7 @@ void ble_characteristic_decode(
     BLE_LOG_D("%s - ble_characteristic_decode", instance->descriptor->name);
 
     bool result = ble_characteristic_decode_validate(instance->state, input->header.frame_type);
-    furi_assert(result);
+    if(!result) BLE_LOG_W("DECODE_ERROR");
 
     if(input->header.frame_type == BleCharacteristicFrameTypeResponse) {
         furi_timer_stop(instance->response_wait_timer);
