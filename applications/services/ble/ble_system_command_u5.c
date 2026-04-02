@@ -192,6 +192,7 @@ static bool ble_command_enable_response(BleIntercomFrameGeneric* frame, void* co
     }
 
     api_lock_unlock(instance->current_command_api_lock);
+    ble_http_repeater_start(instance);
 
     BleState status = {
         .status = instance->status,
@@ -230,6 +231,7 @@ static bool ble_command_disable_response(BleIntercomFrameGeneric* frame, void* c
     ble_save_enabled_state(false);
 
     api_lock_unlock(instance->current_command_api_lock);
+    ble_http_repeater_stop();
 
     BleState status = {
         .status = instance->status,
@@ -311,12 +313,6 @@ static bool ble_command_set_status_request(BleIntercomFrameGeneric* frame, void*
         instance->remote_device_address,
         response->remote_device_address,
         BLE_REMOTE_DEVICE_ADDRESS_STRING_SIZE);
-
-    if(instance->status == BleServiceStatusConnected) {
-        ble_http_repeater_start(instance);
-    } else {
-        ble_http_repeater_stop();
-    }
 
     furi_pubsub_publish(instance->on_status_change, (void*)response);
 
