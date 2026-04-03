@@ -6,11 +6,10 @@
 /**
  * @brief This must be less than @ref INTERCOM_SYNC_CHAR_TIMEOUT_MS.
  */
-#define BLE_SERVICE_LOCK_TIMEOUT             (500)
 #define BLE_SERVICE_INPUT_FRAME_LOCK_TIMEOUT (500)
 
 bool ble_service_lock(BleServiceObject* instance) {
-    if(furi_mutex_acquire(instance->service_lock, BLE_SERVICE_LOCK_TIMEOUT) != FuriStatusOk) {
+    if(furi_mutex_acquire(instance->service_lock, FuriWaitForever) != FuriStatusOk) {
         BLE_LOG_W("%s - service lock failed", instance->config->name);
         return false;
     }
