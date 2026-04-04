@@ -44,11 +44,11 @@ typedef enum {
     BleCharacteristicFrameTypeResponse,
 } BleCharacteristicFrameType;
 
-typedef struct FURI_PACKED {
-    uint32_t seq_num;
-    BleCharacteristicFrameType frame_type;
+typedef struct {
     uint8_t index;
     uint16_t data_size;
+    BleCharacteristicFrameType frame_type;
+    uint32_t seq_num;
 } BleCharacteristicDataHeader;
 
 typedef struct /*FURI_PACKED*/ {
