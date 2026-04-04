@@ -51,7 +51,7 @@ typedef struct {
     uint32_t seq_num;
 } BleCharacteristicDataHeader;
 
-typedef struct /*FURI_PACKED*/ {
+typedef struct {
     BleCharacteristicDataHeader header;
     uint8_t data[];
 } BleCharacteristicData;
@@ -63,7 +63,7 @@ typedef struct {
     BleCharacteristicData chars_config[];
 } BleIntercomServiceData;
 
-typedef struct /*FURI_PACKED*/ {
+typedef struct {
     BleIntercomFrameHeader header;
     BleIntercomServiceData service_init;
 } BleIntercomFrameServiceConfig;
