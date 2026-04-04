@@ -56,7 +56,7 @@ typedef struct /*FURI_PACKED*/ {
     uint8_t data[];
 } BleCharacteristicData;
 
-typedef uint8_t BleCharacteristicCountType;
+typedef size_t BleCharacteristicCountType;
 
 typedef struct {
     BleCharacteristicCountType char_count;
