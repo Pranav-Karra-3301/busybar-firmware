@@ -18,14 +18,14 @@ typedef enum {
 
 typedef uint8_t BleCommandCode;
 
-typedef struct /*FURI_PACKED*/ {
+typedef struct {
+    bool result;
+    BleCommandCode command;
+    uint16_t service_index;
+
     uint32_t num;
     BleIntercomFrameSource source;
     BleIntercomFrameType frame_type;
-    BleCommandCode command;
-    uint16_t service_index;
-    bool result;
-
     size_t data_size;
 } BleIntercomFrameHeader;
 
