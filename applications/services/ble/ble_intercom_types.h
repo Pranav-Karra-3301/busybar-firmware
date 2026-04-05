@@ -38,16 +38,10 @@ typedef struct {
 
 //==========================================================================================================
 
-typedef enum {
-    BleCharacteristicFrameTypeUnknown,
-    BleCharacteristicFrameTypeRequest,
-    BleCharacteristicFrameTypeResponse,
-} BleCharacteristicFrameType;
-
-typedef struct {
-    uint8_t index;
+typedef struct FURI_PACKED {
+    uint16_t index;
     uint16_t data_size;
-    BleCharacteristicFrameType frame_type;
+    BleIntercomFrameType frame_type;
     uint32_t seq_num;
 } BleCharacteristicDataHeader;
 

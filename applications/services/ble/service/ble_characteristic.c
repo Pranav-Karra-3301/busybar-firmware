@@ -183,18 +183,18 @@ uint8_t ble_characteristic_get_cccd_value(BleCharacteristicObject* instance) {
     return instance->cccd_value;
 }
 
-static BleCharacteristicFrameType
+static BleIntercomFrameType
     ble_characteristic_encode_get_frame_type_by_state(const BleCharacteristicState state) {
-    BleCharacteristicFrameType frame_type = BleCharacteristicFrameTypeUnknown;
+    BleIntercomFrameType frame_type = BleIntercomFrameTypeUnknown;
 
 #if !defined(BSB_MCU_SI917)
     switch(state) {
     case BleCharacteristicStateInit:
     case BleCharacteristicStateModifiedLocal:
-        frame_type = BleCharacteristicFrameTypeRequest;
+        frame_type = BleIntercomFrameTypeRequest;
         break;
     case BleCharacteristicStateModifiedRemote:
-        frame_type = BleCharacteristicFrameTypeResponse;
+        frame_type = BleIntercomFrameTypeResponse;
         break;
     default:
         furi_crash("Wrong encode state");
@@ -202,14 +202,14 @@ static BleCharacteristicFrameType
 #else
     switch(state) {
     case BleCharacteristicStateModifiedLocal:
-        frame_type = BleCharacteristicFrameTypeRequest;
+        frame_type = BleIntercomFrameTypeRequest;
         break;
     case BleCharacteristicStateInit: ///TODO: remove this when state will be fine
         BLE_LOG_W("How can we be here??");
-        frame_type = BleCharacteristicFrameTypeResponse;
+        frame_type = BleIntercomFrameTypeResponse;
         break;
     case BleCharacteristicStateModifiedRemote:
-        frame_type = BleCharacteristicFrameTypeResponse;
+        frame_type = BleIntercomFrameTypeResponse;
         break;
     default:
         furi_crash("Wrong encode state");
@@ -222,9 +222,9 @@ size_t
     ble_characteristic_encode(BleCharacteristicObject* instance, BleCharacteristicData* output) {
     furi_assert(instance);
     furi_assert(output);
-    BleCharacteristicFrameType frame_type =
+    BleIntercomFrameType frame_type =
         ble_characteristic_encode_get_frame_type_by_state(instance->state);
-    if(frame_type == BleCharacteristicFrameTypeRequest) {
+    if(frame_type == BleIntercomFrameTypeRequest) {
         BLE_LOG_D("%s - char_encode_request", instance->descriptor->name);
 
         output->header.data_size = instance->data_size;
@@ -236,7 +236,7 @@ size_t
         instance->state = BleCharacteristicStateWaitResponse;
 
         // furi_timer_start(instance->response_wait_timer, BLE_CHAR_RESPONSE_WAIT_TIMEOUT_MS);
-    } else if(frame_type == BleCharacteristicFrameTypeResponse) {
+    } else if(frame_type == BleIntercomFrameTypeResponse) {
         BLE_LOG_D("%s - char_encode_response", instance->descriptor->name);
 
         output->header.data_size = 0;
@@ -253,16 +253,16 @@ size_t
 
 static bool ble_characteristic_decode_validate(
     const BleCharacteristicState state,
-    BleCharacteristicFrameType frame_type) {
+    BleIntercomFrameType frame_type) {
 #if !defined(BSB_MCU_SI917)
     return (
         (state == BleCharacteristicStateWaitResponse &&
-         frame_type == BleCharacteristicFrameTypeResponse) ||
-        (state == BleCharacteristicStateIdle && frame_type == BleCharacteristicFrameTypeRequest));
+         frame_type == BleIntercomFrameTypeResponse) ||
+        (state == BleCharacteristicStateIdle && frame_type == BleIntercomFrameTypeRequest));
 #else
-    return (frame_type == BleCharacteristicFrameTypeRequest &&
+    return (frame_type == BleIntercomFrameTypeRequest &&
             (state == BleCharacteristicStateInit || state == BleCharacteristicStateIdle)) ||
-           (frame_type == BleCharacteristicFrameTypeResponse &&
+           (frame_type == BleIntercomFrameTypeResponse &&
             state == BleCharacteristicStateWaitResponse);
 #endif
 }
@@ -277,7 +277,7 @@ void ble_characteristic_decode(
     bool result = ble_characteristic_decode_validate(instance->state, input->header.frame_type);
     if(!result) BLE_LOG_W("DECODE_ERROR");
 
-    if(input->header.frame_type == BleCharacteristicFrameTypeResponse) {
+    if(input->header.frame_type == BleIntercomFrameTypeResponse) {
         furi_timer_stop(instance->response_wait_timer);
         instance->sequence_num += 1;
 
@@ -286,7 +286,7 @@ void ble_characteristic_decode(
         furi_semaphore_release(instance->lock);
     }
 
-    else if(input->header.frame_type == BleCharacteristicFrameTypeRequest) {
+    else if(input->header.frame_type == BleIntercomFrameTypeRequest) {
         furi_assert(input->header.seq_num == instance->sequence_num);
         ble_characteristic_set_data_from_remote(instance, input->data, input->header.data_size);
     }
