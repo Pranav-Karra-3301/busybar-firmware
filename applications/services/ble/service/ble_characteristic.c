@@ -136,7 +136,6 @@ void ble_characteristic_tx_done(BleCharacteristicObject* instance) {
     if(instance->tx_done_cb) {
         instance->tx_done_cb(instance->tx_done_ctx);
     }
-    furi_semaphore_release(instance->lock);
 }
 
 bool ble_characteristic_is_modified(BleCharacteristicObject* instance) {
