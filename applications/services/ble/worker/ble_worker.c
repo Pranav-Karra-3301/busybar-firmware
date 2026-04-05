@@ -135,6 +135,8 @@ typedef struct {
     bool connected;
     BleDebugCanary* first_tx_pack_canary;
     BleDebugCanary* first_tx_method_canary;
+    BleDebugCanary* indicate_error_canary;
+
     BleWorkerState state;
     uint16_t max_payload_size;
     uint8_t device_found;
@@ -726,6 +728,7 @@ static int32_t ble_worker_thread_callback(void* context) {
             ble_worker_instance->connected = true;
             ble_debug_canary_reset(instance->first_tx_pack_canary);
             ble_debug_canary_reset(instance->first_tx_method_canary);
+            ble_debug_canary_reset(instance->indicate_error_canary);
         }
 
         if(events & BLEWorkerEvtDisconnected) {
@@ -1102,6 +1105,7 @@ void ble_worker_init(BleConnectionStateChanged connect_callback, void* ctx) {
     ble_debug_canary_set_hit_callback(
         ble_worker_instance->first_tx_pack_canary, ble_canary_first_pack_callback);
     ble_worker_instance->first_tx_method_canary = ble_debug_canary_alloc(BleCanaryTypeHitOnce);
+    ble_worker_instance->indicate_error_canary = ble_debug_canary_alloc(BleCanaryTypeHitOnce);
 
     ble_worker_instance->on_connection_changed_cb = connect_callback;
     ble_worker_instance->on_connection_changed_ctx = ctx;
@@ -1231,7 +1235,8 @@ static inline bool ble_worker_indicate_chunk(
 
         if((int)status == RSI_ERROR_BLE_ATT_CMD_IN_PROGRESS && retry_count < 4) {
             furi_delay_ms(100);
-            BLE_LOG_W("Indicate retry!");
+            ble_debug_canary_test_log(
+                ble_worker_instance->indicate_error_canary, TAG, "Indicate retry: %04X", handle);
             retry_count += 1;
             goto retry;
         }
