@@ -278,10 +278,9 @@ void ble_characteristic_decode(
 
     if(input->header.frame_type == BleIntercomFrameTypeResponse) {
         furi_timer_stop(instance->response_wait_timer);
-        instance->sequence_num += 1;
-
-        ble_characteristic_tx_done(instance);
         instance->state = BleCharacteristicStateIdle;
+        instance->sequence_num += 1;
+        ble_characteristic_tx_done(instance);
         furi_semaphore_release(instance->lock);
     }
 
