@@ -246,7 +246,7 @@ static void
  */
 static void ble_worker_phy_update_complete_event(
     rsi_ble_event_phy_update_t* rsi_ble_event_phy_update_complete) {
-    BLE_LOG_W("ble_worker_phy_update_complete_event");
+    BLE_LOG_D("ble_worker_phy_update_complete_event");
     memcpy(
         &ble_worker_instance->app_phy_update_complete,
         rsi_ble_event_phy_update_complete,
