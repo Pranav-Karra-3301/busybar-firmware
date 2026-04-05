@@ -735,6 +735,7 @@ static int32_t ble_worker_thread_callback(void* context) {
             instance->device_found = 0;
             instance->conn_params_updated = 0;
             instance->connected = false;
+            furi_semaphore_release(ble_worker_instance->receive_sem);
 
             BleServiceEntryDict_it_t entry_iter;
             for(BleServiceEntryDict_it(entry_iter, instance->service_dict);
