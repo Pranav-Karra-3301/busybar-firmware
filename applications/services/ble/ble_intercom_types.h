@@ -18,7 +18,7 @@ typedef enum {
 
 typedef uint8_t BleCommandCode;
 
-typedef struct {
+typedef struct FURI_PACKED {
     bool result;
     BleCommandCode command;
     uint16_t service_index;
@@ -31,7 +31,7 @@ typedef struct {
 
 #define MAX_BLE_INTERCOM_FRAME_SIZE (INTERCOM_FRAME_DATA_SIZE - sizeof(BleIntercomFrameHeader))
 
-typedef struct {
+typedef struct FURI_PACKED {
     BleIntercomFrameHeader header;
     uint8_t data[MAX_BLE_INTERCOM_FRAME_SIZE];
 } BleIntercomFrameGeneric;
@@ -45,21 +45,16 @@ typedef struct FURI_PACKED {
     uint32_t seq_num;
 } BleCharacteristicDataHeader;
 
-typedef struct {
+typedef struct FURI_PACKED {
     BleCharacteristicDataHeader header;
     uint8_t data[];
 } BleCharacteristicData;
 
 typedef size_t BleCharacteristicCountType;
 
-typedef struct {
+typedef struct FURI_PACKED {
     BleCharacteristicCountType char_count;
     BleCharacteristicData chars_config[];
 } BleIntercomServiceData;
-
-typedef struct {
-    BleIntercomFrameHeader header;
-    BleIntercomServiceData service_init;
-} BleIntercomFrameServiceConfig;
 
 //=============================================
