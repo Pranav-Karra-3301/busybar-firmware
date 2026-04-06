@@ -287,7 +287,13 @@ void ble_characteristic_decode(
     }
 
     else if(input->header.frame_type == BleIntercomFrameTypeRequest) {
-        furi_assert(input->header.seq_num == instance->sequence_num);
+        if(input->header.seq_num != instance->sequence_num)
+            BLE_LOG_W(
+                "%s - sequence mismatch %ld != %ld",
+                instance->descriptor->name,
+                input->header.seq_num,
+                instance->sequence_num);
+
         ble_characteristic_set_data_from_remote(instance, input->data, input->header.data_size);
     }
 }
