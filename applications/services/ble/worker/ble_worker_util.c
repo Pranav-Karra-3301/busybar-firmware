@@ -153,7 +153,7 @@ static bool ble_compare_uuid(const uuid_t* uuid_1, const uuid_t* uuid_2) {
     return result;
 }
 
-bool ble_find_characteristic_value_handle_by_uiid(
+bool ble_find_characteristic_value_handle_by_uuid(
     const uuid_t* uuid,
     uint16_t last_handle,
     uint16_t* output_handle) {

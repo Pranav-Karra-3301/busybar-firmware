@@ -61,12 +61,12 @@
 #define VARIABLE_ATT_CHAR_VAL    BIT(7) ///< Variable characteristic value length
 
 #ifdef BLE_DEBUG_ADVERTISE_FORCE_PUBLIC
-#define BLE_SCURITY_MODE SEC_MODE_1_LEVEL_1
+#define BLE_SECURITY_MODE SEC_MODE_1_LEVEL_1
 #else
-#define BLE_SCURITY_MODE SEC_MODE_1_LEVEL_4
+#define BLE_SECURITY_MODE SEC_MODE_1_LEVEL_4
 #endif
 
-#define RSI_BLE_ATT_CONFIG_BITMAP (BLE_SCURITY_MODE)
+#define RSI_BLE_ATT_CONFIG_BITMAP (BLE_SECURITY_MODE)
 
 #ifdef RSI_BLE_SMP_IO_CAPABILITY
 #undef RSI_BLE_SMP_IO_CAPABILITY
@@ -85,7 +85,7 @@ typedef enum {
     BLEWorkerEvtConnUpdate = (1 << 5),
     BLEWorkerEvtDataLengthChange = (1 << 6),
 
-    BLEWorkerEvtReceveRemoteFeatures = (1 << 7),
+    BLEWorkerEvtReceiveRemoteFeatures = (1 << 7),
     BLEWorkerEvtMoreDataReq = (1 << 8),
 
     BLEWorkerEvtWrite = (1 << 9),
@@ -100,12 +100,12 @@ typedef enum {
     BLEWorkerAdjustConnectionRequest = (1 << 17),
 } BLEWorkerEvt;
 
-#define BLE_USART_ECHO_ALL_EVENTS                                                                \
-    (BLEWorkerEvtExit | BLEWorkerEvtAdvReport | BLEWorkerEvtConnected |                          \
-     BLEWorkerEvtDisconnected | BLEWorkerEvtPhyUpdateComplete | BLEWorkerEvtConnUpdate |         \
-     BLEWorkerEvtDataLengthChange | BLEWorkerEvtReceveRemoteFeatures | BLEWorkerEvtMoreDataReq | \
-     BLEWorkerEvtWrite | BLEWorkerEvtDataTransmit | BLEWorkerEvtMtu |                            \
-     BLEWorkerEvtIndicateConfirm | BLEWorkerSmpResponse | BLEWorkerSmpLtkRequest |               \
+#define BLE_WORKER_ALL_EVENTS                                                                     \
+    (BLEWorkerEvtExit | BLEWorkerEvtAdvReport | BLEWorkerEvtConnected |                           \
+     BLEWorkerEvtDisconnected | BLEWorkerEvtPhyUpdateComplete | BLEWorkerEvtConnUpdate |          \
+     BLEWorkerEvtDataLengthChange | BLEWorkerEvtReceiveRemoteFeatures | BLEWorkerEvtMoreDataReq | \
+     BLEWorkerEvtWrite | BLEWorkerEvtDataTransmit | BLEWorkerEvtMtu |                             \
+     BLEWorkerEvtIndicateConfirm | BLEWorkerSmpResponse | BLEWorkerSmpLtkRequest |                \
      BLEWorkerSmpEncryptStarted | BLEWorkerSmpSecurityKeys | BLEWorkerAdjustConnectionRequest)
 
 typedef struct {
@@ -172,7 +172,7 @@ typedef struct {
 static BleWorker* ble_worker_instance;
 /*==============================================*/
 /**
- * @fn         ble_usart_echo_app_on_adv_report_event
+ * @fn         ble_worker_echo_app_on_adv_report_event
  * @brief      invoked when advertise report event is received
  * @param[in]  adv_report, pointer to the received advertising report
  * @return     none.
@@ -332,7 +332,7 @@ void ble_worker_simple_peripheral_on_remote_features_event(
         rsi_ble_event_remote_features,
         sizeof(rsi_ble_event_remote_features_t));
     furi_thread_flags_set(
-        furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtReceveRemoteFeatures);
+        furi_thread_get_id(ble_worker_instance->thread), BLEWorkerEvtReceiveRemoteFeatures);
 }
 
 static void ble_worker_more_data_req_event(rsi_ble_event_le_dev_buf_ind_t* rsi_ble_more_data_evt) {
@@ -651,7 +651,7 @@ static int32_t ble_worker_thread_callback(void* context) {
     FURI_LOG_D(TAG, "Worker Thread Start");
     while(true) {
         uint32_t events =
-            furi_thread_flags_wait(BLE_USART_ECHO_ALL_EVENTS, FuriFlagWaitAny, FuriWaitForever);
+            furi_thread_flags_wait(BLE_WORKER_ALL_EVENTS, FuriFlagWaitAny, FuriWaitForever);
 
         if(events & BLEWorkerEvtIndicateConfirm) {
             BLE_LOG_D("BLEWorkerEvtIndicateConfirm");
@@ -772,7 +772,7 @@ static int32_t ble_worker_thread_callback(void* context) {
                 ble_worker_instance->str_remote_address);
         }
 
-        if(events & BLEWorkerEvtReceveRemoteFeatures) {
+        if(events & BLEWorkerEvtReceiveRemoteFeatures) {
             BLE_LOG_I(
                 "Feature received is 0x%04X",
                 *(uint16_t*)instance->remote_dev_feature.remote_features);
@@ -946,7 +946,7 @@ static int32_t ble_worker_thread_callback(void* context) {
 }
 
 /**
- * @fn         ble_usart_echo_app_prepare_128bit_uuid
+ * @fn         ble_worker_echo_app_prepare_128bit_uuid
  * @brief      this function is used to prepare the 128bit UUID
  * @param[in]  temp_service,received 128-bit service.
  * @param[out] temp_uuid,formed 128-bit service structure.
@@ -972,7 +972,7 @@ static void
 }
 
 /**
- * @fn         ble_usart_echo_app_add_char_serv_att
+ * @fn         ble_worker_echo_app_add_char_serv_att
  * @brief      this function is used to add characteristic service attribute..
  * @param[in]  serv_handler, service handler.
  * @param[in]  handle, characteristic service attribute handle.
@@ -1128,7 +1128,7 @@ void ble_worker_init(BleConnectionStateChanged connect_callback, void* ctx) {
     uuid.size = 2;
     uuid.val.val16 = 0x2A01;
     uint16_t value_handle = 0;
-    if(ble_find_characteristic_value_handle_by_uiid(&uuid, 0x001E, &value_handle)) {
+    if(ble_find_characteristic_value_handle_by_uuid(&uuid, 0x001E, &value_handle)) {
         uint16_t data = 0x00C0;
         BLE_LOG_D("Handle found: %04X", value_handle);
         sl_status_t status = rsi_ble_set_local_att_value(value_handle, 2, (uint8_t*)&data);
@@ -1139,11 +1139,11 @@ void ble_worker_init(BleConnectionStateChanged connect_callback, void* ctx) {
 }
 
 bool ble_worker_register_service(BleServiceObject* service) {
-    uuid_t rsi_uiid = {0};
+    uuid_t rsi_uuid = {0};
     rsi_ble_resp_add_serv_t new_serv_resp = {0};
 
-    ble_prepare_uuid(&service->config->uuid, service->config->uuid_size, &rsi_uiid);
-    sl_status_t status = rsi_ble_add_service(rsi_uiid, &new_serv_resp);
+    ble_prepare_uuid(&service->config->uuid, service->config->uuid_size, &rsi_uuid);
+    sl_status_t status = rsi_ble_add_service(rsi_uuid, &new_serv_resp);
 
     bool result = false;
     if(status == RSI_SUCCESS) {
@@ -1158,8 +1158,8 @@ bool ble_worker_register_service(BleServiceObject* service) {
             BleCharacteristicObject* ch = service->chars[i];
             const BleCharacteristicDescriptor* ch_config = ble_characteristic_get_config(ch);
 
-            memset(&rsi_uiid, 0, sizeof(uuid_t));
-            ble_prepare_uuid(&ch_config->uuid, ch_config->uuid_size, &rsi_uiid);
+            memset(&rsi_uuid, 0, sizeof(uuid_t));
+            ble_prepare_uuid(&ch_config->uuid, ch_config->uuid_size, &rsi_uuid);
 
             BLE_LOG_D("Add char %s att handle: %04X", ch_config->name, handle + 1);
             ble_worker_add_char_serv_att(
@@ -1167,7 +1167,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
                 handle + 1,
                 ch_config->char_properties,
                 handle + 2,
-                rsi_uiid);
+                rsi_uuid);
 
             uint16_t value_handle = handle + 2;
             BLE_LOG_D("Add char %s val att handle: %04X", ch_config->name, value_handle);
@@ -1175,7 +1175,7 @@ bool ble_worker_register_service(BleServiceObject* service) {
             handle = ble_worker_add_char_val_att(
                 service->service_handler,
                 value_handle,
-                rsi_uiid,
+                rsi_uuid,
                 ch_config->char_properties,
                 ble_characteristic_get_data(ch),
                 ble_characteristic_get_data_size(ch),
