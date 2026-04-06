@@ -3,6 +3,7 @@
 #include "ble_service.h"
 #include "ble_characteristic.h"
 #include "ble_service_command.h"
+#include "ble_service_frame.h"
 
 #include <furi.h>
 
@@ -20,10 +21,8 @@ struct BleServiceObject {
     FuriMutex* service_lock;
     IntercomChannel* intercom_ch;
 
-    FuriSemaphore* frame_lock;
-    bool frame_pending;
-    size_t buffer_size;
-    uint8_t* frame_buf;
+    BleServiceFrame* input_frame;
+    BleServiceFrame* output_frame;
 
     FuriString* error;
 
@@ -35,7 +34,7 @@ struct BleServiceObject {
 #endif
 };
 
-///TODO: make this function to return result value
+///TODO: completely delete this callback, because it's not used anymore
 typedef void (*BleParseIntercomServiceDataCharacteristicExtraAction)(
     BleCharacteristicObject* characteristic);
 

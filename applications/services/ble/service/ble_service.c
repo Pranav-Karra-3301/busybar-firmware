@@ -166,8 +166,9 @@ BleServiceObject* ble_service_alloc(
     instance->intercom_ch = intercom_ch;
     instance->message_queue = message_queue;
     instance->error = furi_string_alloc();
-    instance->frame_lock = furi_semaphore_alloc(1, 1);
     instance->service_lock = furi_mutex_alloc(FuriMutexTypeNormal);
+    instance->input_frame = ble_service_frame_alloc();
+    instance->output_frame = ble_service_frame_alloc();
 
     if(service_config->char_count) {
         instance->chars = malloc(sizeof(BleCharacteristicObject*) * service_config->char_count);
@@ -177,7 +178,6 @@ BleServiceObject* ble_service_alloc(
             instance->chars[config->intercom_index] = ble_char;
         }
     }
-    instance->buffer_size = 0;
 
     return instance;
 }
