@@ -16,7 +16,6 @@ typedef enum {
 
 struct BleCharacteristicObject {
     FuriSemaphore* lock;
-    FuriTimer* response_wait_timer;
     BleCharacteristicState state;
     uint32_t sequence_num;
 
@@ -37,15 +36,6 @@ struct BleCharacteristicObject {
     BleServiceObject* service;
 };
 
-static void ble_characteristic_response_wait_timer_cb(void* ctx) {
-    BleCharacteristicObject* instance = ctx;
-
-    ///TODO: temporary disabled, need to consider do we need this at all
-    BLE_LOG_W("[Char: %s] - retry send", instance->descriptor->name);
-    // instance->state = BleCharacteristicStateModifiedLocal;
-    ble_service_enqueue_run(instance->service);
-}
-
 BleCharacteristicObject* ble_characteristic_alloc(
     const BleCharacteristicDescriptor* config,
     BleServiceObject* parent_service) {
@@ -56,8 +46,6 @@ BleCharacteristicObject* ble_characteristic_alloc(
 
     instance->lock = furi_semaphore_alloc(1, 1);
     instance->service = parent_service;
-    instance->response_wait_timer =
-        furi_timer_alloc(ble_characteristic_response_wait_timer_cb, FuriTimerTypeOnce, instance);
 
     instance->descriptor = config;
     if(config->initial_data_size > 0) {
@@ -279,7 +267,6 @@ void ble_characteristic_decode(
     }
 
     if(input->header.frame_type == BleIntercomFrameTypeResponse) {
-        furi_timer_stop(instance->response_wait_timer);
         instance->state = BleCharacteristicStateIdle;
         instance->sequence_num += 1;
         ble_characteristic_tx_done(instance);
