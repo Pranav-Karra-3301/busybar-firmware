@@ -34,7 +34,7 @@ static inline void ble_service_prepare_intercom_frame_header(
     header->num = num;
 }
 
-void ble_service_prepare_send_intercom_frame(
+static void ble_service_prepare_send_intercom_frame(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
     BleServiceCommandEnum command,
