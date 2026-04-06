@@ -20,10 +20,10 @@ struct BleCharacteristicObject {
     uint32_t sequence_num;
 
     uint8_t max_data_size;
-    uint8_t data_size; ///TODO: set data_type of proper size
+    uint8_t data_size;
     uint8_t cccd_value;
     uint16_t cccd_handle;
-    uint16_t handle; ///TODO: maybe add this only to 917
+    uint16_t handle;
     void* data;
 
     BleDataUpdatedCallback update_cb;
@@ -191,10 +191,7 @@ static BleIntercomFrameType
     case BleCharacteristicStateModifiedLocal:
         frame_type = BleIntercomFrameTypeRequest;
         break;
-    case BleCharacteristicStateInit: ///TODO: remove this when state will be fine
-        BLE_LOG_W("How can we be here??");
-        frame_type = BleIntercomFrameTypeResponse;
-        break;
+    case BleCharacteristicStateInit:
     case BleCharacteristicStateModifiedRemote:
         frame_type = BleIntercomFrameTypeResponse;
         break;
@@ -221,8 +218,6 @@ size_t
 
         memcpy(output->data, instance->data, instance->data_size);
         instance->state = BleCharacteristicStateWaitResponse;
-
-        // furi_timer_start(instance->response_wait_timer, BLE_CHAR_RESPONSE_WAIT_TIMEOUT_MS);
     } else if(frame_type == BleIntercomFrameTypeResponse) {
         BLE_LOG_D("%s - char_encode_response", instance->descriptor->name);
 
