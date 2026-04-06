@@ -22,7 +22,7 @@ static bool ble_service_command_handler_init(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
     size_t data_size,
-    void* data) {
+    const void* data) {
     UNUSED(frame_type);
     bool result = false;
     do {
@@ -59,7 +59,7 @@ static bool ble_service_command_handler_update(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
     size_t data_size,
-    void* data) {
+    const void* data) {
     UNUSED(frame_type);
     UNUSED(data_size);
 
@@ -78,7 +78,7 @@ static bool ble_service_command_handler_run(
     BleServiceObject* instance,
     BleIntercomFrameType frame_type,
     size_t data_size,
-    void* data) {
+    const void* data) {
     BLE_LOG_D("ble_service_command_handler_run");
 
     UNUSED(frame_type);
@@ -94,7 +94,7 @@ bool ble_service_target_execute(
     BleIntercomFrameType frame_type,
     BleServiceCommandEnum command,
     size_t data_size,
-    void* data) {
+    const void* data) {
     BLE_LOG_D("%s - target_execute: %d", instance->config->name, command);
 
     bool result = false;
