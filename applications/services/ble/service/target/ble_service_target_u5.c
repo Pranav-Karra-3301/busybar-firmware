@@ -21,7 +21,7 @@ static bool
     UNUSED(data_size);
     UNUSED(data);
 
-    if(!ble_service_parse_intercom_service_data(instance, data, NULL)) {
+    if(!ble_service_parse_intercom_service_data(instance, data)) {
         BLE_LOG_W("Update command error");
     }
 
@@ -56,7 +56,7 @@ static bool ble_service_command_handler_update(
     UNUSED(data_size);
 
     bool result = false;
-    if(!ble_service_parse_intercom_service_data(instance, data, NULL)) {
+    if(!ble_service_parse_intercom_service_data(instance, data)) {
         BLE_LOG_W("%s - update decode error", instance->config->name);
     } else {
         result = ble_service_send_data(

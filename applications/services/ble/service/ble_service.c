@@ -312,7 +312,6 @@ BleIntercomServiceData* ble_service_create_intercom_service_data_pack(
             (BleCharacteristicData*)((uint8_t*)service_config->chars_config + offset);
 
         offset += ble_characteristic_encode(ch_obj, char_init);
-        // offset += (char_init->header.data_size + sizeof(BleCharacteristicDataHeader));
     }
 
     *output_pack_size = total_config_size;
@@ -322,8 +321,7 @@ BleIntercomServiceData* ble_service_create_intercom_service_data_pack(
 
 bool ble_service_parse_intercom_service_data(
     BleServiceObject* instance,
-    const BleIntercomServiceData* data,
-    BleParseIntercomServiceDataCharacteristicExtraAction action) {
+    const BleIntercomServiceData* data) {
     const BleIntercomServiceData* service_config = data;
     size_t offset = 0;
 
@@ -338,8 +336,6 @@ bool ble_service_parse_intercom_service_data(
 
         BleCharacteristicObject* ch = instance->chars[char_init->header.index];
         ble_characteristic_decode(ch, char_init);
-
-        if(action) action(ch);
 
         offset += (data_size + sizeof(BleCharacteristicDataHeader));
     }

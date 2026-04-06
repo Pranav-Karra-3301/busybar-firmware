@@ -34,10 +34,6 @@ struct BleServiceObject {
 #endif
 };
 
-///TODO: completely delete this callback, because it's not used anymore
-typedef void (*BleParseIntercomServiceDataCharacteristicExtraAction)(
-    BleCharacteristicObject* characteristic);
-
 void ble_service_enqueue_message(BleServiceObject* instance);
 
 void ble_service_prepare_send_intercom_frame(
@@ -66,8 +62,7 @@ BleIntercomServiceData* ble_service_create_intercom_service_data_pack(
 
 bool ble_service_parse_intercom_service_data(
     BleServiceObject* instance,
-    const BleIntercomServiceData* data,
-    BleParseIntercomServiceDataCharacteristicExtraAction action);
+    const BleIntercomServiceData* data);
 
 bool ble_service_send_data(
     BleServiceObject* instance,
