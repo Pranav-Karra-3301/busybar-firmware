@@ -1221,25 +1221,44 @@ void ble_worker_stop() {
     BLE_LOG_I("BLE Stopped");
 }
 
+static inline bool ble_worker_indicate_retry(
+    const uint8_t* dev_addr,
+    uint16_t handle,
+    uint16_t data_size,
+    const uint8_t* data,
+    const uint8_t max_retries) {
+    uint8_t retry_count = 0;
+    int32_t status;
+    do {
+        status = rsi_ble_indicate_value(dev_addr, handle, data_size, data);
+        if(status == RSI_SUCCESS) break;
+
+        if(status == RSI_ERROR_BLE_ATT_CMD_IN_PROGRESS) {
+            furi_delay_ms(100);
+            ble_debug_canary_test_log(
+                ble_worker_instance->indicate_error_canary, TAG, "Indicate retry: %04X", handle);
+        }
+        retry_count += 1;
+    } while((status == RSI_ERROR_BLE_ATT_CMD_IN_PROGRESS) && (retry_count < max_retries));
+
+    if(status != RSI_SUCCESS) {
+        BLE_LOG_W("Indication failed: %08lX", status);
+    }
+
+    return status == RSI_SUCCESS;
+}
+
 static inline bool ble_worker_indicate_chunk(
     const uint8_t* dev_addr,
     uint16_t handle,
     uint16_t data_size,
     const uint8_t* data) {
     bool result = false;
-    uint8_t retry_count = 0;
-    do {
-        ///TODO: Get rid of goto!!!
-    retry:
-        sl_status_t status = rsi_ble_indicate_value(dev_addr, handle, data_size, data);
 
-        if((int)status == RSI_ERROR_BLE_ATT_CMD_IN_PROGRESS && retry_count < 4) {
-            furi_delay_ms(100);
-            ble_debug_canary_test_log(
-                ble_worker_instance->indicate_error_canary, TAG, "Indicate retry: %04X", handle);
-            retry_count += 1;
-            goto retry;
-        }
+    do {
+        const uint8_t indication_retry_count = 4;
+        if(!ble_worker_indicate_retry(dev_addr, handle, data_size, data, indication_retry_count))
+            break;
 
         if(furi_semaphore_acquire(ble_worker_instance->indication_sem, BLE_WORKER_TX_TIMEOUT_MS) !=
            FuriStatusOk) {
