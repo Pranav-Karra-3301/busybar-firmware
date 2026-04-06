@@ -41,30 +41,26 @@ void ble_service_prepare_send_intercom_frame(
     bool result,
     size_t data_size,
     const void* data) {
+    BleIntercomFrameHeader header = {0};
+    ble_service_prepare_intercom_frame_header(
+        &header,
+        frame_type,
+        command,
+        result,
+        instance->config->index,
+        data_size,
+        instance->sequence_num);
+
     if(ble_service_frame_lock(instance->output_frame)) {
-        size_t frame_size = data_size + sizeof(BleIntercomFrameHeader);
-        ble_service_frame_check_resize(instance->output_frame, frame_size);
+        ble_service_frame_append_data(
+            instance->output_frame, &header, sizeof(BleIntercomFrameHeader));
 
-        BleIntercomFrameGeneric* frame = ble_service_frame_get_data_ptr(instance->output_frame);
+        if(data_size && data) {
+            ble_service_frame_append_data(instance->output_frame, data, data_size);
+        }
 
-        ble_service_prepare_intercom_frame_header(
-            &frame->header,
-            frame_type,
-            command,
-            result,
-            instance->config->index,
-            data_size,
-            instance->sequence_num);
-
-        if(data_size && data) memcpy(frame->data, data, data_size);
-
-        BLE_LOG_D(
-            "%s - TX frame t: %d c: %d ds: %d fs: %d",
-            instance->config->name,
-            frame->header.frame_type,
-            frame->header.command,
-            frame->header.data_size,
-            frame_size);
+        const void* frame = ble_service_frame_get_data_ptr(instance->output_frame);
+        const size_t frame_size = ble_service_frame_get_data_size(instance->output_frame);
 
         size_t tx = intercom_tx(instance->intercom_ch, frame, frame_size, FuriWaitForever);
         furi_assert(tx == frame_size);
@@ -104,7 +100,7 @@ void ble_service_get_error(BleServiceObject* instance, FuriString* error) {
 static bool ble_service_process_input_frame(BleServiceObject* instance) {
     BLE_LOG_D("%s - process_input_frame", instance->config->name);
 
-    BleIntercomFrameGeneric* frame = ble_service_frame_get_data_ptr(instance->input_frame);
+    const BleIntercomFrameGeneric* frame = ble_service_frame_get_data_ptr(instance->input_frame);
 
     const BleIntercomFrameHeader* hdr = &frame->header;
 
@@ -177,7 +173,8 @@ void ble_service_process_mailbox(
 
     size_t fs = input_frame->header.data_size + sizeof(BleIntercomFrameHeader);
 
-    if(ble_service_frame_put_data(instance->input_frame, input_frame, fs)) {
+    if(ble_service_frame_lock(instance->input_frame)) {
+        ble_service_frame_append_data(instance->input_frame, input_frame, fs);
         ble_service_enqueue_message(instance);
     }
 }
@@ -204,12 +201,17 @@ void ble_service_enqueue_init(BleServiceObject* instance) {
         0,
         instance->sequence_num);
 
-    if(ble_service_lock(instance) &&
-       ble_service_frame_put_data(
-           instance->input_frame, &init_data, sizeof(BleIntercomFrameHeader))) {
-        ble_service_enqueue_message(instance);
+    do {
+        if(!ble_service_lock(instance)) break;
+
+        if(ble_service_frame_lock(instance->input_frame)) {
+            ble_service_frame_append_data(
+                instance->input_frame, &init_data, sizeof(BleIntercomFrameHeader));
+            ble_service_enqueue_message(instance);
+        }
+
         ble_service_unlock(instance);
-    }
+    } while(false);
 }
 
 void ble_service_enqueue_run(BleServiceObject* instance) {
