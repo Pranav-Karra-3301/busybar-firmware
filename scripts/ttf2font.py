@@ -33,6 +33,12 @@ class Main(App):
         if not lv_font_conv:
             return 1
 
+        run_result = run([lv_font_conv, "--version"], capture_output=True, text=True)
+        if run_result.returncode != 0 or not run_result.stdout.strip().endswith(
+            "flipper"
+        ):
+            return 1
+
         lv_font_conv_command = [
             lv_font_conv,
             "--font",
