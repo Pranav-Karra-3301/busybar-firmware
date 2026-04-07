@@ -1,7 +1,6 @@
 Import("FW_ENV")
 fwenv = FW_ENV
 
-from os.path import join
 from pathlib import Path
 from collections import namedtuple
 
