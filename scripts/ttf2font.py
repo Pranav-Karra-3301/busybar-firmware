@@ -4,7 +4,7 @@ from flipper.app import App
 
 from shutil import which
 from subprocess import run
-from os.path import isfile, relpath
+from os.path import relpath
 
 
 class Main(App):
@@ -31,7 +31,7 @@ class Main(App):
     def convert(self):
         lv_font_conv = which("lv_font_conv")
         if not lv_font_conv:
-            return 0 if isfile(self.args.output) else 1
+            return 1
 
         lv_font_conv_command = [
             lv_font_conv,
