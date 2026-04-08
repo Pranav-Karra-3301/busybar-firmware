@@ -35,10 +35,16 @@
 #define BLE_LOG_PAYLOAD(handle, index, data, send_size)
 #endif
 
+#define BLE_NORDIC_UART_TX_HANDLE  (0x001D)
+#define BLE_NORDIC_UART_CNT_HANDLE (0x001F)
+
 #define BLE_DEFAULT_LOCAL_NAME "BUSY Bar"
 
-#define BLE_WORKER_RX_TIMEOUT_MS      (10000)
-#define BLE_WORKER_TX_TIMEOUT_MS      (1000)
+#define BLE_WORKER_RX_TIMEOUT_MS           (10000)
+#define BLE_WORKER_TX_TIMEOUT_MS           (1000)
+#define BLE_WORKER_INDICATE_RETRY_DELAY_MS (100)
+#define BLE_WORKER_RETRY_PHY_TIMEOUT_MS    (500)
+
 #define BLE_WORKER_LOCAL_DEV_ADDR_LEN 18 // Length of the local device address
 #define BLE_WORKER_MAX_MTU_SIZE       240
 #define BLE_WORKER_ATTR_HEADER_SIZE   3
@@ -128,7 +134,7 @@ typedef struct {
     FuriThread* thread;
     FuriSemaphore* receive_sem;
     FuriSemaphore* indication_sem;
-    FuriTimer* retry_phy_trimer;
+    FuriTimer* retry_phy_timer;
     uint8_t pairing_info_available;
     uint16_t rx_pending_handle;
     ///TODO: this can be removed
@@ -681,7 +687,7 @@ static int32_t ble_worker_thread_callback(void* context) {
                                 ble_characteristic_set_cccd_value(ch, ccd_val);
                                 status = rsi_ble_gatt_write_response(
                                     ble_worker_instance->remote_dev_address, 0);
-                                if(handle == 0x001D) BLE_LOG_W("Subscribed!");
+                                if(handle == BLE_NORDIC_UART_TX_HANDLE) BLE_LOG_W("Subscribed!");
 
                                 furi_semaphore_release(ble_worker_instance->receive_sem);
                             } else {
@@ -689,7 +695,8 @@ static int32_t ble_worker_thread_callback(void* context) {
                                 instance->rx_pending_handle = handle;
                                 ble_characteristic_set_data(ch, data, data_size);
                                 ble_service_enqueue_run(service);
-                                if(handle == 0x001F) BLE_LOG_W("Session modified!");
+                                if(handle == BLE_NORDIC_UART_CNT_HANDLE)
+                                    BLE_LOG_W("Session modified!");
                             }
 
                             ble_service_unlock(service);
@@ -738,7 +745,11 @@ static int32_t ble_worker_thread_callback(void* context) {
             instance->device_found = 0;
             instance->conn_params_updated = 0;
             instance->connected = false;
-            furi_semaphore_release(ble_worker_instance->receive_sem);
+            if(instance->rx_pending_handle) {
+                BLE_LOG_W("Rx confirm not sent!");
+                furi_semaphore_release(ble_worker_instance->receive_sem);
+                instance->rx_pending_handle = 0;
+            }
 
             BleServiceEntryDict_it_t entry_iter;
             for(BleServiceEntryDict_it(entry_iter, instance->service_dict);
@@ -790,7 +801,9 @@ static int32_t ble_worker_thread_callback(void* context) {
                     if(status == BLE_WORKER_BT_HCI_COMMAND_DISALLOWED) {
                         //retry the same command
                         BLE_LOG_W("Retry setphy");
-                        furi_timer_start(instance->retry_phy_trimer, furi_ms_to_ticks(500));
+                        furi_timer_start(
+                            instance->retry_phy_timer,
+                            furi_ms_to_ticks(BLE_WORKER_RETRY_PHY_TIMEOUT_MS));
                     } else {
                         BLE_LOG_W("Failed to set phy, error code : 0x%08lx", status);
                     }
@@ -1118,7 +1131,7 @@ void ble_worker_init(BleConnectionStateChanged connect_callback, void* ctx) {
 
     BleServiceEntryDict_init(ble_worker_instance->service_dict);
 
-    ble_worker_instance->retry_phy_trimer =
+    ble_worker_instance->retry_phy_timer =
         furi_timer_alloc(retry_phy_timer_callback, FuriTimerTypeOnce, ble_worker_instance);
 
     ble_hw_config();
@@ -1234,7 +1247,7 @@ static inline bool ble_worker_indicate_retry(
         if(status == RSI_SUCCESS) break;
 
         if(status == RSI_ERROR_BLE_ATT_CMD_IN_PROGRESS) {
-            furi_delay_ms(100);
+            furi_delay_ms(BLE_WORKER_INDICATE_RETRY_DELAY_MS);
             ble_debug_canary_test_log(
                 ble_worker_instance->indicate_error_canary, TAG, "Indicate retry: %04X", handle);
         }
@@ -1335,6 +1348,7 @@ void ble_worker_receive_confirm(uint16_t handle, uint8_t cccd_value) {
     furi_assert(handle == ble_worker_instance->rx_pending_handle);
 
     furi_semaphore_release(ble_worker_instance->receive_sem);
+    ble_worker_instance->rx_pending_handle = 0;
     if(status != 0) BLE_LOG_W("Recv fail %08lX", status);
 }
 

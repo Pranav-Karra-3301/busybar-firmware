@@ -249,6 +249,7 @@ static bool send_out_for_transport(void* context, bool heartbeat) {
             .timestamp = time_get_timestamp_ms(),
             .updates_count = count,
             .updates = raw_updates,
+            .has_error = false,
         };
 
         SharedByteArray_t data;
@@ -271,6 +272,28 @@ static bool send_out_for_transport(void* context, bool heartbeat) {
     }
     StateUpdateArray_clear(updates);
     return sent;
+}
+
+bool state_publisher_serialize_error_message(
+    ByteArray_t* buf,
+    BSB_Error_Severity severity,
+    BSB_Error_Cause cause) {
+    BSB_State_State state = {
+        .timestamp = time_get_timestamp_ms(),
+        .updates_count = 0,
+        .updates = NULL,
+        .has_error = true,
+        .error = {
+            .cause = cause,
+            .severity = severity,
+        }};
+    pb_ostream_t stream = ostream_with_buffer(buf);
+    bool result = pb_encode(&stream, BSB_State_State_fields, &state);
+    if(!result) {
+        FURI_LOG_E(TAG, "cannot encode");
+        ByteArray_reset(*buf);
+    }
+    return result;
 }
 
 static uint32_t send_out(StatePublisher* instance, StreamFlag flags, bool heartbeat) {
@@ -371,6 +394,12 @@ static bool handle_busy_timer(StatePublisher* instance, const Message* message) 
     return true;
 }
 
+static bool handle_ble(StatePublisher* instance, const Message* message) {
+    furi_assert(message->type == MessageTypeBle);
+    state_publisher_publish_ble(instance);
+    return true;
+}
+
 static const MessageHandler message_handlers[] = {
     [MessageTypePublishUpdate] = handle_publish_update,
     [MessageTypePowerEvent] = handle_power_event,
@@ -378,6 +407,7 @@ static const MessageHandler message_handlers[] = {
     [MessageTypeMatterEvent] = handle_matter_event,
     [MessageTypeUpdaterCheckEvent] = handle_updater_check_event,
     [MessageTypeBusyTimer] = handle_busy_timer,
+    [MessageTypeBle] = handle_ble,
 };
 
 static_assert(COUNT_OF(message_handlers) == MessageTypesCount);
