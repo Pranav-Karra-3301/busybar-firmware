@@ -109,14 +109,16 @@ static void cli_command_otp_program(PipeSide* pipe, FuriString* args, void* cont
 
     printf("Warning! This operation is irreversible! Are you sure? y/n\r\n");
 
+    bool decision_received = false;
     while(true) {
         char answer;
         if(pipe_receive(pipe, &answer, sizeof(answer)) != sizeof(answer)) break;
         if(answer == 'n' || answer == 'N') {
-            printf("\r\nCancelled.");
+            printf("\r\nCancelled\r\n");
+            decision_received = true;
             break;
         } else if(answer == 'y' || answer == 'Y') {
-            printf("Programming OTP...\r\n");
+            printf("\r\nProgramming OTP...\r\n");
 
             bool success = furi_hal_flash_program_otp(addr, data, len);
             if(success) {
@@ -125,9 +127,15 @@ static void cli_command_otp_program(PipeSide* pipe, FuriString* args, void* cont
                 printf("Programming error\r\n");
             }
 
+            decision_received = true;
             break;
         }
     }
+
+    if(!decision_received) {
+        printf("\r\nCancelled\r\n");
+    }
+
     free(data);
 }
 
