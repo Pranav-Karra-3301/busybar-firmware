@@ -2,6 +2,31 @@
 
 #include "../ble.h"
 
-void ble_streaming_init(void);
-void ble_streaming_start(Ble* ble);
-void ble_streaming_stop(void);
+/**
+ * @brief Opaque BleStreaming type declaration.
+ */
+typedef struct BleStreaming BleStreaming;
+
+/**
+ * @brief Allocates streaming instance for future use.
+ *
+ * @param[out] ble Pointer to Ble service.
+ * @param[out] BleStreaming* Pointer to streaming instance.
+ */
+BleStreaming* ble_streaming_alloc(Ble* ble);
+
+/**
+ * @brief Deletes streaming instance and free all internals.
+ *
+ * @param[in] instance Pointer to streaming instance.
+ */
+void ble_streaming_free(BleStreaming* instance);
+
+/**
+ * @brief Update streaming instance state according to current Ble status.
+ * Streaming will start if status equals @ref BleServiceStatusConnected, in other cases it will be stopped.
+ *
+ * @param[in] instance Pointer to streaming instance.
+ * @param[in] status Current status of Ble service
+ */
+void ble_streaming_update(BleStreaming* instance, const BleServiceStatus status);

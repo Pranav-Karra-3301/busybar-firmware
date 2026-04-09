@@ -5,78 +5,50 @@
 
 #define MAX_TX_CHUNK_SIZE (237)
 
-#define RAW_BUFFER_SIZE (6400U)
+#define BLE_STREAM_WAIT_TX_TIMEOUT_MS        (250)
+#define BLE_STREAM_FRAME_PERIOD_MS           (1000)
+#define BLE_STREAM_RATE_LIMITER_PERIOD_MS    (1000)
+#define BLE_STREAM_RATE_LIMITER_MAX_PACK_CNT (1)
 
-typedef enum {
-    BleStreamingEventFramePending,
-} BleStreamingEvent;
+#define BLE_STREAM_STATE_PUBLISHER_INVALID_HANDLE (0xDEADBEEF)
 
-typedef struct {
-    FuriEventLoop* event_loop;
-    FuriEventLoopTimer* timer;
-    FuriThread* thread;
+struct BleStreaming {
+    bool run;
+    FuriMutex* lock;
     FuriSemaphore* wait_tx;
-    FuriMutex* mutex;
-
-    FuriStreamBuffer* stream_buffer;
     StatePublisherTransportHandle handle;
     Ble* ble;
-    // Gui* gui;
+};
 
-    // uint8_t* compressed_buffer;
-    // uint8_t* raw_buffer;
-    // GuiDisplayId display_id;
+static void ble_streaming_start(BleStreaming* instance);
+static void ble_streaming_stop(BleStreaming* instance);
 
-    // uint8_t* data_buffer;
-    // size_t data_size;
-    // size_t max_size;
-
-    // const SharedByteArray_t data;
-
-    // size_t frame_size;
-
-} BleStreaming;
-
-static FuriMutex* ble_streaming_init_mutex;
-static BleStreaming* ble_streaming_instance;
-
-static void ble_uart_rx_callback(size_t data_size, void* data, void* context) {
-    UNUSED(data);
-    UNUSED(data_size);
-    UNUSED(context);
-    FURI_LOG_D(TAG, "ble_uart_rx_callback");
-    // if(data_size != sizeof(uint8_t)) {
-    //     FURI_LOG_W(TAG, "Not uint8_t, skip!");
-    //     return;
-    // }
-
-    // const BleStreamingMode event = *(uint8_t*)data;
-    // BleStreaming* instance = context;
-    // furi_event_loop_set_custom_event(instance->event_loop, event);
+static void ble_uart_tx_done_callback(void* context) {
+    BleStreaming* instance = context;
+    furi_semaphore_release(instance->wait_tx);
 }
 
-static bool
+static void
     ble_streaming_send_data(BleStreaming* instance, const uint8_t* data, size_t data_size) {
-    size_t index = 0;
+    furi_mutex_acquire(instance->lock, FuriWaitForever);
 
-    bool result = true;
-    while(data_size) {
+    size_t index = 0;
+    while(data_size && instance->run) {
         size_t send_size = data_size > MAX_TX_CHUNK_SIZE ? MAX_TX_CHUNK_SIZE : data_size;
 
         ble_uart_tx_data(instance->ble, BleUartChannelHM10, &data[index], send_size);
-        if(furi_semaphore_acquire(instance->wait_tx, 500) != FuriStatusOk) {
-            FURI_LOG_W(TAG, "Wait_tx fail");
-            result = false;
-            break;
-        }
+
+        FuriStatus status =
+            furi_semaphore_acquire(instance->wait_tx, BLE_STREAM_WAIT_TX_TIMEOUT_MS);
+        if(status != FuriStatusOk) break;
 
         data_size -= send_size;
         index += send_size;
     }
-    return result;
+    furi_mutex_release(instance->lock);
 }
 
-static void state_publisher_callback(const SharedByteArray_t data, void* context) {
+static void ble_stream_state_publisher_callback(const SharedByteArray_t data, void* context) {
     BleStreaming* instance = context;
 
     SharedByteArray_t my_data;
@@ -86,122 +58,91 @@ static void state_publisher_callback(const SharedByteArray_t data, void* context
     const uint8_t* payload = ByteArray_cget(*array, 0);
     const size_t size = ByteArray_size(*array);
 
-    FURI_LOG_I(TAG, "Data size: %d", size);
-    if(ble_streaming_send_data(instance, payload, size)) {
-        FURI_LOG_W(TAG, "Send done");
-    } else
-        FURI_LOG_W(TAG, "Send fail");
-
-    // if(instance->max_size < data_size) {
-    //     instance->data_buffer = realloc(instance->data_buffer, data_size);
-    //     FURI_LOG_W(TAG, "buffer realloced");
-    //     instance->max_size = data_size;
-    // }
-
-    // memcpy(instance->data_buffer, data->inner, data_size);
-    // instance->data_size = data_size;
-
-    // furi_event_loop_set_custom_event(instance->event_loop, BleStreamingEventFramePending);
+    ble_streaming_send_data(instance, payload, size);
     SharedByteArray_clear(my_data);
 }
 
-static void ble_uart_tx_done_callback(void* context) {
-    BleStreaming* instance = context;
-    furi_semaphore_release(instance->wait_tx);
-}
-
-static void ble_streaming_event_loop_callback(uint32_t events, void* context) {
-    BleStreaming* instance = context;
-    UNUSED(instance);
-    if(events == BleStreamingEventFramePending) {
-        // FURI_LOG_I(TAG, "Data size: %d", instance->data_size);
-        // if(ble_streaming_send_data(instance, instance->data_buffer, instance->data_size)) {
-        //     FURI_LOG_W(TAG, "Send done");
-        // } else
-        //     FURI_LOG_W(TAG, "Send fail");
-    }
-}
-
-static int32_t ble_streaming_thread(void* context) {
-    BleStreaming* instance = context;
-
-    instance->event_loop = furi_event_loop_alloc();
-    furi_event_loop_set_custom_event_callback(
-        instance->event_loop, ble_streaming_event_loop_callback, instance);
-
-    FURI_LOG_W(TAG, "Start event loop");
-    furi_event_loop_run(instance->event_loop);
-    FURI_LOG_W(TAG, "Stop event loop");
-
-    furi_event_loop_free(instance->event_loop);
-    return 0;
-}
-
-static BleStreaming* ble_streaming_alloc(Ble* ble) {
+BleStreaming* ble_streaming_alloc(Ble* ble) {
     BleStreaming* instance = malloc(sizeof(BleStreaming));
+    instance->lock = furi_mutex_alloc(FuriMutexTypeNormal);
     instance->wait_tx = furi_semaphore_alloc(1, 0);
-    instance->mutex = furi_mutex_alloc(FuriMutexTypeNormal);
     instance->ble = ble;
+    instance->handle = BLE_STREAM_STATE_PUBLISHER_INVALID_HANDLE;
+    instance->run = false;
+    return instance;
+}
 
-    ble_uart_set_rx_callback(ble, BleUartChannelHM10, ble_uart_rx_callback, instance);
-    ble_uart_set_tx_done_callback(ble, BleUartChannelHM10, ble_uart_tx_done_callback, instance);
+void ble_streaming_free(BleStreaming* instance) {
+    furi_assert(instance);
 
-    instance->thread = furi_thread_alloc_ex(TAG, 1024 * 2, ble_streaming_thread, instance);
+    ble_streaming_stop(instance);
+    furi_semaphore_free(instance->wait_tx);
+    furi_mutex_free(instance->lock);
+    free(instance);
+}
 
+static inline void ble_stream_state_publisher_subscribe(BleStreaming* instance) {
     StatePublisher* state_publisher = furi_record_open(RECORD_STATE_PUBLISHER);
-    RateLimiterLimit limit = {.period_ms = 1000, .max_packet_count = 1};
+
+    RateLimiterLimit limit = {
+        .period_ms = BLE_STREAM_RATE_LIMITER_PERIOD_MS,
+        .max_packet_count = BLE_STREAM_RATE_LIMITER_MAX_PACK_CNT,
+    };
 
     instance->handle = state_publisher_add_transport(
         state_publisher,
         StatePublisherTransportClassBLE,
-        1000,
+        BLE_STREAM_FRAME_PERIOD_MS,
         limit,
-        state_publisher_callback,
+        ble_stream_state_publisher_callback,
         instance);
+
     furi_record_close(RECORD_STATE_PUBLISHER);
-    return instance;
 }
 
-static void ble_streaming_free(BleStreaming* instance) {
-    // free(instance->data_buffer);
-    furi_thread_free(instance->thread);
-    furi_semaphore_free(instance->wait_tx);
-    furi_mutex_free(instance->mutex);
-    free(instance);
+static inline void ble_stream_state_publisher_unsubscribe(BleStreaming* instance) {
+    StatePublisher* state_publisher = furi_record_open(RECORD_STATE_PUBLISHER);
+    state_publisher_del_transport(state_publisher, instance->handle);
+    furi_record_close(RECORD_STATE_PUBLISHER);
+    instance->handle = BLE_STREAM_STATE_PUBLISHER_INVALID_HANDLE;
 }
 
-void ble_streaming_init() {
-    furi_assert(ble_streaming_init_mutex == NULL);
-    ble_streaming_init_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
-}
+static void ble_streaming_start(BleStreaming* instance) {
+    furi_assert(instance);
+    furi_mutex_acquire(instance->lock, FuriWaitForever);
 
-void ble_streaming_start(Ble* ble) {
-    if(furi_mutex_acquire(ble_streaming_init_mutex, 100) == FuriStatusOk) {
-        if(ble_streaming_instance == NULL) {
-            FURI_LOG_W(TAG, "Start ble stream");
+    if(!instance->run) {
+        FURI_LOG_D(TAG, "Stream start");
 
-            ble_streaming_instance = ble_streaming_alloc(ble);
-            furi_thread_start(ble_streaming_instance->thread);
-        }
-        furi_mutex_release(ble_streaming_init_mutex);
+        instance->run = true;
+        ble_uart_set_tx_done_callback(
+            instance->ble, BleUartChannelHM10, ble_uart_tx_done_callback, instance);
+        ble_stream_state_publisher_subscribe(instance);
     }
+    furi_mutex_release(instance->lock);
 }
 
-void ble_streaming_stop() {
-    if(furi_mutex_acquire(ble_streaming_init_mutex, 100) == FuriStatusOk) {
-        if(ble_streaming_instance != NULL) {
-            FURI_LOG_W(TAG, "Stop ble stream");
+static void ble_streaming_stop(BleStreaming* instance) {
+    furi_assert(instance);
+    furi_mutex_acquire(instance->lock, FuriWaitForever);
 
-            StatePublisher* state_publisher = furi_record_open(RECORD_STATE_PUBLISHER);
-            state_publisher_del_transport(state_publisher, ble_streaming_instance->handle);
-            furi_record_close(RECORD_STATE_PUBLISHER);
+    if(instance->run) {
+        instance->run = false;
+        ble_stream_state_publisher_unsubscribe(instance);
 
-            furi_event_loop_stop(ble_streaming_instance->event_loop);
-            furi_thread_join(ble_streaming_instance->thread);
-            FURI_LOG_W(TAG, "Stopped");
-            ble_streaming_free(ble_streaming_instance);
-            ble_streaming_instance = NULL;
-        }
-        furi_mutex_release(ble_streaming_init_mutex);
+        ble_uart_set_tx_done_callback(instance->ble, BleUartChannelHM10, NULL, NULL);
+
+        FURI_LOG_D(TAG, "Stream stopped");
     }
+    furi_mutex_release(instance->lock);
+}
+
+void ble_streaming_update(BleStreaming* instance, const BleServiceStatus status) {
+    furi_assert(instance);
+    furi_assert(status < BleServiceStatusCount);
+
+    if(status == BleServiceStatusConnected)
+        ble_streaming_start(instance);
+    else
+        ble_streaming_stop(instance);
 }
