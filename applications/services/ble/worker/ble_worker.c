@@ -736,6 +736,13 @@ static int32_t ble_worker_thread_callback(void* context) {
             ble_debug_canary_reset(instance->first_tx_pack_canary);
             ble_debug_canary_reset(instance->first_tx_method_canary);
             ble_debug_canary_reset(instance->indicate_error_canary);
+
+#ifdef BLE_DEBUG_ADVERTISE_FORCE_PUBLIC
+            ble_worker_instance->on_connection_changed_cb(
+                ble_worker_instance->on_connection_changed_ctx,
+                ble_worker_instance->connected,
+                ble_worker_instance->str_remote_address);
+#endif
         }
 
         if(events & BLEWorkerEvtDisconnected) {
