@@ -137,6 +137,7 @@ typedef struct {
     FuriTimer* retry_phy_timer;
     uint8_t pairing_info_available;
     uint16_t rx_pending_handle;
+    uint16_t tx_pending_handle;
     ///TODO: this can be removed
     bool connected;
     BleDebugCanary* first_tx_pack_canary;
@@ -758,6 +759,12 @@ static int32_t ble_worker_thread_callback(void* context) {
                 instance->rx_pending_handle = 0;
             }
 
+            if(instance->tx_pending_handle) {
+                BLE_LOG_W("No Tx confirm!");
+                furi_semaphore_release(ble_worker_instance->indication_sem);
+                instance->tx_pending_handle = 0;
+            }
+
             BleServiceEntryDict_it_t entry_iter;
             for(BleServiceEntryDict_it(entry_iter, instance->service_dict);
                 !BleServiceEntryDict_end_p(entry_iter);
@@ -1277,6 +1284,7 @@ static inline bool ble_worker_indicate_chunk(
 
     do {
         const uint8_t indication_retry_count = 4;
+        ble_worker_instance->tx_pending_handle = handle;
         if(!ble_worker_indicate_retry(dev_addr, handle, data_size, data, indication_retry_count))
             break;
 
@@ -1285,6 +1293,8 @@ static inline bool ble_worker_indicate_chunk(
             BLE_LOG_W("Indicate timeout expired");
             break;
         }
+
+        ble_worker_instance->tx_pending_handle = 0;
         result = true;
     } while(false);
     return result;
