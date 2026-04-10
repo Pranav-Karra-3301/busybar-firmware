@@ -10,8 +10,6 @@
 #define BLE_STREAM_RATE_LIMITER_PERIOD_MS    (1000)
 #define BLE_STREAM_RATE_LIMITER_MAX_PACK_CNT (1)
 
-#define BLE_STREAM_STATE_PUBLISHER_INVALID_HANDLE (0xDEADBEEF)
-
 struct BleStreaming {
     bool run;
     FuriMutex* lock;
@@ -67,7 +65,7 @@ BleStreaming* ble_streaming_alloc(Ble* ble) {
     instance->lock = furi_mutex_alloc(FuriMutexTypeNormal);
     instance->wait_tx = furi_semaphore_alloc(1, 0);
     instance->ble = ble;
-    instance->handle = BLE_STREAM_STATE_PUBLISHER_INVALID_HANDLE;
+    instance->handle = STATE_PUBLISHER_TRANSPORT_HANDLE_INVALID;
     instance->run = false;
     return instance;
 }
@@ -104,7 +102,7 @@ static inline void ble_stream_state_publisher_unsubscribe(BleStreaming* instance
     StatePublisher* state_publisher = furi_record_open(RECORD_STATE_PUBLISHER);
     state_publisher_del_transport(state_publisher, instance->handle);
     furi_record_close(RECORD_STATE_PUBLISHER);
-    instance->handle = BLE_STREAM_STATE_PUBLISHER_INVALID_HANDLE;
+    instance->handle = STATE_PUBLISHER_TRANSPORT_HANDLE_INVALID;
 }
 
 static void ble_streaming_start(BleStreaming* instance) {
