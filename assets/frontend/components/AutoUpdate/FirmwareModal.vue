@@ -129,22 +129,22 @@ function handleModalClose () {
 
 const downloadErrorMarkdown = `
 1. Check internet connection on your BUSY Bar\n
-    [How to connect BUSY Bar to Wi-Fi]()
+    [How to connect BUSY Bar to Wi-Fi](https://go.busy.app/bar-wifi-connect)
 2. Restart your BUSY Bar by holding Start and Back buttons for 3 seconds\n
-    [How to restart BUSY Bar]()
+    [How to restart BUSY Bar](https://go.busy.app/bar-restart)
 3. Charge your BUSY Bar up to 40%\n
-    [How to charge BUSY Bar]()
+    [How to charge BUSY Bar](https://go.busy.app/bar-battery-charge)
 4. Update your BUSY Bar from another device via BUSY App\n
-    [How to update BUSY Bar firmware]()
+    [How to update BUSY Bar firmware](https://go.busy.app/bar-firmware-update)
 5. Try again later — the update server may be unavailable right now
 `;
 const updateErrorMarkdown = `
 1. Restart your BUSY Bar by holding Start and Back buttons for 3 seconds\n
-    [How to restart BUSY Bar]()
+    [How to restart BUSY Bar](https://go.busy.app/bar-restart)
 3. Charge your BUSY Bar up to 40%\n
-    [How to charge BUSY Bar]()
+    [How to charge BUSY Bar](https://go.busy.app/bar-battery-charge)
 4. Update your BUSY Bar from another device via BUSY App\n
-    [How to update BUSY Bar firmware]()
+    [How to update BUSY Bar firmware](https://go.busy.app/bar-firmware-update)
 5. If you’re using a custom file, make sure it’s the correct package (.tar or .tgz)
 `;
 
