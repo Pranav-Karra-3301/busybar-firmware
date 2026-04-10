@@ -3,8 +3,6 @@
 
 #define TAG "BleStream"
 
-#define MAX_TX_CHUNK_SIZE (237)
-
 #define BLE_STREAM_LOCK_TIMEOUT_MS           (100)
 #define BLE_STREAM_WAIT_TX_TIMEOUT_MS        (250)
 #define BLE_STREAM_FRAME_PERIOD_MS           (1000)
