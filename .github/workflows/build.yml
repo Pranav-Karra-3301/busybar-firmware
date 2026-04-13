@@ -26,6 +26,9 @@ jobs:
       default_target_spec: ${{ env.DEFAULT_TARGET_SPEC }}
       bundle_target_spec: ${{ steps.set-url.outputs.target }}
       update_url: ${{ steps.set-url.outputs.update_url }}
+    concurrency:
+      group: build-${{ github.workflow }}-${{ github.ref }}-${{ matrix.target_spec }}
+      cancel-in-progress: true
 
     steps:
       - name: 'Wipe workspace'
@@ -61,6 +64,9 @@ jobs:
           echo "build_profile=$PROFILE" >> "$GITHUB_OUTPUT"
           python3 fbt_layers/fbtng/scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || (cat "${{ github.event_path }}" && exit 1)
 
+      - name: 'Setup Simplicity Commander'
+        uses: ./.github/actions/setup-commander
+
       - name: 'Build firmware artifacts'
         id: build-fw
         uses: ./.github/actions/build-artifacts
@@ -68,6 +74,9 @@ jobs:
           target_spec: ${{ matrix.target_spec }}
           build_type: ${{ steps.names.outputs.build_profile }}
           artifact_path: artifacts
+          signing_service_url: ${{ secrets.SI917_SIGN_SERVICE_URL }}
+          signing_service_token: ${{ secrets.SI917_SIGN_SERVICE_TOKEN }}
+          signing_service_profile: ${{ secrets.SI917_SIGN_SERVICE_PROFILE }}
 
       - name: 'Upload build artifacts'
         if: ${{ !github.event.pull_request.head.repo.fork && steps.build-fw.outcome == 'success' }}
@@ -140,7 +149,6 @@ jobs:
           echo "update_url=${{ steps.names.outputs.branch_name }}/busybar-f${{ steps.build-fw.outputs.u5_target_hw }}-update-${{ steps.names.outputs.suffix }}.tar" >> "$GITHUB_OUTPUT"
           echo "target=${{ steps.build-fw.outputs.u5_target_hw }}" >> "$GITHUB_OUTPUT"
 
-
   updater-tests:
     needs: build
     if: ${{ needs.build.result == 'success' && needs.build.outputs.update_url != '' }}
@@ -151,6 +159,9 @@ jobs:
       update_url: ${{ needs.build.outputs.update_url }}
       target: ${{ needs.build.outputs.bundle_target_spec }}
     secrets: inherit
+    concurrency:
+      group: updater-tests-${{ github.workflow }}-${{ github.ref }}-${{ needs.build.outputs.bundle_target_spec }}
+      cancel-in-progress: true
 
   integration-tests:
     needs: build
@@ -162,3 +173,6 @@ jobs:
       update_url: ${{ needs.build.outputs.update_url }}
       target: ${{ needs.build.outputs.bundle_target_spec }}
     secrets: inherit
+    concurrency:
+      group: integration-tests-${{ github.workflow }}-${{ github.ref }}-${{ needs.build.outputs.bundle_target_spec }}
+      cancel-in-progress: true

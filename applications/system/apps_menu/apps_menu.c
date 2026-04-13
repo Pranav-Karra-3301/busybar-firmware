@@ -78,19 +78,16 @@ static bool apps_menu_gui_input_callback(const InputEvent* event, void* context)
 static AppsMenu* apps_menu_alloc(void* launching_application) {
     FuriThread* thread = furi_thread_get_current();
 
-    AppsMenuSettings settings = {.active_application = furi_string_alloc()};
+    AppsMenuSettings settings;
     apps_menu_settings_load(&settings);
 
     if(launching_application) {
-        furi_string_reset(settings.active_application);
+        strcpy(settings.active_application, "");
         apps_menu_settings_save(&settings);
-    } else if(!furi_string_empty(settings.active_application)) {
+    } else if(strnlen(settings.active_application, sizeof(settings.active_application)) > 0) {
         Desktop* desktop = furi_record_open(RECORD_DESKTOP);
-        desktop_replace_current_app(
-            desktop, furi_string_get_cstr(settings.active_application), "-s");
+        desktop_replace_current_app(desktop, settings.active_application, "-s");
         furi_record_close(RECORD_DESKTOP);
-
-        furi_string_free(settings.active_application);
         return NULL;
     }
 
@@ -136,7 +133,7 @@ static AppsMenu* apps_menu_alloc(void* launching_application) {
 
         instance->back_nav_bar = nav_bar_alloc(flex_layout_get_base(instance->back_container));
         nav_bar_set_header_image(
-            instance->back_nav_bar, SHARED_IMG_PATH("apps_menu_back_12x12.bin"));
+            instance->back_nav_bar, SHARED_IMG_PATH("apps_menu_back_12x12.image"));
         nav_bar_set_header_text(instance->back_nav_bar, "APPS");
         widget_set_height(nav_bar_get_base(instance->back_nav_bar), 14);
         widget_set_padding(nav_bar_get_base(instance->back_nav_bar), 1, 0, 0, 0);
@@ -166,8 +163,6 @@ static void apps_menu_free(AppsMenu* instance) {
         widget_free(instance->front_scene_window);
         flex_layout_free(instance->back_container);
     });
-
-    furi_string_free(instance->settings.active_application);
 
     furi_record_close(RECORD_DESKTOP);
     furi_record_close(RECORD_GUI);

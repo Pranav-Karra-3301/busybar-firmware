@@ -73,7 +73,7 @@ static const BusyTimerSettingsV1 busy_timer_settings_v1_defaults[BusyTimerProfil
                     .metadata =
                         {
                             .sort_order = SORT_ORDER_DEFAULT,
-                            .title = "busy",
+                            .title = "BUSY",
                             .card_id = "00000000-0000-0000-0000-000000000000",
                         },
                     .timestamp_ms = 0,
@@ -97,7 +97,7 @@ static const BusyTimerSettingsV1 busy_timer_settings_v1_defaults[BusyTimerProfil
                     .metadata =
                         {
                             .sort_order = SORT_ORDER_DEFAULT,
-                            .title = "custom",
+                            .title = "ZEN",
                             .card_id = "00000000-0000-0000-0000-000000000001",
                         },
                     .timestamp_ms = 0,
@@ -115,8 +115,8 @@ static const time_t busy_timer_settings_v1_timestamp_default = 0;
 
 static bool busy_timer_settings_v1_timer_config_serialize_cb(
     const SettingProviderSetting* setting,
-    FuriString* string,
-    const void* value) {
+    const void* value,
+    FuriString* string) {
     UNUSED(setting);
 
     const BusyTimerConfig* timer_settings = value;
@@ -144,13 +144,13 @@ static bool busy_timer_settings_v1_timer_config_serialize_cb(
 
 static bool busy_timer_settings_v1_timer_config_deserialize_cb(
     const SettingProviderSetting* setting,
-    void* value,
-    const FuriString* string) {
+    const char* string,
+    void* value) {
     UNUSED(setting);
 
     bool success = false;
 
-    cJSON* json = cJSON_Parse(furi_string_get_cstr(string));
+    cJSON* json = cJSON_Parse(string);
 
     do {
         if(!cJSON_IsObject(json)) {
@@ -184,8 +184,8 @@ static bool busy_timer_settings_v1_timer_config_deserialize_cb(
 
 static bool busy_timer_settings_v1_timestamp_serialize_cb(
     const SettingProviderSetting* setting,
-    FuriString* string,
-    const void* value) {
+    const void* value,
+    FuriString* string) {
     UNUSED(setting);
 
     const time_t timestamp = *(time_t*)value;
@@ -196,11 +196,11 @@ static bool busy_timer_settings_v1_timestamp_serialize_cb(
 
 static bool busy_timer_settings_v1_timestamp_deserialize_cb(
     const SettingProviderSetting* setting,
-    void* value,
-    const FuriString* string) {
+    const char* string,
+    void* value) {
     UNUSED(setting);
 
-    return strint_to_int64(furi_string_get_cstr(string), NULL, value, 10) == StrintParseNoError;
+    return strint_to_int64(string, NULL, value, 10) == StrintParseNoError;
 }
 
 static const SettingProviderSetting busy_timer_settings_v1_app_config[] = {
@@ -211,7 +211,7 @@ static const SettingProviderSetting busy_timer_settings_v1_app_config[] = {
                 &(const SettingProviderStringInterface){
                     .default_value = STRING_VALUE_DEFAULT,
                     // Including zero terminator
-                    .max_length = SIZEOF_MEMBER(BusyAppConfig, theme_name),
+                    .max_size = SIZEOF_MEMBER(BusyAppConfig, theme_name),
                 },
             .field_offset = offsetof(BusyAppConfig, theme_name),
             .type = SettingProviderSettingTypeString,
@@ -256,7 +256,7 @@ static const SettingProviderSetting busy_timer_settings_v1_metadata[] = {
                 &(const SettingProviderStringInterface){
                     .default_value = STRING_VALUE_DEFAULT,
                     // Including zero terminator
-                    .max_length = SIZEOF_MEMBER(BusyTimerMetadata, title),
+                    .max_size = SIZEOF_MEMBER(BusyTimerMetadata, title),
                 },
             .field_offset = offsetof(BusyTimerMetadata, title),
             .type = SettingProviderSettingTypeString,
@@ -268,7 +268,7 @@ static const SettingProviderSetting busy_timer_settings_v1_metadata[] = {
                 &(const SettingProviderStringInterface){
                     .default_value = STRING_VALUE_DEFAULT,
                     // Including zero terminator
-                    .max_length = SIZEOF_MEMBER(BusyTimerMetadata, card_id),
+                    .max_size = SIZEOF_MEMBER(BusyTimerMetadata, card_id),
                 },
             .field_offset = offsetof(BusyTimerMetadata, card_id),
             .type = SettingProviderSettingTypeString,
@@ -280,12 +280,12 @@ static const SettingProviderSetting busy_timer_settings_v1_profile[] = {
         {
             .name = "app_config",
             .interface =
-                &(const SettingProviderStructureInterface){
+                &(const SettingProviderStructInterface){
                     .inner_settings = busy_timer_settings_v1_app_config,
                     .inner_settings_count = COUNT_OF(busy_timer_settings_v1_app_config),
                 },
             .field_offset = offsetof(BusyTimerProfile, app_config),
-            .type = SettingProviderSettingTypeStructure,
+            .type = SettingProviderSettingTypeStruct,
         },
     [BusyTimerSettingsV1ProfileIdxTimerConfig] =
         {
@@ -304,12 +304,12 @@ static const SettingProviderSetting busy_timer_settings_v1_profile[] = {
         {
             .name = "metadata",
             .interface =
-                &(const SettingProviderStructureInterface){
+                &(const SettingProviderStructInterface){
                     .inner_settings = busy_timer_settings_v1_metadata,
                     .inner_settings_count = COUNT_OF(busy_timer_settings_v1_metadata),
                 },
             .field_offset = offsetof(BusyTimerProfile, metadata),
-            .type = SettingProviderSettingTypeStructure,
+            .type = SettingProviderSettingTypeStruct,
         },
     [BusyTimerSettingsV1ProfileIdxTimestamp] =
         {
@@ -331,12 +331,12 @@ static const SettingProviderSetting busy_timer_settings_v1[] = {
         {
             .name = "profile",
             .interface =
-                &(const SettingProviderStructureInterface){
+                &(const SettingProviderStructInterface){
                     .inner_settings = busy_timer_settings_v1_profile,
                     .inner_settings_count = COUNT_OF(busy_timer_settings_v1_profile),
                 },
             .field_offset = offsetof(BusyTimerSettingsV1, profile),
-            .type = SettingProviderSettingTypeStructure,
+            .type = SettingProviderSettingTypeStruct,
         },
     [BusyTimerSettingsV1IdxDemoMode] =
         {
@@ -352,11 +352,11 @@ static const SettingProviderSetting busy_timer_settings_v1[] = {
 
 const SettingProviderSetting busy_timer_settings_v1_root = {
     .interface =
-        &(const SettingProviderStructureInterface){
+        &(const SettingProviderStructInterface){
             .inner_settings = busy_timer_settings_v1,
             .inner_settings_count = COUNT_OF(busy_timer_settings_v1),
         },
-    .type = SettingProviderSettingTypeStructure,
+    .type = SettingProviderSettingTypeStruct,
 };
 
 bool busy_timer_settings_v1_apply_defaults(

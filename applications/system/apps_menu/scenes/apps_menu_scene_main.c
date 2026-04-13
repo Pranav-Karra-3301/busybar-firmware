@@ -42,7 +42,7 @@ static void apps_menu_scene_main_on_enter(void* context) {
             data->front_menu,
             "Clock",
             "",
-            APPS_MENU_IMG_PATH("clock_front_8x8.bin"),
+            APPS_MENU_IMG_PATH("clock_front_8x8.image"),
             AppsMenuEntryIdxClock,
             apps_scene_setup_menu_callback,
             instance);
@@ -53,7 +53,7 @@ static void apps_menu_scene_main_on_enter(void* context) {
             data->back_menu,
             "Clock",
             "",
-            APPS_MENU_IMG_PATH("clock_back_11x11.bin"),
+            APPS_MENU_IMG_PATH("clock_back_11x11.image"),
             0,
             NULL,
             NULL);
@@ -87,7 +87,10 @@ static bool apps_menu_scene_main_on_event(const SceneManagerEvent* event, void* 
 
             const char* target_application = apps_menu_entries[data->menu_idx];
 
-            furi_string_set(instance->settings.active_application, target_application);
+            strlcpy(
+                instance->settings.active_application,
+                target_application,
+                sizeof(instance->settings.active_application));
             apps_menu_settings_save(&instance->settings);
 
             Desktop* desktop = furi_record_open(RECORD_DESKTOP);

@@ -1,6 +1,5 @@
 #include "cli_command_gpio.h"
 #include "cli_command_display.h"
-#include "cli_command_status_lights.h"
 #include "cli_command_light_sensor.h"
 #include "cli_command_audio.h"
 #include "cli_command_sl_cli.h"
@@ -175,10 +174,6 @@ static void cli_commands_init(CliRegistry* registry) {
 
     cli_registry_add_command(
         registry, "display", CliCommandFlagParallelSafe, cli_command_display, NULL);
-#ifdef SRV_STATUS_LIGHTS
-    cli_registry_add_command(
-        registry, "status_lights", CliCommandFlagParallelSafe, cli_command_status_lights, NULL);
-#endif // SRV_STATUS_LIGHTS
     cli_registry_add_command(
         registry, "light_sensor", CliCommandFlagParallelSafe, cli_command_light_sensor, NULL);
 #ifdef SRV_AUDIO
@@ -195,12 +190,12 @@ static void cli_commands_init(CliRegistry* registry) {
         NULL);
 #endif // SRV_INTERCOM
 
-#ifdef SRV_SNTP
+#ifdef SRV_TIME
     cli_registry_add_command(
         registry, "date", CliCommandFlagParallelSafe, cli_command_rtc_date, NULL);
     cli_registry_add_command(
         registry, "timezone", CliCommandFlagParallelSafe, cli_command_rtc_timezone, NULL);
-#endif // SRV_SNTP
+#endif // SRV_TIME
 
     // commands from `.fam`s
     for(size_t i = 0; i < FLIPPER_CLI_COMMANDS_COUNT; i++) {

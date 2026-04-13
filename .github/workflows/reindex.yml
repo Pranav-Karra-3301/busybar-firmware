@@ -3,6 +3,11 @@ name: "Post-release hooks"
 on:
   release:
     types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   reindex:
@@ -12,4 +17,4 @@ jobs:
       - name: "Trigger reindex"
         run: |
           curl --fail -L -H "Token: ${{ secrets.INDEXER_TOKEN }}" \
-              "${{ secrets.INDEXER_URL }}"/firmware/reindex;
+              "${{ secrets.INDEXER_URL }}"/busybar-firmware/reindex;

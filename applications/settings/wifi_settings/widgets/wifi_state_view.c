@@ -35,7 +35,7 @@ static void wifi_state_view_front_lvgl_constructor(const lv_obj_class_t* class_p
     lv_obj_set_style_pad_gap(obj, 2, LV_PART_MAIN);
 
     instance->state_image = lv_image_create(obj);
-    lv_image_set_src(instance->state_image, IMG_PATH("wifi_front_ok_8x8.bin"));
+    lv_image_set_src(instance->state_image, IMG_PATH("wifi_front_ok_8x8.image"));
     lv_obj_set_flex_grow(instance->state_image, 0);
 
     lv_obj_t* text_cont = lv_obj_create(obj);
@@ -47,7 +47,7 @@ static void wifi_state_view_front_lvgl_constructor(const lv_obj_class_t* class_p
     lv_obj_set_style_pad_all(text_cont, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_gap(text_cont, 0, LV_PART_MAIN);
 
-    const lv_font_t* font = lv_theme_get_font_normal(obj);
+    const lv_font_t* font = lv_theme_get_font_small(obj);
 
     instance->state_label = lv_label_create(text_cont);
     lv_label_set_text(instance->state_label, "Connected");
@@ -86,7 +86,7 @@ static void wifi_state_view_back_lvgl_constructor(const lv_obj_class_t* class_p,
     lv_obj_set_style_pad_gap(obj, 6, LV_PART_MAIN);
 
     instance->state_image = lv_image_create(obj);
-    lv_image_set_src(instance->state_image, IMG_PATH("wifi_back_ok_11x11.bin"));
+    lv_image_set_src(instance->state_image, IMG_PATH("wifi_back_ok_11x11.image"));
     lv_obj_set_flex_grow(instance->state_image, 0);
     lv_obj_set_style_recolor(instance->state_image, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_recolor_opa(instance->state_image, LV_OPA_COVER, LV_PART_MAIN);
@@ -111,7 +111,6 @@ static void wifi_state_view_back_lvgl_constructor(const lv_obj_class_t* class_p,
     instance->ssid_label = lv_label_create(text_cont);
     lv_label_set_text(instance->ssid_label, "");
     lv_obj_set_style_text_color(instance->ssid_label, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(instance->ssid_label, font, LV_PART_MAIN);
     lv_obj_set_width(instance->ssid_label, LV_PCT(100));
     lv_label_set_long_mode(instance->ssid_label, LV_LABEL_LONG_SCROLL);
 
@@ -154,16 +153,16 @@ void wifi_state_view_set_state(WifiStateView* instance, bool connected, const ch
     if(connected) {
         lv_label_set_text_fmt(instance->state_label, "Connected");
         if(instance->is_back) {
-            lv_image_set_src(instance->state_image, IMG_PATH("wifi_back_ok_11x11.bin"));
+            lv_image_set_src(instance->state_image, IMG_PATH("wifi_back_ok_11x11.image"));
         } else {
-            lv_image_set_src(instance->state_image, IMG_PATH("wifi_front_ok_8x8.bin"));
+            lv_image_set_src(instance->state_image, IMG_PATH("wifi_front_ok_8x8.image"));
         }
     } else {
         lv_label_set_text_fmt(instance->state_label, "Offline");
         if(instance->is_back) {
-            lv_image_set_src(instance->state_image, IMG_PATH("wifi_back_error_11x11.bin"));
+            lv_image_set_src(instance->state_image, IMG_PATH("wifi_back_error_11x11.image"));
         } else {
-            lv_image_set_src(instance->state_image, IMG_PATH("wifi_front_error_8x8.bin"));
+            lv_image_set_src(instance->state_image, IMG_PATH("wifi_front_error_8x8.image"));
         }
     }
 

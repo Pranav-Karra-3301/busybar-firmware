@@ -1,6 +1,6 @@
 #include "intercom_i.h"
 
-#define TAG "IntercomSrv"
+#define TAG "Intercom"
 
 // Called in ISR context
 static void intercom_serial_tx_callback(
@@ -33,13 +33,22 @@ static void intercom_startup_sequence(Intercom* instance) {
 #endif // BSB_MCU_U5
 
     if(intercom_sync_serial(instance->serial)) {
-        furi_check(furi_semaphore_release(instance->tx_semaphore) == FuriStatusOk);
         status = IntercomStatusOk;
     } else {
         status = IntercomStatusErrorSync;
     }
 
     intercom_set_status(instance, status);
+}
+
+static void intercom_begin_operation(Intercom* instance) {
+    furi_hal_serial_set_tx_callback(instance->serial, intercom_serial_tx_callback, instance);
+    furi_hal_serial_dma_init(instance->serial);
+
+    intercom_start_rx_thread(instance);
+    intercom_start_heartbeat_thread(instance);
+    // Begin serving API requests
+    furi_check(furi_semaphore_release(instance->tx_semaphore) == FuriStatusOk);
 }
 
 static void intercom_unrecoverable_error(void) {
@@ -55,7 +64,7 @@ static FURI_ALWAYS_INLINE void intercom_process_status_changed_event(Intercom* i
         intercom_startup_sequence(instance);
 
     } else if(status == IntercomStatusOk) {
-        intercom_start_rx_thread(instance);
+        intercom_begin_operation(instance);
 
     } else if(status == IntercomStatusErrorSync) {
         FURI_LOG_E(TAG, "Failed to sync with the other side");
@@ -63,7 +72,6 @@ static FURI_ALWAYS_INLINE void intercom_process_status_changed_event(Intercom* i
 
     } else if(status == IntercomStatusErrorFraming) {
         FURI_LOG_E(TAG, "Corrupt frame received");
-        intercom_dump_frame(&instance->rx_frame);
         intercom_unrecoverable_error();
 
     } else if(status == IntercomStatusErrorTimeout) {
@@ -133,7 +141,6 @@ static Intercom* intercom_alloc(void) {
 
     furi_hal_serial_init(instance->serial, INTERCOM_BAUD_RATE);
     furi_hal_serial_set_hw_flow_control(instance->serial, FuriHalSerialHwFlowControlRtsCts);
-    furi_hal_serial_set_tx_callback(instance->serial, intercom_serial_tx_callback, instance);
 
     intercom_init_channels(instance);
 
@@ -181,11 +188,11 @@ size_t
     const uint32_t timeout_ticks = furi_ms_to_ticks(timeout);
     const uint32_t deadline_ticks = furi_get_tick() + timeout_ticks;
 
-    if(!intercom_channel_await_peer_ready(channel, timeout_ticks)) {
+    if(!intercom_channel_wait_until_ready(channel, timeout_ticks)) {
         return 0;
     }
 
-    Intercom* instance = channel->intercom;
+    Intercom* instance = channel->owner;
     const IntercomChannelId channel_id = channel - instance->channels;
 
     size_t sent_data_size = 0;
@@ -216,11 +223,11 @@ IntercomChannel* intercom_channel_open(
     void* context) {
     furi_check(instance);
     furi_check(channel_id < IntercomChannelIdMax);
-    furi_check(channel_id != IntercomChannelIdMeta);
 
     IntercomChannel* channel = &instance->channels[channel_id];
     intercom_channel_set_callback(channel, callback, context);
-    intercom_channel_send_ready(channel);
+
+    intercom_meta_activate_channel(instance, channel_id);
 
     return channel;
 }

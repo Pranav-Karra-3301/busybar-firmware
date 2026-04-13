@@ -35,6 +35,7 @@ typedef enum {
 
     UpdaterStatusInstallationPrepareManifestNotFound, /**< Update manifest file not found */
     UpdaterStatusInstallationPrepareManifestInvalid, /**< Manifest file validation failed */
+    UpdaterStatusInstallationPrepareSecurityMismatch, /**< Bundle security flags don't match device */
     UpdaterStatusInstallationPrepareSessionConfigSetupFailure, /**< Failed to save session configuration */
     UpdaterStatusInstallationPreparePointerSetupFailure, /**< Failed to write pointer file */
 
@@ -117,6 +118,16 @@ typedef struct {
     FuriString* changelog; /**< Update changelog */
 } UpdateCheckInfo;
 
+/** Updater event types */
+typedef enum {
+    UpdaterEventTypeSettingsChanged, /**< Settings were changed */
+} UpdaterEventType;
+
+/** Updater event structure */
+typedef struct {
+    UpdaterEventType type;
+} UpdaterEvent;
+
 /** Get human-readable string for a status code
  *
  * @param[in]  status  The status code
@@ -141,10 +152,26 @@ FuriState* updater_get_update_state(Updater* instance);
  */
 FuriState* updater_get_check_state(Updater* instance);
 
-/** Get update information
+/** Get update information.
+ *
+ * The info parameter should point to an initialized struct:
+ * - if a member is NULL, it will not be changed.
+ * - if a member is not NULL, the string it points to will be set.
+ * Example usage:
+ *  FuriString* check_version = furi_string_alloc();
+ *  FuriString* check_changelog = furi_string_alloc();
+ *  updater_get_check_info(
+ *      updater,
+ *      &(UpdateCheckInfo){
+ *          .version = check_version,
+ *          .url = NULL,
+ *          .id = NULL,
+ *          .sha256 = NULL,
+ *          .changelog = check_changelog,
+ *      });
  *
  * @param[in]   instance  Updater instance
- * @param[out]  info      Pointer to UpdateCheckInfo struct to populate
+ * @param[out]  info      Pointer to UpdateCheckInfo struct.
  */
 void updater_get_check_info(Updater* instance, UpdateCheckInfo* info);
 
@@ -333,6 +360,15 @@ void updater_get_settings(const Updater* instance, UpdaterSettings* settings);
  * @return     true if settings were successfully applied, false otherwise
  */
 bool updater_set_settings(Updater* instance, const UpdaterSettings* settings);
+
+/** Get PubSub instance for event notifications
+ *
+ * The delivered events will be of type @ref UpdaterEvent.
+ *
+ * @param[in] instance Updater instance
+ * @returns pubsub instance available for subscription
+ */
+FuriPubSub* updater_get_pubsub(Updater* instance);
 
 #ifdef __cplusplus
 }

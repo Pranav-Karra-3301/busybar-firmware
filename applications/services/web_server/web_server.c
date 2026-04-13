@@ -15,14 +15,7 @@ static WebServer srv = {0};
 static const HttpHandler handlers_root[] = {
     {
         .uri = "/api",
-        .method = "OPTIONS",
-        .type = HttpHandlerCustom,
-        .on_request = http_api_options_callback,
-        .on_headers = http_api_options_hdr_callback,
-    },
-    {
-        .uri = "/api",
-        .method = "*",
+        .method = HttpMethodAny,
         .type = HttpHandlerCustom,
         .on_request = http_api_root_callback,
         .on_headers = http_api_root_hdr_callback,
@@ -31,13 +24,59 @@ static const HttpHandler handlers_root[] = {
     },
     {
         .uri = "",
-        .method = "GET",
+        .method = HttpMethodGet,
         .type = HttpHandlerDir,
         .path = WEB_ROOT,
         .mime_types_custom = NULL,
         .extra_headers = HEADER_CORS,
     },
 };
+
+static const struct {
+    const char* name;
+    HttpMethod method;
+} http_methods[] = {
+    {"GET", HttpMethodGet},
+    {"POST", HttpMethodPost},
+    {"DELETE", HttpMethodDelete},
+    {"PUT", HttpMethodPut},
+    {"OPTIONS", HttpMethodOptions},
+    {"HEAD", HttpMethodHead},
+    {"CONNECT", HttpMethodConnect},
+    {"PATCH", HttpMethodPatch},
+    {"TRACE", HttpMethodTrace},
+};
+
+static HttpMethod http_method_from_str(struct mg_http_message* msg) {
+    for(size_t i = 0; i < COUNT_OF(http_methods); i++) {
+        if(mg_strcasecmp(msg->method, mg_str(http_methods[i].name)) == 0) {
+            if(http_methods[i].method == HttpMethodGet) {
+                return (IS_WEBSOCKET_UPGRADE(msg) ? HttpMethodWebSocket : HttpMethodGet);
+            }
+            return http_methods[i].method;
+        }
+    }
+    return HttpMethodUnknown;
+}
+
+void http_reply_405_method_not_allowed(struct mg_connection* conn, HttpMethod allowed_methods) {
+    if(allowed_methods & HttpMethodWebSocket) {
+        allowed_methods = (allowed_methods & ~(HttpMethodWebSocket)) | HttpMethodGet;
+    }
+    FuriString* headers = furi_string_alloc_set(DEFAULT_JSON_HEADERS);
+    furi_string_cat(headers, "Allow: ");
+    bool is_first = true;
+    for(size_t i = 0; i < COUNT_OF(http_methods); i++) {
+        if(allowed_methods & http_methods[i].method) {
+            furi_string_cat_printf(headers, "%s%s", is_first ? "" : ", ", http_methods[i].name);
+            is_first = false;
+        }
+    }
+    furi_string_cat(headers, "\r\n");
+    mg_http_reply(
+        conn, 405, furi_string_get_cstr(headers), "{\"error\":\"%s\"}\n", "Method Not Allowed");
+    furi_string_free(headers);
+}
 
 static void http_event_handler(struct mg_connection* conn, int ev, void* ev_data) {
     if(ev == MG_EV_HTTP_MSG) {
@@ -46,7 +85,8 @@ static void http_event_handler(struct mg_connection* conn, int ev, void* ev_data
         ConnectionContext* conn_ctx = (void*)conn->data;
         if(conn_ctx->raw.on_data == NULL) { // Skip raw connections
             FuriString* path = furi_string_alloc_printf("%.*s", msg->uri.len, msg->uri.buf);
-            bool result = http_handle_request(path, context->handlers, conn, msg);
+            HttpMethod method = http_method_from_str(msg);
+            bool result = http_handle_request(path, method, context->handlers, conn, msg);
             furi_string_free(path);
             if(!result) {
                 MG_REPLY_BAD_REQUEST(conn);
@@ -57,7 +97,8 @@ static void http_event_handler(struct mg_connection* conn, int ev, void* ev_data
         WebServer* context = conn->fn_data;
         struct mg_http_message* msg = (struct mg_http_message*)ev_data;
         FuriString* path = furi_string_alloc_printf("%.*s", msg->uri.len, msg->uri.buf);
-        http_handle_headers(path, context->handlers, conn, msg);
+        HttpMethod method = http_method_from_str(msg);
+        http_handle_headers(path, method, context->handlers, conn, msg);
         furi_string_free(path);
     } else if(ev == MG_EV_READ) {
         if(!conn->is_websocket) {
@@ -129,10 +170,12 @@ void http_handler_remove_all(HttpHandlersList_t list) {
 
 bool http_handle_request(
     FuriString* path,
+    HttpMethod method,
     HttpHandlersList_t handlers,
     struct mg_connection* conn,
     struct mg_http_message* msg) {
     bool handled = false;
+
     HttpHandlersList_it_t it;
     for(HttpHandlersList_it(it, handlers); !HttpHandlersList_end_p(it);
         HttpHandlersList_next(it)) {
@@ -141,7 +184,9 @@ bool http_handle_request(
             if(!furi_string_start_with(path, inst->handler->uri)) {
                 break;
             }
-            if(!mg_match(msg->method, mg_str(inst->handler->method), NULL)) {
+            if(method == HttpMethodUnknown || !(method & inst->handler->method)) {
+                http_reply_405_method_not_allowed(conn, inst->handler->method);
+                handled = true;
                 break;
             }
             if(inst->handler->type == HttpHandlerCustom) {
@@ -151,7 +196,7 @@ bool http_handle_request(
                 if(furi_string_start_with(path_remain, "/")) {
                     furi_string_right(path_remain, 1);
                 }
-                handled = inst->handler->on_request(path_remain, conn, msg, inst->context);
+                handled = inst->handler->on_request(path_remain, method, conn, msg, inst->context);
                 furi_string_free(path_remain);
             } else if(inst->handler->type == HttpHandlerFile) {
                 struct mg_http_serve_opts opts = {
@@ -185,10 +230,12 @@ bool http_handle_request(
 
 bool http_handle_headers(
     FuriString* path,
+    HttpMethod method,
     HttpHandlersList_t handlers,
     struct mg_connection* conn,
     struct mg_http_message* msg) {
     bool handled = false;
+
     HttpHandlersList_it_t it;
     for(HttpHandlersList_it(it, handlers); !HttpHandlersList_end_p(it);
         HttpHandlersList_next(it)) {
@@ -197,21 +244,27 @@ bool http_handle_headers(
             if(inst->handler->type != HttpHandlerCustom) {
                 break;
             }
+            if(inst->handler->on_headers == NULL) {
+                break;
+            }
             if(!furi_string_start_with(path, inst->handler->uri)) {
                 break;
             }
-            if(!mg_match(msg->method, mg_str(inst->handler->method), NULL)) {
+            if(method == HttpMethodUnknown || !(method & inst->handler->method)) {
+                http_reply_405_method_not_allowed(conn, inst->handler->method);
+                MG_CLOSE_AFTER_HEADERS(conn, msg);
+                handled = true;
                 break;
             }
-            if(inst->handler->on_headers) {
-                FuriString* path_remain = furi_string_alloc_set(path);
-                furi_string_right(path_remain, strlen(inst->handler->uri));
-                if(furi_string_start_with(path_remain, "/")) {
-                    furi_string_right(path_remain, 1);
-                }
-                handled = inst->handler->on_headers(path_remain, conn, msg, inst->context);
-                furi_string_free(path_remain);
+
+            FuriString* path_remain = furi_string_alloc_set(path);
+            furi_string_right(path_remain, strlen(inst->handler->uri));
+            if(furi_string_start_with(path_remain, "/")) {
+                furi_string_right(path_remain, 1);
             }
+            handled = inst->handler->on_headers(path_remain, method, conn, msg, inst->context);
+            furi_string_free(path_remain);
+
         } while(0);
         if(handled) break;
     }
@@ -223,9 +276,6 @@ int32_t web_srv_start(void* p) {
 
     Network* network = furi_record_open(RECORD_NETWORK);
     network_init_current_thread(network);
-
-    // mg_log_set(MG_LL_VERBOSE);
-    mg_log_set(MG_LL_INFO);
 
     mg_mgr_init(&srv.mgr); // Initialise event manager
     mg_wakeup_init(&srv.mgr);
@@ -257,4 +307,10 @@ int32_t web_srv_start(void* p) {
 
 struct mg_mgr* web_srv_get_mgr(void) {
     return (&srv.mgr);
+}
+
+void web_server_get_api_version(FuriString* version) {
+    furi_assert(version);
+    const uint8_t api_ver[] = API_VERSION;
+    furi_string_printf(version, "%u.%u.%u", api_ver[0], api_ver[1], api_ver[2]);
 }

@@ -44,8 +44,6 @@
 #define MG_REPLY_FORBIDDEN(conn)       MG_REPLY_ERROR(conn, 403, "Forbidden")
 #define MG_REPLY_INVALID_VERSION(conn) MG_REPLY_ERROR(conn, 405, "Incompatible API version")
 
-#define MG_REPLY_METHOD_NOT_ALLOWED(conn, ...) \
-    MG_REPLY_ERROR(conn, 405, M_IF_EMPTY(__VA_ARGS__)("Method Not Allowed", (__VA_ARGS__)))
 #define MG_REPLY_PAYLOAD_TOO_LARGE(conn, ...) \
     MG_REPLY_ERROR(conn, 413, M_IF_EMPTY(__VA_ARGS__)("Payload Too Large", (__VA_ARGS__)))
 
@@ -53,11 +51,37 @@
 #define MG_REPLY_INTERNAL_ERROR(conn, ...) \
     _MG_REPLY_INTERNAL_ERROR(conn, M_IF_EMPTY(__VA_ARGS__)("failed", (__VA_ARGS__)))
 
+#define MG_CLOSE_AFTER_HEADERS(conn, msg)        \
+    mg_iobuf_del(&conn->recv, 0, msg->head.len); \
+    conn->pfn = NULL;                            \
+    conn->is_draining = 1;
+
 #define IS_HTTP_ENDPOINT(path) furi_string_empty(path)
+
+#define IS_WEBSOCKET_UPGRADE(msg) mg_http_get_header(msg, "Sec-WebSocket-Key") != NULL
+
+// HTTP method bitmask, can be combined to support multiple methods for the handler
+typedef enum {
+    HttpMethodUnknown = 0, // Special value, should not be used
+
+    HttpMethodGet = (1 << 0),
+    HttpMethodHead = (1 << 1),
+    HttpMethodPost = (1 << 2),
+    HttpMethodPut = (1 << 3),
+    HttpMethodDelete = (1 << 4),
+    HttpMethodConnect = (1 << 5),
+    HttpMethodOptions = (1 << 6),
+    HttpMethodTrace = (1 << 7),
+    HttpMethodPatch = (1 << 8),
+
+    HttpMethodWebSocket = (1 << 9), // WebSocket upgrade request
+
+    HttpMethodAny = 0xFFFFFFFF,
+} HttpMethod;
 
 typedef struct {
     char* uri;
-    char* method;
+    HttpMethod method;
     enum {
         HttpHandlerCustom,
         HttpHandlerFile,
@@ -75,11 +99,13 @@ typedef struct {
             void (*ctx_free)(void*);
             bool (*on_request)(
                 FuriString* path,
+                HttpMethod method,
                 struct mg_connection* conn,
                 struct mg_http_message* msg,
                 void* ctx);
             bool (*on_headers)(
                 FuriString* path,
+                HttpMethod method,
                 struct mg_connection* conn,
                 struct mg_http_message* msg,
                 void* ctx);
@@ -114,12 +140,14 @@ static_assert(sizeof(ConnectionContext) == MG_DATA_SIZE);
 
 bool http_handle_request(
     FuriString* path,
+    HttpMethod method,
     HttpHandlersList_t handlers,
     struct mg_connection* conn,
     struct mg_http_message* msg);
 
 bool http_handle_headers(
     FuriString* path,
+    HttpMethod method,
     HttpHandlersList_t handlers,
     struct mg_connection* conn,
     struct mg_http_message* msg);
@@ -129,5 +157,7 @@ void http_handler_add(HttpHandlersList_t list, const HttpHandler* handler);
 void http_handler_remove(HttpHandlersList_t list, const HttpHandler* handler);
 
 void http_handler_remove_all(HttpHandlersList_t list);
+
+void http_reply_405_method_not_allowed(struct mg_connection* conn, HttpMethod allowed_methods);
 
 struct mg_mgr* web_srv_get_mgr(void);
