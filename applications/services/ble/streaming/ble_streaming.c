@@ -9,6 +9,19 @@
 #define BLE_STREAM_RATE_LIMITER_PERIOD_MS    (1000)
 #define BLE_STREAM_RATE_LIMITER_MAX_PACK_CNT (1)
 
+typedef struct FURI_PACKED {
+    uint16_t num;
+    uint16_t count;
+    uint16_t size;
+} BleStreamingDataHeader;
+
+#define BLE_STREAMING_MAX_DATA_SIZE (MAX_TX_CHUNK_SIZE - sizeof(BleStreamingDataHeader))
+
+typedef struct FURI_PACKED {
+    BleStreamingDataHeader header;
+    uint8_t data[BLE_STREAMING_MAX_DATA_SIZE];
+} BleStreamingData;
+
 typedef enum {
     BleStreamingEventFramePending = (1 << 0),
     BleStreamingEventFrameExit = (1 << 1)
@@ -16,6 +29,7 @@ typedef enum {
 
 struct BleStreaming {
     bool run;
+    BleStreamingData send_buf;
     FuriMutex* lock;
     FuriSemaphore* wait_tx;
     StatePublisherTransportHandle handle;
