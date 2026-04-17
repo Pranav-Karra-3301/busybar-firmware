@@ -25,6 +25,7 @@ export const useDeviceStore = defineStore('device', () => {
       return;
     }
     checkingConnection.value = true;
+    const wasConnected = isConnected.value;
     try {
       await apiRequest('/api/name', { timeout: 3000 });
       if (!isConnected.value) {
@@ -34,7 +35,7 @@ export const useDeviceStore = defineStore('device', () => {
         }
       }
       isConnected.value = true;
-
+      console.debug('Device is connected');
       toast.remove('device-disconnected');
     } catch (error) {
       // if the request was aborted/cancelled, don't treat it as disconnection
@@ -48,7 +49,11 @@ export const useDeviceStore = defineStore('device', () => {
         }
       }
 
+      if (wasConnected) {
+        window.dispatchEvent(new Event('device-disconnected'));
+      }
       isConnected.value = false;
+      console.debug('Device is disconnected');
       if (
         firmwareStore.autoUpdate.stage !== UpdateStage.UPDATING
         && !(firmwareStore.autoUpdate.stage === UpdateStage.SUCCESS && wifiStore.wifi?.state !== 'connected')
@@ -108,16 +113,19 @@ export const useDeviceStore = defineStore('device', () => {
 
   // Connection type
   const connectionType = ref<'usb' | 'wifi'>('wifi');
+  interface TransportResponse {
+    type: 'usb' | 'wifi' | string;
+  }
   async function detectConnectionType () {
-    try {
-      await $fetch('/api/name', {
-        baseURL: useRuntimeConfig().public.barUrl
+    await apiRequest<TransportResponse>('/api/transport', { timeout: 3000 })
+      .then(response => {
+        connectionType.value = response.type === 'usb' ? 'usb' : 'wifi';
+        console.debug('Detected connection type:', connectionType.value);
+      })
+      .catch(async error => {
+        await handleHTTPError(error, 'Couldn\'t get connection type', true);
+        return connectionType.value;
       });
-      connectionType.value = 'usb';
-    } catch {
-      connectionType.value = 'wifi';
-    }
-    return connectionType.value;
   }
 
   // API version
@@ -235,6 +243,7 @@ export const useDeviceStore = defineStore('device', () => {
     checkConnection,
     connectionType,
     detectConnectionType,
+    refreshInterval,
     setRefreshInterval,
     clearRefreshInterval,
 

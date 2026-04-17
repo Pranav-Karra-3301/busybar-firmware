@@ -1,6 +1,7 @@
 Import("env")
 
 for libname in [
+    "stb",
     "internal_assets",
     "drivers",
     "tinyusb",
@@ -28,9 +29,11 @@ for libname in [
     "ext_applications",
     "firmware_applications_u5",
     "settings_helpers",
+    "setting_provider",
     "anim_file",
     "zlib",
     "utz",
+    "proto",
     ## SI917
     "sl_glue",
     "simplicity_sdk",

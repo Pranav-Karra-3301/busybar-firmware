@@ -6,6 +6,7 @@
 
 void furi_hal_init_early(void) {
     furi_hal_cortex_init_early();
+    furi_hal_mpu_init_early();
     furi_hal_clock_init_early();
     furi_hal_bus_init_early();
     furi_hal_dma_init_early();
@@ -28,12 +29,11 @@ void furi_hal_deinit_early(void) {
 }
 
 void furi_hal_init(void) {
-    furi_hal_mpu_init();
     furi_hal_clock_init();
+    furi_hal_serial_control_init();
     furi_hal_nvm_init();
     furi_hal_sdmmc_init(false);
     furi_hal_random_init();
-    furi_hal_serial_control_init();
     furi_hal_rtc_init();
     furi_hal_interrupt_init();
     furi_hal_flash_init();

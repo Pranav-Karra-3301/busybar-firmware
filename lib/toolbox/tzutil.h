@@ -8,6 +8,8 @@
 #include <utz/utz.h>
 #include <datetime/datetime.h>
 
+#define TZUTIL_MAX_ABBR_LEN 7
+
 typedef struct {
     const char* name;
     const char* abbr_formatter;
@@ -28,3 +30,10 @@ typedef struct {
 TzutilTzInfoList tzutil_compile_zone_list(const DateTime* dt);
 
 void tzutil_info_list_free(const TzutilTzInfoList* list);
+
+bool tzutil_get_info_by_name(const char* name, const DateTime* dt, TzutilTzInfo* out);
+
+/**
+ * Get timezone abbreviation.
+ */
+void tzutil_get_abbr(const TzutilTzInfo* info, char* buf, size_t buf_size);

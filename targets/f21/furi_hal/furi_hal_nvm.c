@@ -29,8 +29,13 @@ _Static_assert(FuriHalNvmFlagCount <= 32, "Too many NVM flags defined!");
 
 static volatile NvmData* nvm_storage = (NvmData*)(&__bkp_start__);
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
+static volatile bool nvm_was_reset;
+
+static bool furi_hal_nvm_is_valid(void) {
+    const volatile NvmHeader* header = &nvm_storage->header;
+    return (header->magic == NVM_MAGIC) && (header->version == NVM_VERSION);
+}
+
 void furi_hal_nvm_reset(void) {
     memset((void*)nvm_storage, 0, sizeof(NvmData));
 
@@ -41,8 +46,9 @@ void furi_hal_nvm_reset(void) {
     // Clear flags and boot mode
     nvm_storage->flags = 0;
     nvm_storage->boot_mode = FuriHalNvmBootModeNormal;
+
+    nvm_was_reset = true;
 }
-#pragma GCC pop_options
 
 void furi_hal_nvm_set_flag(FuriHalNvmFlag flag) {
     nvm_storage->flags |= (1 << flag);
@@ -68,12 +74,16 @@ void furi_hal_nvm_set_boot_mode(FuriHalNvmBootMode mode) {
 
 void furi_hal_nvm_init_early(void) {
     furi_hal_bus_enable(FuriHalBusPWR);
-    // Start 32KHz xtal oscillator
+
+    LL_PWR_EnableBkUpRegulator();
+    while(!LL_PWR_IsEnabledBkUpRegulator()) {
+    }
+
     LL_PWR_EnableBkUpAccess();
     while(LL_PWR_IsEnabledBkUpAccess() == 0U) {
     }
 
-    if(nvm_storage->header.magic != NVM_MAGIC || nvm_storage->header.version != NVM_VERSION) {
+    if(!furi_hal_nvm_is_valid()) {
         furi_hal_nvm_reset();
     }
 
@@ -87,6 +97,9 @@ void furi_hal_nvm_init_early(void) {
 }
 
 void furi_hal_nvm_init(void) {
+    if(nvm_was_reset) {
+        FURI_LOG_W(TAG, "Data was reset");
+    }
     FURI_LOG_I(TAG, "Init OK");
 }
 

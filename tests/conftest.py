@@ -20,9 +20,18 @@ from utils.device_flasher import DeviceFlasher
 
 # API client imports
 from clients.api import (
-    SystemAPI, WifiAPI, StorageAPI, AssetsAPI, AccountAPI,
-    BleAPI, SettingsAPI, InputAPI, StreamingAPI, UpdateAPI,
-    BusyAPI, MatterAPI
+    SystemAPI,
+    WifiAPI,
+    StorageAPI,
+    AssetsAPI,
+    AccountAPI,
+    BleAPI,
+    SettingsAPI,
+    InputAPI,
+    StreamingAPI,
+    UpdateAPI,
+    BusyAPI,
+    SmartHomeAPI,
 )
 from config.config import Config
 
@@ -113,7 +122,7 @@ def web_session() -> requests.Session:
     def logged_request(*args, **kwargs):
         # Set default timeout if not provided (prevent infinite hang)
         if "timeout" not in kwargs:
-            kwargs["timeout"] = 30
+            kwargs["timeout"] = 10
         start_time = time.time()
         response = original_request(*args, **kwargs)
         duration = time.time() - start_time
@@ -692,9 +701,9 @@ def busy_api(api_factory):
 
 
 @pytest.fixture
-def matter_api(api_factory):
-    """Matter API client fixture."""
-    return api_factory(MatterAPI)
+def smart_home_api(api_factory):
+    """Smart Home API client fixture."""
+    return api_factory(SmartHomeAPI)
 
 
 @pytest.fixture

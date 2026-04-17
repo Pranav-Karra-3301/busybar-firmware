@@ -2,12 +2,13 @@ openapi: 3.1.0
 info:
   title: BUSY Bar HTTP API
   description: HTTP API for BUSY Bar web server
-  version: 11.0.0
+  version: 18.3.0
   contact:
     name: tbd
 
 security:
   - ApiKeyAuth: []
+  - {}
 
 paths:
   /api/version:
@@ -24,6 +25,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VersionInfo"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/transport:
+    get:
+      tags:
+        - System
+      summary: Get device network connection info
+      description: Retrieves device transport type (usb/wifi)
+      operationId: getTransport
+      responses:
+        "200":
+          description: Information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkInterfaceInfo"
         "500":
           description: Internal server error
           content:
@@ -62,11 +84,11 @@ paths:
           example: "key"
         - name: key
           in: query
-          required: true
+          required: false
           schema:
             type: string
             pattern: "^[0-9]+$"
-          description: Access key (4-10 digits length)
+          description: Access key (4-10 digits length). Required when mode is "key".
           example: "12345678"
       responses:
         "200":
@@ -363,7 +385,7 @@ paths:
       description: Uploads a file to a specific app's assets directory
       operationId: uploadAssetWithAppId
       parameters:
-        - name: app_id
+        - name: application_name
           in: query
           required: true
           schema:
@@ -414,7 +436,7 @@ paths:
       description: Deletes all assets for a specific app ID
       operationId: deleteAppAssets
       parameters:
-        - name: app_id
+        - name: application_name
           in: query
           required: true
           schema:
@@ -709,10 +731,10 @@ paths:
       tags:
         - Assets
       summary: Clear display
-      description: Deletes display elements drawn by the Canvas application. If app_id is specified, only elements for that app are removed.
+      description: Deletes display elements drawn by the Canvas application. If application_name is specified, only elements for that app are removed.
       operationId: clearDisplay
       parameters:
-        - name: app_id
+        - name: application_name
           in: query
           required: false
           schema:
@@ -781,7 +803,7 @@ paths:
         Supported formats include .snd files.
       operationId: playAudio
       parameters:
-        - name: app_id
+        - name: application_name
           in: query
           required: true
           schema:
@@ -864,7 +886,15 @@ paths:
           schema:
             type: number
           description: Audio volume (0-100)
-          example: "50"
+          example: 50
+        - name: silent
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+          description: Set volume silently (0 - play volume change sound(default), 1 - do not play sound)
+          example: 1
       responses:
         "200":
           description: Volume set successfully
@@ -880,28 +910,6 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /api/input:
-    get:
-      tags:
-        - Input
-
-      summary: Input events streaming
-      description: Start WebSocket session for input events streaming
-      operationId: connectInputWebSocket
-      responses:
-        "101":
-          description: WebSocket connection established
-        "400":
-          description: WebSocket upgrade failed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "426":
-          description: Upgrade required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
     post:
       tags:
         - Input
@@ -1048,6 +1056,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/status/ws:
+    get:
+      tags:
+        - Streaming
+      summary: Device status streaming WebSocket endpoint
+      description: |
+        WebSocket connection for real-time device status and screen streaming.
+        Upgrade from HTTP to WebSocket protocol is required.
+        After connection, client must enable streaming by sending JSON: {"enable": true}
+      operationId: connectWebSocket
+      responses:
+        "101":
+          description: WebSocket connection established
+        "400":
+          description: Exceed max clients count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/wifi/status:
     get:
       tags:
@@ -1138,8 +1166,9 @@ paths:
           in: query
           required: true
           schema:
-            type: number
-            pattern: "^[0-1]{1,1}$"
+            type: integer
+            minimum: 0
+            maximum: 1
           description: Type of the display Front = 0, Back = 1
           example: 0
       responses:
@@ -1151,27 +1180,6 @@ paths:
                 $ref: "#/components/schemas/ScreenResponse"
         "400":
           description: Wrong display
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /api/screen/ws:
-    get:
-      tags:
-        - Streaming
-      summary: Screen streaming WebSocket endpoint
-      description: |
-        WebSocket connection for real-time screen streaming.
-        Upgrade from HTTP to WebSocket protocol is required.
-        After connection, client must send desired display ID
-        as JSON {"display": 0}
-      operationId: connectWebSocket
-      responses:
-        "101":
-          description: WebSocket connection established
-        "400":
-          description: Exceed max clients count
           content:
             application/json:
               schema:
@@ -1191,6 +1199,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        "503":
+          description: Unable to start BLE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/ble/disable:
     post:
@@ -1206,6 +1220,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        "503":
+          description: Unable to stop BLE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/ble/pairing:
     delete:
@@ -1240,6 +1260,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BleStatusResponse"
+        "503":
+          description: Failed to get BLE status, because of an error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/time:
     get:
@@ -1255,12 +1281,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TimestampInfo"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
 
   /api/account:
     delete:
@@ -1319,14 +1339,14 @@ paths:
         - Account
       summary: Get MQTT status info
       description: Retrieves MQTT status
-      operationId: getAccountState
+      operationId: getAccountStatus
       responses:
         "200":
           description: Data retrieved successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AccountState"
+                $ref: "#/components/schemas/AccountStatus"
 
   /api/account/profile:
     get:
@@ -1582,97 +1602,97 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/matter/commissioning:
+  /api/smart_home/pairing:
     get:
       tags:
-        - Matter
+        - Smart home
       summary: Smart home commissioning status
-      operationId: getMatterCommissioningStatus
+      operationId: getSmartHomeCommissioningStatus
       parameters: []
       responses:
         "200":
-          description: Successfully got Matter commissioning status
+          description: Successfully got smart home commissioning status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MatterCommissionedFabrics"
+                $ref: "#/components/schemas/SmartHomePairingInfo"
     post:
       tags:
-        - Matter
+        - Smart home
       summary: Link device to a smart home
-      operationId: startMatterCommissioning
+      operationId: startSmartHomePairing
       parameters: []
       responses:
         "200":
-          description: Successfully started Matter commissioning
+          description: Successfully started smart home pairing
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MatterCommissioningPayload"
+                $ref: "#/components/schemas/SmartHomePairingPayload"
         "503":
-          description: Internal Matter service is broken
+          description: Internal smart home service is broken
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
     delete:
       tags:
-        - Matter
+        - Smart home
       summary: Erase all smart home links
       parameters: []
       responses:
         "200":
-          description: Successfully erased all Matter commissioning info, device restart is needed
+          description: Successfully erased all smart home pairing info, device restart is needed
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
         "503":
-          description: Internal Matter service is broken
+          description: Internal smart home service is broken
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/matter/endpoint/1:
+  /api/smart_home/switch:
     get:
       tags:
-        - Matter
-      summary: Get Matter endpoint 1 state
+        - Smart home
+      summary: Get state of emulated smart home switch
       parameters: []
       responses:
         "200":
-          description: Successfully got Matter endpoint 1 state
+          description: Successfully got state of emulated smart home switch
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MatterEndpointState"
+                $ref: "#/components/schemas/SmartHomeSwitchState"
         "503":
-          description: Internal Matter service is broken
+          description: Internal smart home service is broken
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
     post:
       tags:
-        - Matter
-      summary: Set Matter endpoint 1 state
+        - Smart home
+      summary: Set state of emulated smart home switch
       parameters: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MatterEndpointState"
+              $ref: "#/components/schemas/SmartHomeSwitchState"
       responses:
         "200":
-          description: Successfully set Matter endpoint 1 state
+          description: Successfully set state of emulated smart home switch
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
         "503":
-          description: Internal Matter service is broken
+          description: Internal smart home service is broken
           content:
             application/json:
               schema:
@@ -1722,6 +1742,19 @@ components:
         - api_semver
       example:
         api_semver: "0.0.0"
+
+    NetworkInterfaceInfo:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Connection type
+          enum: ["usb", "wifi"]
+          example: "usb"
+      required:
+        - type
+      example:
+        type: "usb"
 
     UpdateStatus:
       type: object
@@ -1952,7 +1985,7 @@ components:
     DisplayElements:
       type: object
       properties:
-        app_id:
+        application_name:
           type: string
           pattern: "^[a-zA-Z0-9._-]+$"
           description: Application ID for organizing assets
@@ -1965,7 +1998,7 @@ components:
             Draw priority in the range [1, 100] inclusive. A draw request is
             accepted when its priority is greater than or equal to (>=) the
             priority of the currently running system app. Equal-priority requests
-            from a different app_id override whatever is on screen.
+            from a different application_name override whatever is on screen.
             System app priority levels: stub/poweroff apps = 0 (always
             preemptable), any standard built-in app = 10, active BUSY/CUSTOM
             work session = 90. The draw API only accepts values 1–100; 0 is
@@ -1978,14 +2011,14 @@ components:
             oneOf:
               - $ref: "#/components/schemas/TextElement"
               - $ref: "#/components/schemas/ImageElement"
-              - $ref: "#/components/schemas/AnimElement"
+              - $ref: "#/components/schemas/AnimationElement"
               - $ref: "#/components/schemas/CountdownElement"
           description: Array of elements to display
       required:
-        - app_id
+        - application_name
         - elements
       example:
-        app_id: "my_app"
+        application_name: "my_app"
         elements:
           - id: "0"
             timeout: 10
@@ -2035,7 +2068,7 @@ components:
           description: The element will be hidden when system time reaches the specified Unix timestamp (in seconds). Mutually exclusive with timeout.
         type:
           type: string
-          enum: [text, image, anim, countdown]
+          enum: [text, image, animation, countdown]
           description: Type of display element
         x:
           type: integer
@@ -2068,7 +2101,7 @@ components:
         mapping:
           text: "#/components/schemas/TextElement"
           image: "#/components/schemas/ImageElement"
-          anim: "#/components/schemas/AnimElement"
+          animation: "#/components/schemas/AnimationElement"
           countdown: "#/components/schemas/CountdownElement"
 
     TextElement:
@@ -2117,14 +2150,14 @@ components:
                   pattern: "^[a-zA-Z0-9._/-]+$"
                   description: Path to the image file in the app's assets
             - required:
-                - builtin_image
+                - stock_path
               properties:
-                builtin_image:
+                stock_path:
                   type: string
-                  pattern: "^[a-z_]+/[a-z0-9_]+$"
-                  description: Identifier of builtin image
+                  pattern: "shared/[a-z0-9_]+$"
+                  description: Stock image file name
 
-    AnimElement:
+    AnimationElement:
       allOf:
         - $ref: "#/components/schemas/DisplayElement"
         - type: object
@@ -2136,10 +2169,10 @@ components:
                       pattern: "^[a-zA-Z0-9._/-]+$"
                       description: Path to the animation file in the app's assets
                 - properties:
-                    builtin_anim:
+                    stock_path:
                       type: string
-                      pattern: "^[a-z_]+/[a-z0-9_]+$"
-                      description: Identifier of builtin animation
+                      pattern: "shared/[a-z0-9_]+$"
+                      description: Stock animation file name
             - properties:
                 loop:
                   type: boolean
@@ -2193,7 +2226,7 @@ components:
         volume:
           type: number
           description: Audio volume value (0-100)
-          example: "50"
+          example: 50
 
     TimestampInfo:
       type: object
@@ -2208,12 +2241,22 @@ components:
     TimezoneInfo:
       type: object
       properties:
-        timezone:
+        name:
           type: string
-          description: Timezone name
-          example: "Berlin"
+          description: "Time zone name"
+          example: "Bangalore"
+        offset:
+          type: string
+          description: "Time zone offset from UTC"
+          example: "+05:30"
+        abbr:
+          type: string
+          description: "Time zone abbreviation"
+          example: "IST"
       required:
-        - timezone
+        - name
+        - offset
+        - abbr
 
     Status:
       type: object
@@ -2312,10 +2355,15 @@ components:
           type: integer
           description: System boot timestamp
           example: 1767225600
+        auto_update_enabled:
+          type: boolean
+          description: Is auto-update enabled
+          example: true
       required:
         - api_semver
         - uptime
         - boot_time
+        - auto_update_enabled
 
     StatusPower:
       type: object
@@ -2351,7 +2399,7 @@ components:
     WifiSecurityMethod:
       type: string
       example: "WPA3"
-      enum: [Open, WPA, WPA2, WEP, WPA/WPA2, WPA3, WPA2/WPA3]
+      enum: [Open, WPA, WPA2, WEP, WPA/WPA2, WPA3, WPA2/WPA3, Unsupported]
 
     WifiIpMethod:
       type: string
@@ -2373,10 +2421,15 @@ components:
           $ref: "#/components/schemas/WifiSecurityMethod"
         rssi:
           type: integer
-          example: "58"
+          example: 58
 
     StatusResponse:
       type: object
+      description: |
+        Wi-Fi status. Only `state` is always present.
+        Fields `ssid`, `bssid`, `channel`, `rssi`, `security`, and `ip_config` are only included when state is "connected".
+      required:
+        - state
       properties:
         state:
           type: string
@@ -2390,21 +2443,27 @@ components:
             - reconnecting
         ssid:
           type: string
+          description: Only present when connected
           example: Your_WIFI_SSID
         bssid:
           type: string
+          description: Only present when connected
           pattern: "^([A-F0-9]:){5}[A-F0-9]$"
           example: "EC:5A:00:0B:55:1D"
         channel:
           type: integer
-          example: "3"
+          description: Only present when connected
+          example: 3
         rssi:
           type: integer
-          example: "-43"
+          description: Only present when connected
+          example: -43
         security:
+          description: Only present when connected
           $ref: "#/components/schemas/WifiSecurityMethod"
         ip_config:
           type: object
+          description: Only present when connected
           properties:
             ip_method:
               $ref: "#/components/schemas/WifiIpMethod"
@@ -2478,10 +2537,10 @@ components:
           type: string
           example: "12345678-9abc-def0-1234-56789abcdef0"
 
-    AccountState:
+    AccountStatus:
       type: object
       properties:
-        state:
+        status:
           type: string
           example: "connected"
           enum: ["error", "disconnected", "connected"]
@@ -2489,13 +2548,16 @@ components:
     AccountProfile:
       type: object
       properties:
-        state:
+        profile:
           type: string
           example: "dev"
           enum: ["dev", "prod", "local", "custom"]
         custom_url:
           type: string
+          description: Only present when profile is "custom"
           example: "mqtts://mqtt.example.com:8883"
+      required:
+        - profile
 
     AccountLink:
       type: object
@@ -2525,6 +2587,7 @@ components:
           example: connected
         address:
           type: string
+          description: Remote device address. Only present when status is "connected".
           example: 50:DA:D6:FE:DD:A9
       required:
         - status
@@ -2533,19 +2596,23 @@ components:
       type: object
       properties:
         snapshot:
-          oneOf:
-            - $ref: "#/components/schemas/BusySnapshotNotStarted"
-            - $ref: "#/components/schemas/BusySnapshotInfinite"
-            - $ref: "#/components/schemas/BusySnapshotSimple"
-            - $ref: "#/components/schemas/BusySnapshotInterval"
-        busy_bar_settings:
-          $ref: "#/components/schemas/BusyBarSettings"
+          allOf:
+            - oneOf:
+                - $ref: "#/components/schemas/BusySnapshotNotStarted"
+                - $ref: "#/components/schemas/BusySnapshotInfinite"
+                - $ref: "#/components/schemas/BusySnapshotSimple"
+                - $ref: "#/components/schemas/BusySnapshotInterval"
+            - type: object
+              properties:
+                busy_bar_settings:
+                  $ref: "#/components/schemas/BusyBarSettings"
+              required:
+                - busy_bar_settings
         snapshot_timestamp_ms:
           type: integer
           example: 1761582532251
       required:
         - snapshot
-        - busy_bar_settings
         - snapshot_timestamp_ms
 
     BusySnapshotNotStarted:
@@ -2738,29 +2805,16 @@ components:
         list:
           type: array
           items:
-            type: object
-            properties:
-              name:
-                type: string
-                description: "Time zone name"
-                example: "Bangalore"
-              offset:
-                type: string
-                description: "Time zone offset from UTC"
-                example: "+05:30"
-              abbr:
-                type: string
-                description: "Time zone abbreviation"
-                example: "IST"
+            $ref: "#/components/schemas/TimezoneInfo"
 
-    MatterCommissionedFabrics:
+    SmartHomePairingInfo:
       type: object
       properties:
         fabric_count:
           type: integer
           example: 1
-          description: 'Number of Matter smart homes ("fabrics") that this device is linked with ("commissioned into")'
-        latest_commissioning_status:
+          description: 'Number of smart homes (Matter "fabrics") that this device is paired with ("commissioned into")'
+        latest_pairing_status:
           type: object
           properties:
             value:
@@ -2770,39 +2824,34 @@ components:
                 - started
                 - completed_successfully
                 - failed
-              description: 'Latest state of Matter smart home linking ("commissioning") process. Note: "never_started" only refers to the current power cycle of the device; this status is not recorded across reboots.'
+              description: 'Latest state of smart home pairing (Matter "commissioning") process. Note: "never_started" only refers to the current power cycle of the device; this status is not recorded across reboots.'
               example: "completed_successfully"
             timestamp:
-              type: string
-              description: "UTC Unix millisecond timestamp of latest state update. Note: it's a number in a string."
-              example: "1769436711000"
-    MatterCommissioningPayload:
+              type: integer
+              description: "UTC Unix second timestamp of latest state update. Only present when a status update has occurred."
+              example: 1769436711
+    SmartHomePairingPayload:
       type: object
+      description: Set of information for pairing with a Matter smart home
       properties:
         available_until:
           type: string
-          description: 'Linking with ("commissioning into") a Matter smart home using the provided payload is possible before this UTC Unix millisecond timestamp. Note: it''s a number in a string.'
+          description: 'Pairing with ("commissioning into") a Matter smart home using the provided payload is possible before this UTC Unix millisecond timestamp. Note: it''s a number in a string.'
           example: "1769437579000"
         qr_code:
           type: string
-          description: 'Payload of the QR code for linking with ("commissioning into") a Matter smart home'
+          description: 'Payload of the QR code for pairing with ("commissioning into") a smart home'
           example: "MT:YNDA0-O913..VV7I000"
         manual_code:
           type: string
-          description: 'Manual code for linking with ("commissioning into") a Matter smart home'
+          description: 'Manual code for pairing with ("commissioning into") a smart home'
           example: "1155-360-0377"
-    MatterEndpointState:
+    SmartHomeSwitchState:
       type: object
       properties:
-        type:
-          type: string
-          enum:
-            - switch
-          description: 'Type of device emulated by a Matter endpoint. Currently only "switch" is implemented.'
-          example: switch
         state:
           type: boolean
-          description: 'State of device emulated by a Matter endpoint. Boolean for "switch" device type.'
+          description: "State of emulated switch."
           example: false
         startup:
           type: string
@@ -2811,7 +2860,7 @@ components:
             - "on"
             - toggle
             - last
-          description: 'For the "switch" device type, specifies the value on startup. Never sent by the server, but can be specified by the client.'
+          description: "State of emulated switch on startup. Never sent by the server, but can be specified by the client."
 
 tags:
   - name: System

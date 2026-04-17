@@ -33,9 +33,11 @@ export const useFirmwareStore = defineStore('firmware', () => {
     modals: {
       changelog: false,
       batteryLow: false,
-      updating: false
+      updating: false,
+      success: false
     },
     changelog: null as string | null,
+    isChangelogLoading: false,
     stage: UpdateStage.IDLE as UpdateStage,
     progress: 0,
     progressPollingInterval: null as NodeJS.Timeout | null,
@@ -172,6 +174,10 @@ export const useFirmwareStore = defineStore('firmware', () => {
         return fetchAutoUpdateStatus();
       })
       .catch(async error => {
+        if (error.status === 409) {
+          console.debug('Auto-update check already in progress');
+          return;
+        }
         autoUpdate.value.isChecking = false;
         await handleHTTPError(error, 'Update check request failed');
       });
@@ -190,6 +196,7 @@ export const useFirmwareStore = defineStore('firmware', () => {
   }
 
   async function fetchAutoUpdateChangelog (version: string) {
+    autoUpdate.value.isChangelogLoading = true;
     await deviceStore.busyBar.UpdateChangelogGet({ version })
       .then(response => {
         autoUpdate.value.changelog = response.changelog || null;
@@ -197,6 +204,9 @@ export const useFirmwareStore = defineStore('firmware', () => {
       .catch(async error => {
         await handleHTTPError(error, 'Couldn\'t fetch update changelog');
         return null;
+      })
+      .finally(() => {
+        autoUpdate.value.isChangelogLoading = false;
       });
   }
 
@@ -411,6 +421,7 @@ export const useFirmwareStore = defineStore('firmware', () => {
     setAutoUpdateSelfCheck,
 
     autoUpdate,
+
     resetAutoUpdateState,
     fetchAutoUpdateStatus,
     requestAutoUpdateCheck,

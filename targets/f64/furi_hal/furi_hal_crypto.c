@@ -151,15 +151,15 @@ struct FuriHalCryptoEcdsa {
 FuriHalCryptoEcdsa* furi_hal_crypto_ecdsa_sign_init(
     FuriHalCryptoEcdsaMode mode,
     uint8_t* key,
-    uint32_t key_mode,
+    uint32_t key_size,
     FuriHalCryptoWrappingMode wrapping_mode) {
     FuriHalCryptoEcdsa* handle = malloc(sizeof(FuriHalCryptoEcdsa));
     furi_check(handle != NULL, "Failed to allocate memory for ECDSA handle");
 
     handle->config.ecdsa_operation = SL_SI91X_ECDSA_GENERATE_SIGN;
-    if(key_mode == FURI_HAL_CRYPTO_ECDSA_PRIV_KEY_SIZE_224) {
+    if(key_size == FURI_HAL_CRYPTO_ECDSA_PRIV_KEY_SIZE_224) {
         handle->config.curve_id = SL_SI91X_ECC_SECP224R1;
-    } else if(key_mode == FURI_HAL_CRYPTO_ECDSA_PRIV_KEY_SIZE_256) {
+    } else if(key_size == FURI_HAL_CRYPTO_ECDSA_PRIV_KEY_SIZE_256) {
         handle->config.curve_id = SL_SI91X_ECC_SECP256R1;
     } else {
         furi_crash("Invalid key size");
@@ -168,7 +168,7 @@ FuriHalCryptoEcdsa* furi_hal_crypto_ecdsa_sign_init(
     handle->config.msg = NULL;
     handle->config.msg_length = 0;
     handle->config.private_key = key;
-    handle->config.private_key_length = key_mode;
+    handle->config.private_key_length = key_size;
     handle->config.public_key = NULL;
     handle->config.public_key_length = 0;
     handle->config.signature_length = 0;
@@ -193,14 +193,14 @@ FuriHalCryptoEcdsa* furi_hal_crypto_ecdsa_sign_init(
 FuriHalCryptoEcdsa* furi_hal_crypto_ecdsa_verify_init(
     FuriHalCryptoEcdsaMode mode,
     uint8_t* key,
-    uint32_t key_mode) {
+    uint32_t key_size) {
     FuriHalCryptoEcdsa* handle = malloc(sizeof(FuriHalCryptoEcdsa));
     furi_check(handle != NULL, "Failed to allocate memory for ECDSA handle");
 
     handle->config.ecdsa_operation = SL_SI91X_ECDSA_VERIFY_SIGN;
-    if(key_mode == FURI_HAL_CRYPTO_ECDSA_PUB_KEY_SIZE_224) {
+    if(key_size == FURI_HAL_CRYPTO_ECDSA_PUB_KEY_SIZE_224) {
         handle->config.curve_id = SL_SI91X_ECC_SECP224R1;
-    } else if(key_mode == FURI_HAL_CRYPTO_ECDSA_PUB_KEY_SIZE_256) {
+    } else if(key_size == FURI_HAL_CRYPTO_ECDSA_PUB_KEY_SIZE_256) {
         handle->config.curve_id = SL_SI91X_ECC_SECP256R1;
     } else {
         furi_crash("Invalid key size");
@@ -211,7 +211,7 @@ FuriHalCryptoEcdsa* furi_hal_crypto_ecdsa_verify_init(
     handle->config.private_key = NULL;
     handle->config.private_key_length = 0;
     handle->config.public_key = key;
-    handle->config.public_key_length = key_mode;
+    handle->config.public_key_length = key_size;
     handle->config.signature_length = 0;
     handle->config.key_config.b0.key_type = SL_SI91X_TRANSPARENT_KEY;
     handle->config.key_config.b0.key_size = 0;
@@ -239,7 +239,7 @@ bool furi_hal_crypto_ecdsa_sign(
     handle->config.signature_length = *output_length;
     sl_status_t status = sl_si91x_ecdsa(&handle->config, output);
     if(status != SL_STATUS_OK) {
-        FURI_LOG_E(TAG, "Failed to sign data");
+        FURI_LOG_E(TAG, "Failed to sign data, Error Code : 0x%08lX", status);
         return false;
     }
     *output_length = handle->config.signature_length;
@@ -335,7 +335,7 @@ bool furi_hal_crypto_hmac_digest(
 
     sl_status_t status = sl_si91x_hmac(&handle->config, output);
     if(status != SL_STATUS_OK) {
-        FURI_LOG_E(TAG, "Failed to compute HMAC");
+        FURI_LOG_E(TAG, "Failed to compute HMAC, , Error Code : 0x%08lX", status);
         return false;
     }
     return true;
