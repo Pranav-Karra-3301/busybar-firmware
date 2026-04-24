@@ -1,5 +1,7 @@
 #include "mqtt_i.h"
 
+#define MQTT_MAX_UNSENT_DATA_SIZE_BYTES (50 * 1024)
+
 static MqttSubscription* mqtt_subscription_alloc(void) {
     MqttSubscription* subscription = malloc(sizeof(MqttSubscription));
 
@@ -26,7 +28,7 @@ static bool mqtt_is_valid_scope_for_current_status(Mqtt* instance, MqttScope sco
     return is_valid;
 }
 
-static void mqtt_make_topic_path(
+void mqtt_make_topic_path(
     Mqtt* instance,
     MqttScope scope,
     const char* dir,
@@ -36,11 +38,11 @@ static void mqtt_make_topic_path(
     const char* id;
 
     if(scope == MqttScopeDevice) {
-        root = MQTT_DEVICE_ROOT_TOPIC;
+        root = MQTT_ROOT_TOPIC_DEVICE;
         id = furi_string_get_cstr(instance->device_serial);
 
     } else if(scope == MqttScopeSession) {
-        root = MQTT_SESSION_ROOT_TOPIC;
+        root = MQTT_ROOT_TOPIC_SESSION;
         id = instance->saved_state.session_id;
 
     } else {
@@ -116,6 +118,12 @@ bool mqtt_publish_internal(
     uint32_t props_count) {
     if(!mqtt_is_valid_scope_for_current_status(instance, scope)) {
         FURI_LOG_E(TAG, "Unable to publish: scope: %d, status: %d", scope, instance->status);
+        return false;
+    }
+
+    // Drop messages if we have huge backlog of unsent messages
+    if(instance->conn->send.size >= MQTT_MAX_UNSENT_DATA_SIZE_BYTES) {
+        FURI_LOG_W(TAG, "Dropping %u bytes from topic '%s'", data_size, topic);
         return false;
     }
 

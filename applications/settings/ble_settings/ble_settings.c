@@ -81,7 +81,7 @@ static BleSettings* ble_settings_alloc() {
 
         instance->back_nav_bar = nav_bar_alloc(flex_layout_get_base(instance->back_container));
         nav_bar_set_header_image(instance->back_nav_bar, SETTINGS_ICON_BACK);
-        nav_bar_push_location(instance->back_nav_bar, "Bluetooth");
+        nav_bar_push_location(instance->back_nav_bar, "BLUETOOTH");
         widget_set_height(nav_bar_get_base(instance->back_nav_bar), SETTINGS_NAV_BAR_HEIGHT);
         widget_set_padding(nav_bar_get_base(instance->back_nav_bar), 2, 2, 0, 0);
 
@@ -149,21 +149,21 @@ static void ble_settings_set_icon_by_status(
     } icon;
 
     if(status == BleServiceStatusReady) {
-        icon.front = "ble_front_gray_8x8.bin";
-        icon.back = "ble_back_11x11.bin";
+        icon.front = "ble_front_gray_8x8.image";
+        icon.back = "ble_back_11x11.image";
     } else if(status == BleServiceStatusAdvertising) {
-        icon.front = "ble_front_8x8.bin";
-        icon.back = "ble_back_11x11.bin";
+        icon.front = "ble_front_8x8.image";
+        icon.back = "ble_back_11x11.image";
     } else if(status == BleServiceStatusConnectable) {
-        icon.front = "ble_front_paired_8x8.bin";
-        icon.back = "ble_back_pairing_11x11.bin";
+        icon.front = "ble_front_paired_8x8.image";
+        icon.back = "ble_back_pairing_11x11.image";
     } else if(status == BleServiceStatusConnected) {
-        icon.front = "ble_front_checkmark_8x8.bin";
-        icon.back = "ble_back_paired_11x11.bin";
+        icon.front = "ble_front_checkmark_8x8.image";
+        icon.back = "ble_back_paired_11x11.image";
     } else {
         FURI_LOG_W(TAG, "Wrong state!");
-        icon.front = "ble_front_gray_8x8.bin";
-        icon.back = "ble_back_11x11.bin";
+        icon.front = "ble_front_gray_8x8.image";
+        icon.back = "ble_back_11x11.image";
     }
 
     furi_string_printf(descriptor->front_icon, IMG_PATH("%s"), icon.front);

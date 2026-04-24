@@ -1,9 +1,6 @@
 [submodule "lib/tinyusb"]
 	path = lib/tinyusb
 	url = https://github.com/hathach/tinyusb.git
-[submodule "lib/nema_gfx"]
-	path = lib/nema_gfx
-	url = https://github.com/flipperdevices/nema-gfx.git
 [submodule "lib/mongoose"]
 	path = lib/mongoose
 	url = https://github.com/cesanta/mongoose.git
@@ -62,3 +59,6 @@
 [submodule "lib/stb/stb_repo"]
 	path = lib/stb/stb_repo
 	url = https://github.com/nothings/stb
+[submodule "assets/proto"]
+	path = assets/proto
+	url = https://github.com/flipperdevices/bsb-protobuf.git

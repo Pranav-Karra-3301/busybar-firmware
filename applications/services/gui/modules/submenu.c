@@ -8,7 +8,7 @@
 #define MY_ITEM_CLASS   (&submenu_item_lvgl_class)
 #define MY_CURSOR_CLASS (&submenu_cursor_lvgl_class)
 
-#define SYM_ARROW_RIGHT ">"
+#define SYM_ARROW_RIGHT "▶" // U+25B6
 
 #define SCROLL_ANIM_DURATION_MS (0)
 
@@ -121,7 +121,8 @@ static void submenu_item_lvgl_constructor(const lv_obj_class_t* class_p, lv_obj_
     lv_label_set_text(instance->cursor, SYM_ARROW_RIGHT);
 
     instance->label = lv_label_create(obj);
-    lv_label_set_long_mode(instance->label, LV_LABEL_LONG_MODE_WRAP);
+    lv_label_set_long_mode(instance->label, LV_LABEL_LONG_MODE_CLIP);
+    lv_obj_set_flex_grow(instance->label, 1);
 }
 
 static void submenu_item_lvgl_event(const lv_obj_class_t* class_p, lv_event_t* event) {
