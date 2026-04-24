@@ -13,8 +13,8 @@
 #define SUPERVISOR_BATTERY_TIME_TO_DIE_S  30
 
 #define SUPERVISOR_REBOOT_GRACE_PERIOD_MS (30000)
-#define RESET_BUTTON_COMBO     ((1 << InputKeyBack) | (1 << InputKeyStart))
-#define RESET_COMBO_TIMEOUT_MS 1000
+#define RESET_BUTTON_COMBO                ((1 << InputKeyBack) | (1 << InputKeyStart))
+#define RESET_COMBO_TIMEOUT_MS            1000
 
 typedef struct Supervisor Supervisor;
 
