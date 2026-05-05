@@ -91,11 +91,6 @@ static void autoupdate_timer_callback(void* context) {
         return;
     }
 
-    if(furi_hal_nvm_is_flag_set(FuriHalNvmFlagDebug)) {
-        FURI_LOG_D(TAG, "Autoupdate: skipped, debug is enabled");
-        return;
-    }
-
     Time* time = furi_record_open(RECORD_TIME);
     LocalTime local_time = time_get_local_time(time);
     furi_record_close(RECORD_TIME);
