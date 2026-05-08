@@ -1,0 +1,10 @@
+App(
+    appid="ca_certs",
+    name="CA Certs keeper",
+    targets=["f20", "f21", "f22"],
+    apptype=FlipperAppType.STARTUP,
+    entry_point="ca_certs_load",
+    stack_size=1024 * 2,
+    sources=["ca_certs.c"],
+    resources="resources",
+)

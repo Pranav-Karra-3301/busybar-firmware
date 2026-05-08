@@ -6,5 +6,4 @@ App(
     entry_point="fetch_command",
     stack_size=1024 * 2,
     sources=["fetch.c"],
-    resources="resources",
 )

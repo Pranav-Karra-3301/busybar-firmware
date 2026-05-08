@@ -6,10 +6,9 @@
 #include <wifi/wifi.h>
 #include <network/network.h>
 #include <mongoose_glue.h>
+#include <ca_certs/ca_certs.h>
 
 #define TAG "HttpsTest"
-
-#define CA_BUNDLE_PATH EXT_PATH("apps_assets/ca/cacert.pem")
 
 //#define HTTP_URL "https://www.example.com/"
 #define HTTP_URL "https://www.example.com/"
@@ -37,18 +36,12 @@ static void http_test_mg_handler(struct mg_connection* connection, int event, vo
         const struct mg_str name = mg_url_host(HTTP_URL);
 
         if(mg_url_is_ssl(HTTP_URL)) {
-            struct mg_str ca_data = mg_file_read((struct mg_fs*)http_fs_get(), CA_BUNDLE_PATH);
+            const CaCerts* certs = ca_certs_get();
 
-            if(ca_data.buf != NULL && ca_data.len > 0) {
-                const struct mg_tls_opts opts = {.ca = ca_data, .name = name};
+            if(certs) {
+                const struct mg_tls_opts opts = {.ca = mg_str((char*)certs->data), .name = name};
                 mg_tls_init(connection, &opts);
-                free(ca_data.buf);
             } else {
-                FURI_LOG_E(TAG, "Failed to read CA bundle from %s", CA_BUNDLE_PATH);
-                // Free the buffer if it was allocated but empty
-                if(ca_data.buf != NULL) {
-                    free(ca_data.buf);
-                }
                 connection->is_draining = 1;
                 return;
             }

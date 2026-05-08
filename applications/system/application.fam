@@ -9,6 +9,7 @@ App(
         "system_apps_cli",
         "lottie_player",
         "updater",
+        "ca_certs",
     ],
     targets=["f20", "f21", "f22"],
 )

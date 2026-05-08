@@ -4,11 +4,10 @@
 #include <busy_timer/time_macros.h>
 #include <version/version.h>
 #include <web_server/web_server.h>
+#include <ca_certs/ca_certs.h>
 
 #define MQTT_VERSION     (5)
 #define MQTT_PING_PERIOD M_TO_MS(10)
-
-#define CERT_FILE_CA_BUNDLE EXT_PATH("apps_assets/ca/cacert.pem")
 
 #define STATUS_ONLINE  "\"status\":\"online\""
 #define STATUS_OFFLINE "\"status\":\"offline\""
@@ -114,43 +113,14 @@ static const char* mqtt_get_server_url(const Mqtt* instance) {
     }
 }
 
-static bool mqtt_load_ca_bundle(Mqtt* instance) {
-    furi_assert(instance->ca_bundle == NULL);
-
-    bool success = false;
-
-    Storage* storage = furi_record_open(RECORD_STORAGE);
-    File* file = storage_file_alloc(storage);
-
-    do {
-        if(!storage_file_open(file, CERT_FILE_CA_BUNDLE, FSAM_READ, FSOM_OPEN_EXISTING)) {
-            FURI_LOG_E(TAG, "CA bundle file error: %s", storage_file_get_error_desc(file));
-            break;
-        }
-
-        const uint64_t file_size = storage_file_size(file);
-        instance->ca_bundle = malloc(file_size);
-
-        if(storage_file_read(file, instance->ca_bundle, file_size) != file_size) {
-            FURI_LOG_E(TAG, "CA bundle file read error");
-            break;
-        }
-
-        success = true;
-    } while(0);
-
-    storage_file_free(file);
-    furi_record_close(RECORD_STORAGE);
-    return success;
-}
-
 static void mqtt_connect_mg_event_handler(
     Mqtt* instance,
     struct mg_connection* connection,
     const void* event_data) {
     UNUSED(event_data);
 
-    if(!mqtt_load_ca_bundle(instance)) {
+    const CaCerts* certs = ca_certs_get();
+    if(!certs) {
         mqtt_connection_close(instance, false);
         mqtt_set_status(instance, MqttStatusError);
         return;
@@ -160,7 +130,7 @@ static void mqtt_connect_mg_event_handler(
         const struct mg_str name = mg_url_host(mqtt_get_server_url(instance));
         const bool has_custom_certs = (instance->settings.profile_id == MqttProfileIdCustom);
 
-        if(!mqtt_tls_init(connection, name, mg_str(instance->ca_bundle), has_custom_certs)) {
+        if(!mqtt_tls_init(connection, name, mg_str((char*)certs->data), has_custom_certs)) {
             mqtt_connection_close(instance, false);
             mqtt_set_status(instance, MqttStatusError);
         }
@@ -171,13 +141,11 @@ static void mqtt_tls_handshake_mg_event_handler(
     Mqtt* instance,
     struct mg_connection* connection,
     const void* event_data) {
+    UNUSED(instance);
     UNUSED(event_data);
 
     FURI_LOG_D(TAG, "TLS handshake done");
-    // Free CA bundle data
     mqtt_tls_free_ca(connection);
-    free(instance->ca_bundle);
-    instance->ca_bundle = NULL;
 }
 
 static void mqtt_online_message_prepare(FuriString* message) {
@@ -260,11 +228,6 @@ static void mqtt_close_mg_event_handler(
     mqtt_stop_ping_timer(instance);
 
     instance->conn = NULL;
-
-    if(instance->ca_bundle) {
-        free(instance->ca_bundle);
-        instance->ca_bundle = NULL;
-    }
 
     if(instance->is_wifi_up) {
         if(instance->should_reconnect_now) {

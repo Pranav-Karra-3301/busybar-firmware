@@ -76,8 +76,6 @@ struct Mqtt {
     FuriPubSub* event_pubsub;
     FuriString* device_serial;
 
-    char* ca_bundle;
-
     MqttSubscriptionList_t subscriptions;
 
     unsigned long api_connection_id;
