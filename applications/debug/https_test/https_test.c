@@ -1,15 +1,12 @@
 #include <furi.h>
 
-#include <storage/storage.h>
-
 #include <mongoose.h>
+
 #include <wifi/wifi.h>
 #include <network/network.h>
-#include <mongoose_glue.h>
+#include <ca_storage/ca_storage.h>
 
 #define TAG "HttpsTest"
-
-#define CA_BUNDLE_PATH EXT_PATH("apps_assets/ca/cacert.pem")
 
 //#define HTTP_URL "https://www.example.com/"
 #define HTTP_URL "https://www.example.com/"
@@ -27,6 +24,23 @@ typedef struct {
     bool done;
 } HttpTestApp;
 
+static bool http_test_init_tls(struct mg_connection* conn, struct mg_str name) {
+    bool success = false;
+
+    CaStorage* ca_storage = furi_record_open(RECORD_CA_STORAGE);
+    const struct mg_str ca_data = mg_str(ca_storage_get_pem_bundle(ca_storage));
+
+    if(ca_data.buf != NULL && ca_data.len > 0) {
+        const struct mg_tls_opts opts = {.ca = ca_data, .name = name};
+        mg_tls_init(conn, &opts);
+
+        success = true;
+    }
+
+    furi_record_close(RECORD_CA_STORAGE);
+    return success;
+}
+
 static void http_test_mg_handler(struct mg_connection* connection, int event, void* event_data) {
     UNUSED(event_data);
 
@@ -37,18 +51,8 @@ static void http_test_mg_handler(struct mg_connection* connection, int event, vo
         const struct mg_str name = mg_url_host(HTTP_URL);
 
         if(mg_url_is_ssl(HTTP_URL)) {
-            struct mg_str ca_data = mg_file_read((struct mg_fs*)http_fs_get(), CA_BUNDLE_PATH);
-
-            if(ca_data.buf != NULL && ca_data.len > 0) {
-                const struct mg_tls_opts opts = {.ca = ca_data, .name = name};
-                mg_tls_init(connection, &opts);
-                free(ca_data.buf);
-            } else {
-                FURI_LOG_E(TAG, "Failed to read CA bundle from %s", CA_BUNDLE_PATH);
-                // Free the buffer if it was allocated but empty
-                if(ca_data.buf != NULL) {
-                    free(ca_data.buf);
-                }
+            if(!http_test_init_tls(connection, name)) {
+                FURI_LOG_E(TAG, "Missing CA certificate bundle");
                 connection->is_draining = 1;
                 return;
             }

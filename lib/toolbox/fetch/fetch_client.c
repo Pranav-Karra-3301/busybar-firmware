@@ -134,7 +134,6 @@ static FURI_ALWAYS_INLINE bool
     }
 
     furi_record_close(RECORD_CA_STORAGE);
-
     return success;
 }
 
