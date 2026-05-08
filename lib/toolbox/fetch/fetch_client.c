@@ -1,10 +1,10 @@
 #include "fetch_client.h"
 #include "fetch_client_i.h"
 
-#include <storage/storage.h>
-
 #include <toolbox/path.h>
 #include <toolbox/timers.h>
+
+#include <ca_storage/ca_storage.h>
 
 #define TAG "FetchClient"
 
@@ -119,30 +119,39 @@ static FURI_ALWAYS_INLINE void fetch_client_switching_to_raw_protocol(
     conn->pfn = NULL; // Silence HTTP protocol handler, we'll use MG_EV_READ
 }
 
+static FURI_ALWAYS_INLINE bool
+    fetch_client_init_tls(struct mg_connection* conn, struct mg_str name) {
+    bool success = false;
+
+    CaStorage* ca_storage = furi_record_open(RECORD_CA_STORAGE);
+    const struct mg_str ca_data = mg_str(ca_storage_get_pem_bundle(ca_storage));
+
+    if(ca_data.buf != NULL && ca_data.len > 0) {
+        const struct mg_tls_opts opts = {.ca = ca_data, .name = name};
+        mg_tls_init(conn, &opts);
+
+        success = true;
+    }
+
+    furi_record_close(RECORD_CA_STORAGE);
+
+    return success;
+}
+
 static FURI_ALWAYS_INLINE void
     fetch_client_connect_event(FetchClient* instance, struct mg_connection* conn) {
     const struct mg_str name = mg_url_host(furi_string_get_cstr(instance->url));
 
     if(mg_url_is_ssl(furi_string_get_cstr(instance->url))) {
-        struct mg_str ca_data =
-            mg_file_read((struct mg_fs*)http_fs_get(), FETCH_CLIENT_CA_BUNDLE_PATH);
+        if(!fetch_client_init_tls(conn, name)) {
+            FETCH_CLIENT_ERROR(TAG, "Missing CA certificate bundle");
 
-        if(ca_data.buf != NULL && ca_data.len > 0) {
-            const struct mg_tls_opts opts = {.ca = ca_data, .name = name};
-            mg_tls_init(conn, &opts);
-            free(ca_data.buf);
-        } else {
-            FETCH_CLIENT_ERROR(
-                TAG, "Failed to read CA bundle from %s", FETCH_CLIENT_CA_BUNDLE_PATH);
-            if(instance->callback_error) {
-                instance->callback_error(
-                    "Failed to read CA certificate bundle", instance->context);
-            }
-            // Free the buffer if it was allocated but empty
-            if(ca_data.buf != NULL) {
-                free(ca_data.buf);
-            }
             conn->is_draining = 1;
+
+            if(instance->callback_error) {
+                instance->callback_error("Missing CA certificate bundle", instance->context);
+            }
+
             return;
         }
     }
