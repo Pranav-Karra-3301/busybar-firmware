@@ -1,8 +1,8 @@
 #include "mqtt_i.h"
 
-#include <storage/storage.h>
-#include <busy_timer/time_macros.h>
 #include <version/version.h>
+
+#include <busy_timer/time_macros.h>
 #include <web_server/web_server.h>
 
 #include "mqtt_common.h"
@@ -97,36 +97,6 @@ static const char* mqtt_get_server_url(const Mqtt* instance) {
     }
 }
 
-static bool mqtt_load_ca_bundle(Mqtt* instance) {
-    furi_assert(instance->ca_bundle == NULL);
-
-    bool success = false;
-
-    Storage* storage = furi_record_open(RECORD_STORAGE);
-    File* file = storage_file_alloc(storage);
-
-    do {
-        if(!storage_file_open(file, CERT_FILE_CA_BUNDLE, FSAM_READ, FSOM_OPEN_EXISTING)) {
-            FURI_LOG_E(TAG, "CA bundle file error: %s", storage_file_get_error_desc(file));
-            break;
-        }
-
-        const uint64_t file_size = storage_file_size(file);
-        instance->ca_bundle = malloc(file_size);
-
-        if(storage_file_read(file, instance->ca_bundle, file_size) != file_size) {
-            FURI_LOG_E(TAG, "CA bundle file read error");
-            break;
-        }
-
-        success = true;
-    } while(0);
-
-    storage_file_free(file);
-    furi_record_close(RECORD_STORAGE);
-    return success;
-}
-
 static void mqtt_connect_mg_event_handler(
     Mqtt* instance,
     struct mg_connection* connection,
@@ -144,15 +114,9 @@ static void mqtt_connect_mg_event_handler(
             break;
         }
 
-        if(!mqtt_load_ca_bundle(instance)) {
-            // TODO: Preload CA bundle on startup
-            break;
-        }
-
-        const char* ca_bundle = instance->ca_bundle;
         const MqttConfig* config = &instance->settings.config;
 
-        if(!mqtt_tls_init(connection, server_url, ca_bundle, config)) {
+        if(!mqtt_tls_init(connection, server_url, config)) {
             break;
         }
 
@@ -169,13 +133,11 @@ static void mqtt_tls_handshake_mg_event_handler(
     Mqtt* instance,
     struct mg_connection* connection,
     const void* event_data) {
+    UNUSED(instance);
     UNUSED(event_data);
 
     FURI_LOG_D(TAG, "TLS handshake done");
-    // Free CA bundle data
     mqtt_tls_free_ca(connection);
-    free(instance->ca_bundle);
-    instance->ca_bundle = NULL;
 }
 
 static void mqtt_online_message_prepare(FuriString* message) {
@@ -258,11 +220,6 @@ static void mqtt_close_mg_event_handler(
     mqtt_stop_ping_timer(instance);
 
     instance->conn = NULL;
-
-    if(instance->ca_bundle) {
-        free(instance->ca_bundle);
-        instance->ca_bundle = NULL;
-    }
 
     if(instance->is_wifi_up) {
         if(instance->should_reconnect_now) {
