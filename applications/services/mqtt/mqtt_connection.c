@@ -119,21 +119,29 @@ static void mqtt_connect_mg_event_handler(
     const void* event_data) {
     UNUSED(event_data);
 
-    const CaCerts* certs = ca_certs_get();
-    if(!certs) {
-        mqtt_connection_close(instance, false);
-        mqtt_set_status(instance, MqttStatusError);
-        return;
-    }
+    if(!mqtt_is_tls_enabled(instance)) return;
 
-    if(mqtt_is_tls_enabled(instance)) {
+    bool success = false;
+    const CaCerts* certs = NULL;
+
+    do {
+        if(!furi_record_exists(RECORD_CA_CERTS)) break;
+        certs = furi_record_open(RECORD_CA_CERTS);
+
         const struct mg_str name = mg_url_host(mqtt_get_server_url(instance));
         const bool has_custom_certs = (instance->settings.profile_id == MqttProfileIdCustom);
 
-        if(!mqtt_tls_init(connection, name, mg_str((char*)certs->data), has_custom_certs)) {
-            mqtt_connection_close(instance, false);
-            mqtt_set_status(instance, MqttStatusError);
-        }
+        struct mg_str cert_bundle = mg_str((char*)certs->data);
+        if(!mqtt_tls_init(connection, name, cert_bundle, has_custom_certs)) break;
+
+        success = true;
+    } while(0);
+
+    if(certs) furi_record_close(RECORD_CA_CERTS);
+
+    if(!success) {
+        mqtt_connection_close(instance, false);
+        mqtt_set_status(instance, MqttStatusError);
     }
 }
 

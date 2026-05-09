@@ -3,12 +3,13 @@
 #include <storage/storage.h>
 
 #define TAG                 "CaCerts"
-#define RECORD_CA_CERTS     "ca_certs"
 #define CERT_FILE_CA_BUNDLE EXT_PATH("apps_assets/ca/cacert.pem")
 
 void ca_certs_load(void) {
     Storage* storage = furi_record_open(RECORD_STORAGE);
     File* file = storage_file_alloc(storage);
+    CaCerts* certs = NULL;
+    bool success = false;
 
     do {
         if(!storage_file_open(file, CERT_FILE_CA_BUNDLE, FSAM_READ, FSOM_OPEN_EXISTING)) {
@@ -17,7 +18,9 @@ void ca_certs_load(void) {
         }
 
         size_t size = storage_file_size(file);
-        CaCerts* certs = malloc(sizeof(CaCerts) + size);
+        size_t size_w_null_termination = size + 1;
+        certs = malloc(sizeof(CaCerts) + size_w_null_termination);
+        certs->length = size;
 
         if(storage_file_read(file, certs->data, size) != size) {
             FURI_LOG_E(TAG, "Failed to read bundle file");
@@ -25,13 +28,11 @@ void ca_certs_load(void) {
         }
 
         furi_record_create(RECORD_CA_CERTS, certs);
+        success = true;
     } while(0);
+
+    if(!success && certs) free(certs);
 
     storage_file_free(file);
     furi_record_close(RECORD_STORAGE);
-}
-
-const CaCerts* ca_certs_get(void) {
-    if(!furi_record_exists(RECORD_CA_CERTS)) return NULL;
-    return furi_record_open(RECORD_CA_CERTS);
 }

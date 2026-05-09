@@ -1,7 +1,7 @@
 #include "fetch_client.h"
 #include "fetch_client_i.h"
 
-#include <storage/storage.h>
+#include <ca_certs/ca_certs.h>
 #include <toolbox/path.h>
 
 #include <furi_hal_cortex.h>
@@ -124,23 +124,26 @@ static FURI_ALWAYS_INLINE void
     const struct mg_str name = mg_url_host(furi_string_get_cstr(instance->url));
 
     if(mg_url_is_ssl(furi_string_get_cstr(instance->url))) {
-        struct mg_str ca_data =
-            mg_file_read((struct mg_fs*)http_fs_get(), FETCH_CLIENT_CA_BUNDLE_PATH);
+        bool success = false;
+        const CaCerts* certs = NULL;
 
-        if(ca_data.buf != NULL && ca_data.len > 0) {
-            const struct mg_tls_opts opts = {.ca = ca_data, .name = name};
+        do {
+            if(!furi_record_exists(RECORD_CA_CERTS)) break;
+            certs = furi_record_open(RECORD_CA_CERTS);
+
+            struct mg_str cert_bundle = mg_str((char*)certs->data);
+            const struct mg_tls_opts opts = {.ca = cert_bundle, .name = name};
             mg_tls_init(conn, &opts);
-            free(ca_data.buf);
-        } else {
-            FETCH_CLIENT_ERROR(
-                TAG, "Failed to read CA bundle from %s", FETCH_CLIENT_CA_BUNDLE_PATH);
+
+            success = true;
+        } while(0);
+
+        if(certs) furi_record_close(RECORD_CA_CERTS);
+
+        if(!success) {
+            FETCH_CLIENT_ERROR(TAG, "Failed to establish TLS session");
             if(instance->callback_error) {
-                instance->callback_error(
-                    "Failed to read CA certificate bundle", instance->context);
-            }
-            // Free the buffer if it was allocated but empty
-            if(ca_data.buf != NULL) {
-                free(ca_data.buf);
+                instance->callback_error("Failed to establish TLS session", instance->context);
             }
             conn->is_draining = 1;
             return;

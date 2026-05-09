@@ -36,12 +36,23 @@ static void http_test_mg_handler(struct mg_connection* connection, int event, vo
         const struct mg_str name = mg_url_host(HTTP_URL);
 
         if(mg_url_is_ssl(HTTP_URL)) {
-            const CaCerts* certs = ca_certs_get();
+            bool success = false;
+            const CaCerts* certs = NULL;
 
-            if(certs) {
-                const struct mg_tls_opts opts = {.ca = mg_str((char*)certs->data), .name = name};
+            do {
+                if(!furi_record_exists(RECORD_CA_CERTS)) break;
+                certs = furi_record_open(RECORD_CA_CERTS);
+
+                struct mg_str cert_bundle = mg_str((char*)certs->data);
+                const struct mg_tls_opts opts = {.ca = cert_bundle, .name = name};
                 mg_tls_init(connection, &opts);
-            } else {
+
+                success = true;
+            } while(0);
+
+            if(certs) furi_record_close(RECORD_CA_CERTS);
+
+            if(!success) {
                 connection->is_draining = 1;
                 return;
             }
