@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mqtt.h"
+#include "mqtt_config.h"
 
 #include <furi.h>
 #include <api_lock.h>
@@ -95,8 +96,8 @@ typedef enum {
     MqttApiMessageTypeUnlink,
     MqttApiMessageTypeRequestPin,
     MqttApiMessageTypeGetSessionInfo,
-    MqttApiMessageTypeGetProfile,
-    MqttApiMessageTypeSetProfile,
+    MqttApiMessageTypeGetConfig,
+    MqttApiMessageTypeSetConfig,
     MqttApiMessageTypePublish,
     MqttApiMessageTypeSubscribe,
     MqttApiMessageTypeUnsubscribe,
@@ -113,14 +114,13 @@ typedef struct {
 } MqttApiMessageRequestPin;
 
 typedef struct {
-    MqttProfileId* profile_id;
-    FuriString* custom_url;
-} MqttApiMessageGetProfile;
+    MqttConfig* config;
+} MqttApiMessageGetConfig;
 
 typedef struct {
-    MqttProfileId profile_id;
-    const char* custom_url;
-} MqttApiMessageSetProfile;
+    const MqttConfig* config;
+    bool* is_success;
+} MqttApiMessageSetConfig;
 
 typedef struct {
     FuriString* session_id;
@@ -158,8 +158,8 @@ typedef struct {
 typedef union {
     MqttApiMessageGetStatus get_status;
     MqttApiMessageRequestPin request_pin;
-    MqttApiMessageGetProfile get_profile;
-    MqttApiMessageSetProfile set_profile;
+    MqttApiMessageGetConfig get_config;
+    MqttApiMessageSetConfig set_config;
     MqttApiMessageGetSessionInfo get_session_info;
     MqttApiMessagePublish publish;
     MqttApiMessageSubscribe subscribe;
@@ -218,8 +218,8 @@ void mqtt_make_topic_path(
 
 bool mqtt_tls_init(
     struct mg_connection* conn,
-    struct mg_str name,
-    struct mg_str ca,
-    bool custom_certs);
+    const char* server_url,
+    const char* ca_bundle,
+    const MqttConfig* config);
 
 void mqtt_tls_free_ca(struct mg_connection* conn);

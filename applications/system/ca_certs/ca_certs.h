@@ -13,7 +13,7 @@ extern "C" {
 
 typedef struct {
     size_t length;
-    uint8_t data[];
+    char data[];
 } CaCerts;
 
 #define RECORD_CA_CERTS "ca_certs"
