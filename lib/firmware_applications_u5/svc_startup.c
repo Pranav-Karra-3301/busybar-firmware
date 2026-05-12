@@ -3,7 +3,15 @@
 #include <flipper.h>
 #include <furi.h>
 
+#include <mbedtls_glue.h>
+#include <mongoose_glue.h>
+
 #define TAG "SvcStartup"
+
+static void run_early_hooks(void) {
+    mbedtls_glue_init();
+    mg_init_early();
+}
 
 static int32_t startup_hook_thread_callback(void* context) {
     const FlipperInternalOnStartHook* hook = context;
@@ -55,6 +63,7 @@ static void run_all_startup_hooks(void) {
 
 // Redefinition of a global weak symbol in flipper.c
 void flipper_init_services(void) {
+    run_early_hooks();
     run_all_services();
     run_all_startup_hooks();
 }

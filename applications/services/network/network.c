@@ -5,10 +5,6 @@
 #include <lwip/api.h>
 #include <lwip/tcpip.h>
 
-#if defined(BSB_MCU_U5)
-#include <mongoose_glue.h>
-#endif // BSB_MCU_U5
-
 #define TAG "Network"
 
 static const char* const netif_names[] = {
@@ -59,10 +55,6 @@ void network_on_system_start(void) {
     furi_check(furi_semaphore_acquire(lwip_start_sem, FuriWaitForever) == FuriStatusOk);
 
     furi_semaphore_free(lwip_start_sem);
-
-#if defined(BSB_MCU_U5)
-    mg_init_early();
-#endif // BSB_MCU_U5
 
     furi_record_create(RECORD_NETWORK, NULL);
 }
