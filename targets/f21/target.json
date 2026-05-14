@@ -107,7 +107,6 @@
         "print",
         "fatfs",
         "lwip",
-        "netstat",
         "cjson",
         "thorvg",
         "lvgl",

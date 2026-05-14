@@ -6,7 +6,6 @@ for libname in [
     "drivers",
     "tinyusb",
     "lwip",
-    "netstat",
     "cjson",
     "cli",
     "containers",
