@@ -82,7 +82,7 @@ static WifiSettings* wifi_settings_alloc() {
     WifiSettings* instance = malloc(sizeof(WifiSettings));
     instance->event_loop = furi_event_loop_alloc();
     instance->input_queue = furi_message_queue_alloc(4, sizeof(InputEvent));
-    instance->event_queue = furi_message_queue_alloc(4, sizeof(uint32_t));
+    instance->event_queue = furi_message_queue_alloc(8, sizeof(uint32_t));
     instance->scene_manager =
         scene_manager_alloc(wifi_settings_scenes, COUNT_OF(wifi_settings_scenes), instance);
 
@@ -103,9 +103,9 @@ static WifiSettings* wifi_settings_alloc() {
 
         instance->back_nav_bar = nav_bar_alloc(flex_layout_get_base(instance->back_container));
         nav_bar_set_header_image(instance->back_nav_bar, SETTINGS_ICON_BACK);
-        nav_bar_push_location(instance->back_nav_bar, "Wi-Fi");
+        nav_bar_push_location(instance->back_nav_bar, "WI-FI");
         widget_set_height(nav_bar_get_base(instance->back_nav_bar), SETTINGS_NAV_BAR_HEIGHT);
-        widget_set_padding(nav_bar_get_base(instance->back_nav_bar), 2, 2, 0, 0);
+        widget_set_padding(nav_bar_get_base(instance->back_nav_bar), 1, 0, 0, 2);
 
         instance->back_scene_window = widget_alloc(flex_layout_get_base(instance->back_container));
         flex_layout_set_child_widget_grow(

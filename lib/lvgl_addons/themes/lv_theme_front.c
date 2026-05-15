@@ -36,21 +36,15 @@ typedef struct {
     lv_style_t dialog;
     lv_style_t dialog_text;
 
+    lv_style_t var_item;
     lv_style_t var_item_editor;
 
     lv_style_t margin_right;
 
     lv_style_t title_card;
 
-    lv_style_t slider_view_image;
-    lv_style_t slider_view_text_container;
-
     lv_style_t progress_bar;
     lv_style_t progress_bar_fill;
-
-    lv_style_t status_view_icon;
-    lv_style_t status_view_header;
-    lv_style_t status_view_additional_text;
 } my_theme_styles_t;
 
 typedef struct {
@@ -105,6 +99,7 @@ static void style_init(my_theme_t* theme, FontRegistry* font_registry) {
 
     lv_style_init(&theme->styles.menu_arrow);
     lv_style_set_pad_left(&theme->styles.menu_arrow, 1);
+    lv_style_set_text_font(&theme->styles.menu_arrow, theme->base.font_normal);
 
     lv_style_init(&theme->styles.submenu);
     lv_style_set_pad_row(&theme->styles.submenu, 1);
@@ -113,8 +108,9 @@ static void style_init(my_theme_t* theme, FontRegistry* font_registry) {
     lv_style_set_margin_top(&theme->styles.submenu_item, -2);
 
     lv_style_init(&theme->styles.submenu_cursor);
-    lv_style_set_pad_left(&theme->styles.submenu_cursor, 2);
+    lv_style_set_pad_left(&theme->styles.submenu_cursor, 1);
     lv_style_set_pad_right(&theme->styles.submenu_cursor, 1);
+    lv_style_set_text_font(&theme->styles.submenu_cursor, theme->base.font_normal);
 
     lv_style_init(&theme->styles.dialog);
     lv_style_set_flex_flow(&theme->styles.dialog, LV_FLEX_FLOW_ROW);
@@ -126,9 +122,16 @@ static void style_init(my_theme_t* theme, FontRegistry* font_registry) {
     lv_style_init(&theme->styles.dialog_text);
     lv_style_set_pad_ver(&theme->styles.dialog_text, 0);
     lv_style_set_width(&theme->styles.dialog_text, LV_PCT(60));
+    lv_style_set_text_line_space(&theme->styles.dialog_text, -2);
+
+    lv_style_init(&theme->styles.var_item);
+    lv_style_set_margin_top(&theme->styles.var_item, -2);
+    lv_style_set_text_line_space(&theme->styles.var_item, -2);
 
     lv_style_init(&theme->styles.var_item_editor);
-    lv_style_set_pad_column(&theme->styles.var_item_editor, 2);
+    lv_style_set_pad_column(&theme->styles.var_item_editor, 1);
+    lv_style_set_pad_bottom(&theme->styles.var_item_editor, 1);
+    lv_style_set_pad_right(&theme->styles.var_item_editor, 1);
     lv_style_set_pad_left(&theme->styles.var_item_editor, 2);
 
     lv_style_init(&theme->styles.margin_right);
@@ -137,16 +140,6 @@ static void style_init(my_theme_t* theme, FontRegistry* font_registry) {
     lv_style_init(&theme->styles.title_card);
     lv_style_set_pad_column(&theme->styles.title_card, 2);
     lv_style_set_text_font(&theme->styles.title_card, theme->base.font_large);
-
-    lv_style_init(&theme->styles.slider_view_image);
-    lv_style_set_align(&theme->styles.slider_view_image, LV_ALIGN_LEFT_MID);
-    lv_style_set_translate_x(&theme->styles.slider_view_image, 1);
-
-    lv_style_init(&theme->styles.slider_view_text_container);
-    lv_style_set_pad_column(&theme->styles.slider_view_text_container, 3);
-    lv_style_set_align(&theme->styles.slider_view_text_container, LV_ALIGN_RIGHT_MID);
-    lv_style_set_translate_x(&theme->styles.slider_view_text_container, -1);
-    lv_style_set_text_font(&theme->styles.slider_view_text_container, theme->base.font_large);
 
     lv_style_init(&theme->styles.progress_bar);
     lv_style_set_bg_opa(&theme->styles.progress_bar, LV_OPA_COVER);
@@ -157,20 +150,6 @@ static void style_init(my_theme_t* theme, FontRegistry* font_registry) {
     lv_style_set_bg_grad_dir(&theme->styles.progress_bar_fill, LV_GRAD_DIR_HOR);
     lv_style_set_bg_color(&theme->styles.progress_bar_fill, PROGRESS_BAR_FILL_COLOR_1);
     lv_style_set_bg_grad_color(&theme->styles.progress_bar_fill, PROGRESS_BAR_FILL_COLOR_2);
-
-    lv_style_init(&theme->styles.status_view_icon);
-    lv_style_set_align(&theme->styles.status_view_icon, LV_ALIGN_LEFT_MID);
-
-    lv_style_init(&theme->styles.status_view_header);
-    lv_style_set_align(&theme->styles.status_view_header, LV_ALIGN_LEFT_MID);
-    lv_style_set_x(&theme->styles.status_view_header, 10);
-    lv_style_set_text_color(&theme->styles.status_view_header, COLOR_FG_FOCUSED);
-    lv_style_set_text_line_space(&theme->styles.status_view_header, -2);
-
-    lv_style_init(&theme->styles.status_view_additional_text);
-    lv_style_set_align(&theme->styles.status_view_additional_text, LV_ALIGN_LEFT_MID);
-    lv_style_set_x(&theme->styles.status_view_additional_text, 10);
-    lv_style_set_text_color(&theme->styles.status_view_additional_text, COLOR_FG_NORMAL);
 }
 
 static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
@@ -267,6 +246,7 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
         lv_obj_add_style(obj, &theme->styles.scrollbar, LV_PART_SCROLLBAR);
 
     } else if(lv_obj_check_type(obj, &var_item_lvgl_class)) {
+        lv_obj_add_style(obj, &theme->styles.var_item, LV_PART_MAIN);
         lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
         lv_obj_add_style(obj, &theme->styles.focused, LV_PART_MAIN | LV_STATE_FOCUSED);
 
@@ -292,29 +272,6 @@ static void theme_apply_callback(lv_theme_t* th, lv_obj_t* obj) {
 
     } else if(lv_obj_check_type(obj, &anim_title_card_lvgl_class)) {
         lv_obj_add_style(obj, &theme->styles.title_card, LV_PART_MAIN);
-
-#ifdef SETTINGS_SOUND
-    } else if(lv_obj_check_type(obj, &slider_view_image_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.slider_view_image, LV_PART_MAIN);
-
-    } else if(lv_obj_check_type(obj, &slider_view_text_container_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.slider_view_text_container, LV_PART_MAIN);
-
-    } else if(lv_obj_check_type(obj, &slider_view_arrow_label_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.disabled, LV_PART_MAIN | LV_STATE_DISABLED);
-#endif // SETTINGS_SOUND
-
-    } else if(lv_obj_check_type(obj, &status_view_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.normal, LV_PART_MAIN);
-
-    } else if(lv_obj_check_type(obj, &status_view_icon_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.status_view_icon, LV_PART_MAIN);
-
-    } else if(lv_obj_check_type(obj, &status_view_header_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.status_view_header, LV_PART_MAIN);
-
-    } else if(lv_obj_check_type(obj, &status_view_additional_text_lvgl_class)) {
-        lv_obj_add_style(obj, &theme->styles.status_view_additional_text, LV_PART_MAIN);
 
 #ifdef APP_BUSY
     } else if(lv_obj_check_type(obj, &countdown_lvgl_class)) {

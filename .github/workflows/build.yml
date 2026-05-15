@@ -26,9 +26,6 @@ jobs:
       default_target_spec: ${{ env.DEFAULT_TARGET_SPEC }}
       bundle_target_spec: ${{ steps.set-url.outputs.target }}
       update_url: ${{ steps.set-url.outputs.update_url }}
-    concurrency:
-      group: build-${{ github.workflow }}-${{ github.ref }}-${{ matrix.target_spec }}
-      cancel-in-progress: true
 
     steps:
       - name: 'Wipe workspace'
@@ -37,7 +34,7 @@ jobs:
           find ./ -mount -maxdepth 1 -exec rm -rf {} \;
 
       - name: 'Checkout code'
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -63,9 +60,6 @@ jobs:
           echo "event_type=$TYPE" >> "$GITHUB_OUTPUT"
           echo "build_profile=$PROFILE" >> "$GITHUB_OUTPUT"
           python3 fbt_layers/fbtng/scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || (cat "${{ github.event_path }}" && exit 1)
-
-      - name: 'Setup Simplicity Commander'
-        uses: ./.github/actions/setup-commander
 
       - name: 'Build firmware artifacts'
         id: build-fw
@@ -122,7 +116,7 @@ jobs:
 
       - name: 'Find previous comment'
         if: ${{ !github.event.pull_request.head.repo.fork && matrix.target_spec == env.DEFAULT_TARGET_SPEC && github.event.pull_request }}
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
         id: find-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
@@ -131,7 +125,7 @@ jobs:
 
       - name: 'Create or update comment'
         if: ${{ !github.event.pull_request.head.repo.fork && matrix.target_spec == env.DEFAULT_TARGET_SPEC && github.event.pull_request }}
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 #v5.0.0
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
@@ -146,7 +140,7 @@ jobs:
         id: set-url
         if: ${{ matrix.target_spec == env.DEFAULT_TARGET_SPEC }}
         run: |
-          echo "update_url=${{ steps.names.outputs.branch_name }}/busybar-f${{ steps.build-fw.outputs.u5_target_hw }}-update-${{ steps.names.outputs.suffix }}.tar" >> "$GITHUB_OUTPUT"
+          echo "update_url=${{ steps.names.outputs.branch_name }}/busybar-f${{ steps.build-fw.outputs.u5_target_hw }}-update-${{ steps.names.outputs.suffix }}.tgz" >> "$GITHUB_OUTPUT"
           echo "target=${{ steps.build-fw.outputs.u5_target_hw }}" >> "$GITHUB_OUTPUT"
 
   updater-tests:
@@ -173,6 +167,3 @@ jobs:
       update_url: ${{ needs.build.outputs.update_url }}
       target: ${{ needs.build.outputs.bundle_target_spec }}
     secrets: inherit
-    concurrency:
-      group: integration-tests-${{ github.workflow }}-${{ github.ref }}-${{ needs.build.outputs.bundle_target_spec }}
-      cancel-in-progress: true
