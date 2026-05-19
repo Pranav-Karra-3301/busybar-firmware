@@ -26,8 +26,6 @@ struct BleHttpRepeater {
     uint32_t session;
 };
 
-static BleHttpRepeater* ble_http_repeater;
-
 static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data);
 
 static void ble_session_reset(BleHttpRepeater* instance) {
@@ -70,26 +68,26 @@ static void ble_uart_tx_done_callback(void* context) {
 }
 
 static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data) {
-    BleHttpRepeater* ble_http = ble_http_repeater;
+    BleHttpRepeater* instance = conn->fn_data;
 
     if(ev == MG_EV_WAKEUP) {
         struct mg_str* data = (struct mg_str*)ev_data;
         mg_send(conn, data->buf, data->len);
-        furi_semaphore_release(ble_http_repeater->uart_conn_sync);
+        furi_semaphore_release(instance->uart_conn_sync);
     } else if(ev == MG_EV_CONNECT) {
-        furi_semaphore_release(ble_http->uart_conn_sync);
+        furi_semaphore_release(instance->uart_conn_sync);
     } else if(ev == MG_EV_READ) {
         size_t total_size = conn->recv.len;
         size_t index = 0;
         while(total_size) {
             size_t send_size = total_size > MAX_TX_CHUNK_SIZE ? MAX_TX_CHUNK_SIZE : total_size;
             ble_uart_tx_data(
-                ble_http->ble, BleUartChannelNordic, &conn->recv.buf[index], send_size);
+                instance->ble, BleUartChannelNordic, &conn->recv.buf[index], send_size);
 
             if(furi_semaphore_acquire(
-                   ble_http->wait, BLE_HTTP_SESSION_TIMEOUT_ON_TX_CONFIRM_FAIL) != FuriStatusOk) {
-                FURI_LOG_W(TAG, "Session reset by timeout");
-                ble_session_reset(ble_http);
+                   instance->wait, BLE_HTTP_SESSION_TIMEOUT_ON_TX_CONFIRM_FAIL) != FuriStatusOk) {
+                FURI_LOG_W(TAG, "Disconnect due to timeout");
+                ble_disconnect(instance->ble);
                 break;
             }
 
@@ -98,13 +96,11 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
         }
         conn->recv.len = 0;
     } else if(ev == MG_EV_CLOSE) {
-        if(ble_http->exit) return;
-        ble_session_update_on_close(ble_http);
+        if(!instance->run) return;
+        instance->conn = mg_connect(&instance->mgr, BLE_HTTP_HOST, ble_event_handler, instance);
     } else if(ev == MG_EV_ERROR) {
-        ble_session_reset(ble_http);
-        FURI_LOG_W(
-            TAG, "Session reset due to error, pause for %d ms", BLE_HTTP_EV_ERROR_PAUSE_DELAY_MS);
-        furi_delay_ms(BLE_HTTP_EV_ERROR_PAUSE_DELAY_MS);
+        FURI_LOG_W(TAG, "Error occurred, disconnect from remote");
+        ble_disconnect(instance->ble);
     }
 }
 
@@ -120,23 +116,22 @@ static int32_t ble_http_repeater_thread_handler(void* context) {
     instance->session = 1;
     furi_mutex_release(instance->session_lock);
 
-    network_init_current_thread(ble_http_repeater->network);
-    mg_mgr_init(&ble_http_repeater->mgr);
-    mg_wakeup_init(&ble_http_repeater->mgr);
+    network_init_current_thread(instance->network);
+    mg_mgr_init(&instance->mgr);
+    mg_wakeup_init(&instance->mgr);
 
-    ble_http_repeater->conn =
-        mg_connect(&ble_http_repeater->mgr, BLE_HTTP_HOST, ble_event_handler, ble_http_repeater);
+    instance->conn = mg_connect(&instance->mgr, BLE_HTTP_HOST, ble_event_handler, instance);
 
     // Event loop
-    while(ble_http_repeater->run) {
-        mg_mgr_poll(&ble_http_repeater->mgr, 1000);
+    while(instance->run) {
+        mg_mgr_poll(&instance->mgr, 1000);
     }
 
     // Cleanup
     ble_uart_set_rx_callback(instance->ble, BleUartChannelNordic, NULL, NULL);
     ble_uart_set_tx_done_callback(instance->ble, BleUartChannelNordic, NULL, NULL);
-    mg_mgr_free(&ble_http_repeater->mgr);
-    network_deinit_current_thread(ble_http_repeater->network);
+    mg_mgr_free(&instance->mgr);
+    network_deinit_current_thread(instance->network);
 
     return 0;
 }
@@ -152,7 +147,6 @@ BleHttpRepeater* ble_http_repeater_alloc(Ble* ble) {
 
     instance->thread =
         furi_thread_alloc_ex(TAG, THREAD_STACK_SIZE, ble_http_repeater_thread_handler, instance);
-    ble_http_repeater = instance;
     return instance;
 }
 
@@ -171,9 +165,9 @@ static void ble_http_repeater_start(BleHttpRepeater* instance) {
     furi_mutex_acquire(instance->lock, FuriWaitForever);
 
     if(!instance->run) {
-        FURI_LOG_D(TAG, "Ble_http start");
+        FURI_LOG_D(TAG, "Http start");
         instance->run = true;
-        furi_thread_start(ble_http_repeater->thread);
+        furi_thread_start(instance->thread);
     }
     furi_mutex_release(instance->lock);
 }
@@ -185,7 +179,7 @@ static void ble_http_repeater_stop(BleHttpRepeater* instance) {
     if(instance->run) {
         instance->run = false;
         furi_thread_join(instance->thread);
-        FURI_LOG_D(TAG, "Ble_http stopped");
+        FURI_LOG_D(TAG, "Http stopped");
     }
     furi_mutex_release(instance->lock);
 }
