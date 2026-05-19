@@ -2,6 +2,8 @@
 
 #include "../ble.h"
 
-void ble_http_repeater_init(void);
-void ble_http_repeater_start(Ble* ble);
-void ble_http_repeater_stop(void);
+typedef struct BleHttpRepeater BleHttpRepeater;
+
+BleHttpRepeater* ble_http_repeater_alloc(Ble* ble);
+void ble_http_repeater_free(BleHttpRepeater* instance);
+void ble_http_repeater_update(BleHttpRepeater* instance, const BleServiceStatus status);
