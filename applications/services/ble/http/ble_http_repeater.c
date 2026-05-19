@@ -9,7 +9,6 @@
 #define BLE_HTTP_HOST "http://127.0.0.1:80"
 
 #define BLE_HTTP_SESSION_TIMEOUT_ON_TX_CONFIRM_FAIL (4000)
-#define BLE_HTTP_EV_ERROR_PAUSE_DELAY_MS            (500)
 
 struct BleHttpRepeater {
     FuriMutex* lock;
@@ -28,10 +27,11 @@ struct BleHttpRepeater {
 
 static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data);
 
-static void ble_session_reset(BleHttpRepeater* instance) {
+static void ble_session_set(BleHttpRepeater* instance, const uint32_t session) {
     furi_mutex_acquire(instance->session_lock, FuriWaitForever);
-    instance->session = 0;
-    instance->conn->is_draining = true;
+    instance->session = session;
+
+    FURI_LOG_D(TAG, "Session: %ld", instance->session);
     furi_mutex_release(instance->session_lock);
 }
 
@@ -44,13 +44,7 @@ static void ble_session_callback(size_t data_size, void* data, void* context) {
         }
 
         const uint32_t session = *((uint32_t*)data);
-        if(session != 0) {
-            FURI_LOG_W(TAG, "Session not 0, ignore");
-            break;
-        }
-
-        FURI_LOG_W(TAG, "Session reset from remote");
-        ble_session_reset(context);
+        ble_session_set(context, session);
     } while(false);
 }
 
@@ -101,6 +95,12 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
     } else if(ev == MG_EV_ERROR) {
         FURI_LOG_W(TAG, "Error occurred, disconnect from remote");
         ble_disconnect(instance->ble);
+    } else if(ev == MG_EV_POLL) {
+        if(instance->session == 0) {
+            FURI_LOG_D(TAG, "Session reset from remote");
+            ble_session_set(instance, 1);
+            instance->conn->is_draining = true;
+        }
     }
 }
 
@@ -111,10 +111,8 @@ static int32_t ble_http_repeater_thread_handler(void* context) {
     ble_uart_set_tx_done_callback(
         instance->ble, BleUartChannelNordic, ble_uart_tx_done_callback, instance);
 
-    furi_mutex_acquire(instance->session_lock, FuriWaitForever);
     ble_uart_set_session_callback(instance->ble, ble_session_callback, instance);
-    instance->session = 1;
-    furi_mutex_release(instance->session_lock);
+    ble_session_set(instance, 1);
 
     network_init_current_thread(instance->network);
     mg_mgr_init(&instance->mgr);
