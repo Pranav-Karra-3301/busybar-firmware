@@ -187,7 +187,6 @@ static bool ble_command_enable_response(BleIntercomFrameGeneric* frame, void* co
     }
 
     ble_command_unblock_with_result(instance, frame->header.result);
-    ble_http_repeater_start(instance);
 
     BleState status = {
         .status = instance->status,
@@ -224,7 +223,6 @@ static bool ble_command_disable_response(BleIntercomFrameGeneric* frame, void* c
     ble_save_enabled_state(false);
 
     ble_command_unblock_with_result(instance, frame->header.result);
-    ble_http_repeater_stop();
 
     BleState status = {
         .status = instance->status,
@@ -318,6 +316,7 @@ static bool ble_command_set_status_request(BleIntercomFrameGeneric* frame, void*
     furi_pubsub_publish(instance->on_status_change, (void*)response);
 
     ble_streaming_update(instance->streaming, instance->status);
+    ble_http_repeater_update(instance->http, instance->status);
 
     return result;
 }
