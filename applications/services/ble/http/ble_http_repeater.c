@@ -89,6 +89,7 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
 
             if(furi_semaphore_acquire(
                    instance->wait, BLE_HTTP_SESSION_TIMEOUT_ON_TX_CONFIRM_FAIL) != FuriStatusOk) {
+                if(!instance->run) break;
                 FURI_LOG_W(TAG, "Disconnect due to timeout");
                 ble_disconnect(instance->ble);
                 break;
@@ -103,6 +104,7 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
         instance->conn = mg_connect(&instance->mgr, BLE_HTTP_HOST, ble_event_handler, instance);
     } else if(ev == MG_EV_ERROR) {
         FURI_LOG_W(TAG, "Error occurred, disconnect from remote");
+        if(!instance->run) return;
         ble_disconnect(instance->ble);
     } else if(ev == MG_EV_POLL) {
         ble_session_check_reset(instance);
