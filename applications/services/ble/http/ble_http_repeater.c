@@ -18,7 +18,6 @@ struct BleHttpRepeater {
     FuriSemaphore* wait;
     FuriSemaphore* uart_conn_sync;
     Ble* ble;
-    Network* network;
     bool run;
 
     FuriMutex* session_lock;
@@ -114,7 +113,8 @@ static int32_t ble_http_repeater_thread_handler(void* context) {
     ble_uart_set_session_callback(instance->ble, ble_session_callback, instance);
     ble_session_set(instance, 1);
 
-    network_init_current_thread(instance->network);
+    Network* network = furi_record_open(RECORD_NETWORK);
+    network_init_current_thread(network);
     mg_mgr_init(&instance->mgr);
     mg_wakeup_init(&instance->mgr);
 
@@ -129,7 +129,8 @@ static int32_t ble_http_repeater_thread_handler(void* context) {
     ble_uart_set_rx_callback(instance->ble, BleUartChannelNordic, NULL, NULL);
     ble_uart_set_tx_done_callback(instance->ble, BleUartChannelNordic, NULL, NULL);
     mg_mgr_free(&instance->mgr);
-    network_deinit_current_thread(instance->network);
+    network_deinit_current_thread(network);
+    furi_record_close(RECORD_NETWORK);
 
     return 0;
 }
@@ -154,7 +155,6 @@ void ble_http_repeater_free(BleHttpRepeater* instance) {
     furi_semaphore_free(instance->uart_conn_sync);
     furi_mutex_free(instance->session_lock);
     furi_mutex_free(instance->lock);
-    furi_record_close(RECORD_NETWORK);
     free(instance);
 }
 
