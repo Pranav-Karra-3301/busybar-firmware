@@ -34,6 +34,16 @@ static void ble_session_set(BleHttpRepeater* instance, const uint32_t session) {
     furi_mutex_release(instance->session_lock);
 }
 
+static void ble_session_check_reset(BleHttpRepeater* instance) {
+    furi_mutex_acquire(instance->session_lock, FuriWaitForever);
+    if(instance->session == 0) {
+        FURI_LOG_D(TAG, "Session reset from remote");
+        instance->session = 0;
+        instance->conn->is_draining = true;
+    }
+    furi_mutex_release(instance->session_lock);
+}
+
 static void ble_session_callback(size_t data_size, void* data, void* context) {
     furi_assert(context);
     do {
@@ -95,11 +105,7 @@ static void ble_event_handler(struct mg_connection* conn, int ev, void* ev_data)
         FURI_LOG_W(TAG, "Error occurred, disconnect from remote");
         ble_disconnect(instance->ble);
     } else if(ev == MG_EV_POLL) {
-        if(instance->session == 0) {
-            FURI_LOG_D(TAG, "Session reset from remote");
-            ble_session_set(instance, 1);
-            instance->conn->is_draining = true;
-        }
+        ble_session_check_reset(instance);
     }
 }
 
