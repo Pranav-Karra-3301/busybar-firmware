@@ -155,17 +155,7 @@ BleHttpRepeater* ble_http_repeater_alloc(Ble* ble) {
     return instance;
 }
 
-void ble_http_repeater_free(BleHttpRepeater* instance) {
-    furi_thread_free(instance->thread);
-    furi_semaphore_free(instance->wait);
-    furi_semaphore_free(instance->uart_conn_sync);
-    furi_mutex_free(instance->session_lock);
-    furi_mutex_free(instance->lock);
-    free(instance);
-}
-
 static void ble_http_repeater_start(BleHttpRepeater* instance) {
-    furi_assert(instance);
     furi_mutex_acquire(instance->lock, FuriWaitForever);
 
     if(!instance->run) {
@@ -177,7 +167,6 @@ static void ble_http_repeater_start(BleHttpRepeater* instance) {
 }
 
 static void ble_http_repeater_stop(BleHttpRepeater* instance) {
-    furi_assert(instance);
     furi_mutex_acquire(instance->lock, FuriWaitForever);
 
     if(instance->run) {
@@ -186,6 +175,17 @@ static void ble_http_repeater_stop(BleHttpRepeater* instance) {
         FURI_LOG_D(TAG, "Http stopped");
     }
     furi_mutex_release(instance->lock);
+}
+
+void ble_http_repeater_free(BleHttpRepeater* instance) {
+    furi_assert(instance);
+    ble_http_repeater_stop(instance);
+    furi_thread_free(instance->thread);
+    furi_semaphore_free(instance->wait);
+    furi_semaphore_free(instance->uart_conn_sync);
+    furi_mutex_free(instance->session_lock);
+    furi_mutex_free(instance->lock);
+    free(instance);
 }
 
 void ble_http_repeater_update(BleHttpRepeater* instance, const BleServiceStatus status) {
