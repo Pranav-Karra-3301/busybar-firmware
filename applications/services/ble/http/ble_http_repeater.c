@@ -136,6 +136,7 @@ static int32_t ble_http_repeater_thread_handler(void* context) {
     ble_uart_set_session_callback(instance->ble, ble_session_callback, instance);
     instance->current_request_num = 0;
     instance->previous_request_num = 0;
+    ble_uart_session_set_value(instance->ble, instance->current_request_num);
     furi_mutex_release(instance->session_lock);
 
     Network* network = furi_record_open(RECORD_NETWORK);
