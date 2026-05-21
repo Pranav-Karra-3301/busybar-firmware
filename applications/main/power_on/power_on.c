@@ -165,3 +165,43 @@ void power_on_send_custom_event(PowerOnApp* instance, uint32_t event) {
     furi_check(
         furi_message_queue_put(instance->event_queue, &event, FuriWaitForever) == FuriStatusOk);
 }
+
+bool power_on_handle_generic_input(PowerOnApp* instance, const InputEvent* event) {
+    furi_assert(instance);
+    furi_assert(event);
+
+    bool consumed = false;
+    PowerOnAppEvent app_event;
+
+    if(event->type == InputTypeShort) {
+        switch(event->key) {
+        case InputKeyOk:
+        case InputKeyStart:
+            app_event = PowerOnAppEventUserInteracted;
+            consumed = true;
+            break;
+        default:
+            break;
+        }
+    }
+    if(event->type == InputTypePress) {
+        switch(event->key) {
+        case InputKeyBusy:
+        case InputKeyCustom:
+        case InputKeyOff:
+        case InputKeyApps:
+        case InputKeySettings:
+            app_event = PowerOnAppEventUserInteracted;
+            consumed = true;
+            break;
+        default:
+            break;
+        }
+    }
+
+    if(consumed) {
+        power_on_send_custom_event(instance, app_event);
+    }
+
+    return consumed;
+}

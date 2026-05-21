@@ -38,3 +38,8 @@ bool power_on_is_done_flag_present(PowerOnApp* instance);
 void power_on_done_flag_create(PowerOnApp* instance);
 
 void power_on_send_custom_event(PowerOnApp* instance, uint32_t event);
+
+/**
+ * Sends `PowerOnAppEventUserInteracted` on any `Short` input.
+ */
+bool power_on_handle_generic_input(PowerOnApp* instance, const InputEvent* event);

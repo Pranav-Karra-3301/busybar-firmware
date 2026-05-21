@@ -32,41 +32,7 @@ static bool power_on_scene_animation_input_callback(const InputEvent* event, voi
 
     PowerOnApp* app = context;
 
-    bool consumed = false;
-    PowerOnAppEvent app_event;
-
-    if(event->type == InputTypeShort) {
-        switch(event->key) {
-        case InputKeyOk:
-        case InputKeyBack:
-        case InputKeyStart:
-            app_event = PowerOnAppEventUserInteracted;
-            consumed = true;
-            break;
-        default:
-            break;
-        }
-    }
-    if(event->type == InputTypePress) {
-        switch(event->key) {
-        case InputKeyBusy:
-        case InputKeyCustom:
-        case InputKeyOff:
-        case InputKeyApps:
-        case InputKeySettings:
-            app_event = PowerOnAppEventUserInteracted;
-            consumed = true;
-            break;
-        default:
-            break;
-        }
-    }
-
-    if(consumed) {
-        power_on_send_custom_event(app, app_event);
-    }
-
-    return consumed;
+    return power_on_handle_generic_input(app, event);
 }
 
 static void power_on_scene_animation_on_enter(void* context) {

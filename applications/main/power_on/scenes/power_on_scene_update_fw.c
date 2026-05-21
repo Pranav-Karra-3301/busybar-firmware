@@ -8,38 +8,13 @@ typedef struct {
     QrDocs* back_view;
 } SceneUpdateFw;
 
-static bool power_on_scene_animation_input_callback(const InputEvent* event, void* context) {
+static bool power_on_scene_update_fw_input_callback(const InputEvent* event, void* context) {
     furi_assert(event);
     furi_assert(context);
 
     PowerOnApp* app = context;
 
-    bool consumed = false;
-    PowerOnAppEvent app_event;
-
-    if(event->type == InputTypeShort) {
-        switch(event->key) {
-        case InputKeyOk:
-        case InputKeyBack:
-        case InputKeyStart:
-        case InputKeyBusy:
-        case InputKeyCustom:
-        case InputKeyOff:
-        case InputKeyApps:
-        case InputKeySettings:
-            app_event = PowerOnAppEventUserInteracted;
-            consumed = true;
-            break;
-        default:
-            break;
-        }
-    }
-
-    if(consumed) {
-        power_on_send_custom_event(app, app_event);
-    }
-
-    return consumed;
+    return power_on_handle_generic_input(app, event);
 }
 
 static void power_on_scene_update_fw_on_enter(void* context) {
@@ -50,7 +25,7 @@ static void power_on_scene_update_fw_on_enter(void* context) {
 
     with_gui(app->gui, {
         GuiLayer* layer = gui_get_layer(app->gui, GuiLayerIdMain);
-        gui_layer_add_input_callback(layer, power_on_scene_animation_input_callback, app);
+        gui_layer_add_input_callback(layer, power_on_scene_update_fw_input_callback, app);
 
         scene->front_view = status_view_alloc(app->front_root);
         status_view_set_icon(scene->front_view, SHARED_IMG_PATH("info_front_8x8.image"));
@@ -75,7 +50,7 @@ static void power_on_scene_update_fw_on_exit(void* context) {
         qr_docs_free(scene->back_view);
 
         GuiLayer* layer = gui_get_layer(app->gui, GuiLayerIdMain);
-        gui_layer_remove_input_callback(layer, power_on_scene_animation_input_callback);
+        gui_layer_remove_input_callback(layer, power_on_scene_update_fw_input_callback);
     });
 }
 
