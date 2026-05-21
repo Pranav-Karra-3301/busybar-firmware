@@ -1,4 +1,5 @@
 #include "power_on_i.h"
+
 #include <storage/storage.h>
 
 #define POWER_ON_DONE_PATH APP_DATA_PATH("done.txt")
