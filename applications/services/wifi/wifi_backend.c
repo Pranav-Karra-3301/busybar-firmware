@@ -230,7 +230,6 @@ static sl_status_t wifi_connect_request_handler(
         }
 
         wifi_set_state(instance, WifiBackendStateConnected);
-        furi_delay_ms(60000);
 
     } while(false);
 
