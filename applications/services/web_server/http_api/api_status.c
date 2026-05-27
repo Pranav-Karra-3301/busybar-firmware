@@ -188,12 +188,15 @@ bool http_api_status_callback(
     struct mg_http_message* msg,
     void* ctx) {
     UNUSED(msg);
-    UNUSED(method);
 
     ApiStatusCtx* context = ctx;
     furi_assert(context);
 
     if(IS_HTTP_ENDPOINT(path)) {
+        if(method == HttpMethodOptions) {
+            http_reply_cors_preflight(conn, HttpMethodGet);
+            return true;
+        }
         if(method != HttpMethodGet) {
             http_reply_405_method_not_allowed(conn, HttpMethodGet);
             return true;
@@ -227,6 +230,10 @@ bool http_api_status_callback(
 
     for(size_t i = 0; i < COUNT_OF(status_handlers); i++) {
         if(furi_string_equal(path, status_handlers[i].name)) {
+            if(method == HttpMethodOptions) {
+                http_reply_cors_preflight(conn, HttpMethodGet);
+                return true;
+            }
             if(method != HttpMethodGet) {
                 http_reply_405_method_not_allowed(conn, HttpMethodGet);
                 return true;
