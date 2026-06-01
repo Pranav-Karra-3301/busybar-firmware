@@ -155,6 +155,7 @@ assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.te
 
 ## Things to avoid
 
+- imports inside tests — if you need something, import it at the top and add a fixture if necessary.
 - `import requests` followed by `requests.get(...)` — use `web_session`.
 - Fabricated `@allure.id("xxxx")`.
 - Custom `requests.Session()` inside tests — use `web_session`.
