@@ -127,7 +127,7 @@ static const FuriHalSerialResources furi_hal_serial_resources[FuriHalSerialIdMax
             .periph = ULP_UART,
             .gpio =
                 {
-                    [FuriHalSerialPinTx] = &gpio_ulp_uart_tx,
+                    [FuriHalSerialPinTx] = &gpio_uart1_tx,
                     [FuriHalSerialPinRx] = &gpio_ulp_uart_rx,
                     [FuriHalSerialPinRts] = NULL,
                     [FuriHalSerialPinCts] = NULL,
@@ -269,14 +269,14 @@ void furi_hal_serial_init(FuriHalSerialHandle* handle, uint32_t baud) {
             GpioSpeedHigh,
             GpioAltFn9ULPPERH_ON_SOC_GPIO_2);
         furi_hal_gpio_init_ex(
-            &gpio_ulp_uart_tx,
+            &gpio_uart1_tx,
             GpioModeOutputPushPull,
             GpioPullNo,
             GpioSpeedHigh,
-            GpioAltFn9ULPPERH_ON_SOC_GPIO_3);
+            GpioAltFn3ULP_UART_TX);
         // Init virtual (multiplexed) pins
         furi_hal_gpio_enable_ulp_on_hp(&gpio_ulp_2, GpioAltFn3ULP_UART_RX);
-        furi_hal_gpio_enable_ulp_on_hp(&gpio_ulp_i_3, GpioAltFn3ULP_UART_TX);
+        // furi_hal_gpio_enable_ulp_on_hp(&gpio_ulp_i_3, GpioAltFn3ULP_UART_TX);
 
     } else {
         furi_crash("Invalid serial id");
