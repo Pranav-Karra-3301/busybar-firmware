@@ -26,7 +26,7 @@
 #define REASON_CODE_KEY_FAILURE  0x08
 #define REASON_CODE_BEACON_LOSS  0x10
 
-#define INFO_TIMER_PERIOD_MS (15 * 1000)
+#define INFO_TIMER_PERIOD_MS (1 * 1000)
 
 typedef enum {
     WifiEventTypeRequestReceived,
