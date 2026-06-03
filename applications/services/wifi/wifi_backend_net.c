@@ -95,12 +95,17 @@ static void wifi_net_tcpip_input(const uint8_t* data, uint16_t data_len) {
     }
 }
 
+#define TX_TIMEOUT_MS (200U)
+
 static void wifi_net_intercom_input(const uint8_t* data, uint16_t data_len) {
     furi_check(instance);
 
     const size_t tx_size =
-        intercom_tx(instance->intercom_ch_data, data, data_len, FuriWaitForever);
-    furi_check(tx_size == data_len);
+        intercom_tx(instance->intercom_ch_data, data, data_len, furi_ms_to_ticks(TX_TIMEOUT_MS));
+    if(tx_size != data_len) {
+        FURI_LOG_W(TAG, "Failed to send data to intercom channel, sent %zu byte(s)", tx_size);
+    }
+    // furi_check(tx_size == data_len);
 }
 
 static void wifi_net_tcpip_netif_status_callback(struct netif* netif) {
