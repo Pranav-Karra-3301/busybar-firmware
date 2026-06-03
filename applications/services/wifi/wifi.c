@@ -339,7 +339,7 @@ static Wifi* wifi_alloc(void) {
 
     instance->event_loop = furi_event_loop_alloc();
     instance->override_queue = furi_message_queue_alloc(1, sizeof(WifiMessage));
-    instance->response_queue = furi_message_queue_alloc(3, sizeof(WifiResponse));
+    instance->response_queue = furi_message_queue_alloc(16, sizeof(WifiResponse));
     instance->api_semaphore = furi_semaphore_alloc(1, 1);
     instance->dhcp_semaphore = furi_semaphore_alloc(1, 0);
     instance->state = furi_state_alloc(sizeof(WifiInfo));
