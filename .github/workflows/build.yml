@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - gornekich/27_05_26_silabs_test
     tags:
       - '*'
   pull_request:
