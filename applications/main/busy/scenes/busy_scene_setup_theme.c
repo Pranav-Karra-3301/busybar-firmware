@@ -1,15 +1,16 @@
 #include "../busy_i.h"
+#include "../widgets/theme_picker.h"
+
+#include <gui/modules/front_display_mirror.h>
 
 #include <m-array.h>
-
-#include "../widgets/theme_picker.h"
 
 #define THEME_NAME_LEN_MAX (64)
 
 typedef struct {
     ThemePickerModel* picker_model;
     ThemePicker* front_picker;
-    ThemePicker* back_picker;
+    DisplayMirror* back_mirror;
 } BusySceneSetupTheme;
 
 static void busy_scene_setup_theme_picker_callback(uint32_t index, void* context) {
@@ -42,6 +43,8 @@ static void busy_scene_setup_theme_read_extra_themes(ThemePickerModel* model) {
     busy_theme_free(theme);
     storage_file_free(themes_dir);
 
+    theme_picker_model_sort(model);
+
     furi_record_close(RECORD_STORAGE);
 }
 
@@ -60,8 +63,6 @@ static void busy_scene_setup_theme_save_selected_theme(BusyApp* instance, uint32
         app_config->theme_name,
         busy_theme_get_name(selected_theme),
         sizeof(app_config->theme_name));
-
-    busy_theme_set(instance->theme, selected_theme);
 
     instance->config = *app_config;
     busy_set_timer_preset(instance, &timer_preset);
@@ -89,21 +90,21 @@ static void busy_scene_setup_theme_on_enter(void* context) {
 
     busy_scene_setup_theme_read_extra_themes(data->picker_model);
 
-    const uint32_t selected_theme_index =
-        theme_picker_model_get_item_index(data->picker_model, instance->theme);
+    BusyTimerPreset timer_preset;
+    busy_get_timer_preset(instance, &timer_preset);
+
+    const uint32_t selected_theme_index = theme_picker_model_get_item_index_by_name(
+        data->picker_model, timer_preset.app_config.theme_name);
 
     with_gui(instance->gui, {
         data->front_picker = theme_picker_alloc(instance->front_window);
         theme_picker_set_model(data->front_picker, data->picker_model);
         widget_set_align(theme_picker_get_base(data->front_picker), AlignCenter);
 
-        data->back_picker = theme_picker_alloc(instance->back_window);
-        theme_picker_set_model(data->back_picker, data->picker_model);
-        widget_set_align(theme_picker_get_base(data->back_picker), AlignCenter);
+        data->back_mirror = display_mirror_alloc(instance->back_window);
 
         if(selected_theme_index != THEME_PICKER_MODEL_INVALID_INDEX) {
             theme_picker_set_current_item(data->front_picker, selected_theme_index);
-            theme_picker_set_current_item(data->back_picker, selected_theme_index);
         }
 
         theme_picker_set_callback(
@@ -120,7 +121,7 @@ static void busy_scene_setup_theme_on_exit(void* context) {
 
     with_gui(instance->gui, {
         theme_picker_free(data->front_picker);
-        theme_picker_free(data->back_picker);
+        display_mirror_free(data->back_mirror);
         theme_picker_model_free(data->picker_model);
     });
 }

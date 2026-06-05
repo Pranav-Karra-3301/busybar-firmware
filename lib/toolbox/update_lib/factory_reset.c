@@ -46,7 +46,7 @@ static void reset_matter_pairing(void) {
 
     if(furi_record_exists(RECORD_MATTER)) {
         Matter* matter = furi_record_open(RECORD_MATTER);
-        matter_factory_reset(matter);
+        matter_factory_reset(matter, MatterRebootManually);
         furi_record_close(RECORD_MATTER);
         printf("Matter pairing reset done\r\n");
     } else {
@@ -83,9 +83,7 @@ void factory_reset_perform(Updater* updater, bool shipping_mode) {
     // Wifi settings will be reset here because they live on EMMC
     format_emmc_ext();
 
-#ifndef FURI_DEBUG
     furi_hal_nvm_reset();
-#endif
 
     if(shipping_mode) {
         furi_hal_nvm_set_flag(FuriHalNvmFlagRebootIntoShippingMode);

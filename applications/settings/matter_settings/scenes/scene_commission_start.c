@@ -1,5 +1,6 @@
 #include "../matter_settings_i.h"
-#include <settings_helpers/status_view.h>
+
+#include <gui/modules/status_view.h>
 
 typedef struct {
     StatusView* statuses[GuiDisplayIdMax];
@@ -16,7 +17,7 @@ static void matter_scene_commission_start_on_enter(void* context) {
         [GuiDisplayIdBack] = app->back_scene_window,
     };
 
-    static const char* const images[GuiDisplayIdMax] = {
+    static const char* const anims[GuiDisplayIdMax] = {
         [GuiDisplayIdFront] = SHARED_ANIM_PATH("spinner_front_8x8.anim"),
         [GuiDisplayIdBack] = SHARED_ANIM_PATH("spinner_back_16x16.anim"),
     };
@@ -24,11 +25,11 @@ static void matter_scene_commission_start_on_enter(void* context) {
     with_gui(app->gui, {
         for(GuiDisplayId disp = 0; disp < GuiDisplayIdMax; disp++) {
             scene->statuses[disp] = status_view_alloc(windows[disp]);
-            status_view_set_icon(scene->statuses[disp], images[disp]);
-            status_view_set_header(scene->statuses[disp], "Connecting...");
+            status_view_set_icon(scene->statuses[disp], anims[disp], true);
+            status_view_set_primary_text(scene->statuses[disp], "Connecting...");
         }
 
-        status_view_set_additional_text(
+        status_view_set_auxiliary_text(
             scene->statuses[GuiDisplayIdBack], "Might take a few minutes");
     });
 }
@@ -44,6 +45,8 @@ static void matter_scene_commission_start_on_exit(void* context) {
             status_view_free(scene->statuses[disp]);
         }
     });
+
+    matter_settings_acknowledge_status(app->status_ack);
 }
 
 static bool matter_scene_commission_start_on_event(const SceneManagerEvent* event, void* context) {

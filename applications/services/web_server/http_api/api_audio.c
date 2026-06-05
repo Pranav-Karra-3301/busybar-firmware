@@ -4,15 +4,107 @@
 
 #define TAG "HttpAudio"
 
-#define AUDIO_ASSETS_DIR  EXT_PATH("user_assets")
-#define FILE_NAME_LEN_MAX 32
+#define AUDIO_ASSETS_DIR      EXT_PATH("user_assets")
+#define FILE_NAME_LEN_MAX     32
+#define AUDIO_STOP_TIMEOUT_MS 30000
 
 typedef struct {
-    size_t len_remain;
-    void* file;
-} UploadClientCtx;
+    struct mg_connection* conn;
+    FuriPubSubSubscription* audio_event_sub;
+    struct mg_timer timeout_timer;
+} StopResponseContext;
 
-static bool api_audio_play_stop_callback(
+static void audio_stop_event_callback(const void* message, void* context) {
+    StopResponseContext* ctx = context;
+    furi_assert(ctx);
+
+    const AudioEvent* audio_event = (const AudioEvent*)message;
+    furi_assert(audio_event);
+
+    if(audio_event->type == AudioEventPlayEnd) {
+        mg_wakeup(web_srv_get_mgr(), ctx->conn->id, NULL, 0);
+    }
+}
+
+static void audio_stop_wakeup_callback(struct mg_connection* conn, void* data, size_t len) {
+    UNUSED(data);
+    UNUSED(len);
+    furi_assert(conn);
+    ConnectionContext* conn_ctx = (void*)conn->data;
+    StopResponseContext* ctx = conn_ctx->context;
+    furi_assert(ctx);
+
+    MG_REPLY_OK(conn);
+    conn->is_draining = true;
+}
+
+static void audio_stop_timeout(void* data) {
+    furi_assert(data);
+    StopResponseContext* ctx = data;
+
+    MG_REPLY_INTERNAL_ERROR(ctx->conn, "Audio stop timeout");
+    ctx->conn->is_draining = true;
+}
+
+static void audio_stop_close_callback(struct mg_connection* conn) {
+    furi_assert(conn);
+    ConnectionContext* conn_ctx = (void*)conn->data;
+    StopResponseContext* ctx = conn_ctx->context;
+    furi_assert(ctx);
+
+    mg_timer_free(&web_srv_get_mgr()->timers, &ctx->timeout_timer);
+
+    if(ctx->audio_event_sub) {
+        Audio* audio = furi_record_open(RECORD_AUDIO);
+        furi_pubsub_unsubscribe(audio_get_pubsub(audio), ctx->audio_event_sub);
+        furi_record_close(RECORD_AUDIO);
+    }
+
+    conn_ctx->on_wakeup = NULL;
+    conn_ctx->on_close = NULL;
+    conn_ctx->context = NULL;
+    free(ctx);
+}
+
+static void audio_stop_handler(struct mg_connection* conn) {
+    StopResponseContext* ctx = malloc(sizeof(StopResponseContext));
+    ctx->conn = conn;
+
+    ConnectionContext* conn_ctx = (void*)conn->data;
+    conn_ctx->on_close = audio_stop_close_callback;
+    conn_ctx->on_wakeup = audio_stop_wakeup_callback;
+    conn_ctx->context = ctx;
+
+    Audio* audio = furi_record_open(RECORD_AUDIO);
+    ctx->audio_event_sub =
+        furi_pubsub_subscribe(audio_get_pubsub(audio), audio_stop_event_callback, ctx);
+
+    bool result = audio_stop(audio);
+
+    if(!result) {
+        furi_pubsub_unsubscribe(audio_get_pubsub(audio), ctx->audio_event_sub);
+        furi_record_close(RECORD_AUDIO);
+        conn_ctx->on_wakeup = NULL;
+        conn_ctx->on_close = NULL;
+        conn_ctx->context = NULL;
+        free(ctx);
+        MG_REPLY_ERROR(conn, 410, "No audio is playing");
+        return;
+    }
+
+    furi_record_close(RECORD_AUDIO);
+
+    // Hold connection until AudioEventPlayEnd fires or timeout expires
+    mg_timer_init(
+        &web_srv_get_mgr()->timers,
+        &ctx->timeout_timer,
+        AUDIO_STOP_TIMEOUT_MS,
+        MG_TIMER_ONCE,
+        audio_stop_timeout,
+        ctx);
+}
+
+static bool api_audio_play_handler(
     FuriString* path,
     HttpMethod method,
     struct mg_connection* conn,
@@ -23,33 +115,58 @@ static bool api_audio_play_stop_callback(
     if(!IS_HTTP_ENDPOINT(path)) return false;
 
     if(method == HttpMethodDelete) {
-        Audio* audio = furi_record_open(RECORD_AUDIO);
-        audio_stop(audio);
-        furi_record_close(RECORD_AUDIO);
-        MG_REPLY_OK(conn);
+        audio_stop_handler(conn);
         return true;
     }
 
-    char temp_str[FILE_NAME_LEN_MAX];
+    FuriString* file_path = NULL;
+    char* app_name = NULL;
+    char* uploaded_path = NULL;
+    char* stock_path = NULL;
     bool success = false;
 
-    FuriString* file_path = furi_string_alloc();
     do {
-        if(msg->query.len == 0) {
+        app_name = mg_json_get_str(msg->body, "$.application_name");
+        if(!app_name) {
+            MG_REPLY_ERROR(conn, 400, "Missing application_name");
             break;
         }
 
-        int var_len = mg_http_get_var(&msg->query, "application_name", temp_str, sizeof(temp_str));
-        if(var_len <= 0) {
+        uploaded_path = mg_json_get_str(msg->body, "$.path");
+        stock_path = mg_json_get_str(msg->body, "$.stock_path");
+        if(uploaded_path && stock_path) {
+            MG_REPLY_ERROR(conn, 400, "Both path and stock_path are defined");
             break;
         }
-        furi_string_printf(file_path, "%s/%.*s", AUDIO_ASSETS_DIR, var_len, temp_str);
+        if(!uploaded_path && !stock_path) {
+            MG_REPLY_ERROR(conn, 400, "Missing path or stock_path");
+            break;
+        }
 
-        var_len = mg_http_get_var(&msg->query, "path", temp_str, sizeof(temp_str));
-        if(var_len <= 0) {
-            break;
+        if(uploaded_path) {
+            file_path =
+                furi_string_alloc_printf("%s/%s/%s", AUDIO_ASSETS_DIR, app_name, uploaded_path);
+            if(!mg_path_is_sane(mg_str(furi_string_get_cstr(file_path)))) {
+                MG_REPLY_ERROR(conn, 400, "Invalid path");
+                break;
+            }
         }
-        furi_string_cat_printf(file_path, "/%.*s", var_len, temp_str);
+
+        if(stock_path) {
+            char* file_name = NULL;
+            for(char* c = stock_path; *c != 0; c++) {
+                if(*c == '/') {
+                    *c = '\0';
+                    file_name = c + 1;
+                }
+            }
+            if(!file_name || *file_name == '\0') {
+                MG_REPLY_ERROR(conn, 400, "Wrong file name");
+                break;
+            }
+
+            file_path = furi_string_alloc_printf(SHARED_SOUND_PATH("%s"), file_name);
+        }
 
         Audio* audio = furi_record_open(RECORD_AUDIO);
         audio_enable(audio);
@@ -57,19 +174,22 @@ static bool api_audio_play_stop_callback(
         audio_disable(audio);
         furi_record_close(RECORD_AUDIO);
 
+        if(success) {
+            MG_REPLY_OK(conn);
+        } else {
+            MG_REPLY_ERROR(conn, 500, "Failed to play audio");
+        }
     } while(0);
 
-    furi_string_free(file_path);
-    if(success) {
-        MG_REPLY_OK(conn);
-    } else {
-        MG_REPLY_BAD_REQUEST(conn);
-    }
+    if(app_name) free(app_name);
+    if(uploaded_path) free(uploaded_path);
+    if(stock_path) free(stock_path);
+    if(file_path) furi_string_free(file_path);
 
     return true;
 }
 
-static bool api_audio_volume_callback(
+static bool api_audio_volume_handler(
     FuriString* path,
     HttpMethod method,
     struct mg_connection* conn,
@@ -101,7 +221,8 @@ static bool api_audio_volume_callback(
 
             int value_len = mg_http_get_var(&msg->query, "volume", value_str, sizeof(value_str));
             if(value_len <= 0) break;
-            int value_num = sscanf(value_str, "%u", &volume);
+            bool value_present =
+                mg_str_to_num(mg_str_n(value_str, value_len), 10, &volume, sizeof(volume));
 
             int silent_len = mg_http_get_var(&msg->query, "silent", value_str, sizeof(value_str));
             if(silent_len == 1) {
@@ -116,7 +237,7 @@ static bool api_audio_volume_callback(
                 break;
             }
 
-            if(value_num == 1) {
+            if(value_present) {
                 if((volume > 100) || (volume < 0)) break;
                 Audio* audio = furi_record_open(RECORD_AUDIO);
                 audio_set_volume(audio, (float)volume / 100.f);
@@ -145,13 +266,13 @@ static const HttpHandler api_audio_handlers[] = {
         .uri = "play",
         .method = HttpMethodPost | HttpMethodDelete,
         .type = HttpHandlerCustom,
-        .on_request = api_audio_play_stop_callback,
+        .on_request = api_audio_play_handler,
     },
     {
         .uri = "volume",
         .method = HttpMethodGet | HttpMethodPost,
         .type = HttpHandlerCustom,
-        .on_request = api_audio_volume_callback,
+        .on_request = api_audio_volume_handler,
     },
 };
 

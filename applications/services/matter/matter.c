@@ -2,6 +2,7 @@
 
 #include <furi_hal_rtc.h>
 #include <furi_hal_version.h>
+#include <power/power_service/power.h>
 
 #define TAG "Matter"
 
@@ -9,6 +10,7 @@
 
 #define REQUEST_TIMEOUT_MS  (furi_ms_to_ticks(5000))
 #define RESPONSE_TIMEOUT_MS (5000)
+#define REBOOT_TIMER_MS     (2500)
 
 #define DEFAULT_HARDWARE_VERSION        4
 #define DEFAULT_HARDWARE_VERSION_STRING "4.F22.B7.C2"
@@ -23,7 +25,7 @@ typedef enum {
 typedef MatterStatus (*MatterApiMessageHandler)(Matter* instance, MatterApiMessageData* data);
 static const MatterApiMessageHandler matter_api_message_handlers[MatterApiMessageTypeMax];
 
-typedef bool (*MatterResponseHandler)(Matter* instance, const MatterIntercomFrame* response);
+typedef void (*MatterResponseHandler)(Matter* instance, const MatterIntercomFrame* response);
 static const MatterResponseHandler matter_response_handlers[MatterIntercomFrameTypeMax];
 
 static MatterStatus matter_get_error_status_or_wait_for_response(MatterStatus status) {
@@ -76,17 +78,8 @@ static void matter_rx_queue_callback(FuriEventLoopObject* object, void* context)
     const MatterIntercomFrameType frame_type = frame.type;
     furi_assert(frame_type < MatterIntercomFrameTypeMax);
 
-    bool should_unlock_api = false;
     const MatterResponseHandler response_handler = matter_response_handlers[frame_type];
-
-    if(response_handler) {
-        should_unlock_api = response_handler(instance, &frame);
-    }
-
-    if(should_unlock_api) {
-        furi_event_loop_timer_stop(instance->timeout_timer);
-        matter_api_unlock(instance, MatterStatusOk);
-    }
+    if(response_handler) response_handler(instance, &frame);
 }
 
 static void matter_timeout_timer_callback(void* context) {
@@ -178,15 +171,15 @@ static Matter* matter_alloc(void) {
 
 // ========= Backend response handlers  =========
 
-static bool
+static void
     matter_backend_ready_response_handler(Matter* instance, const MatterIntercomFrame* response) {
     UNUSED(response);
     const bool should_unlock_api =
         matter_api_is_waiting_for_response(instance, MatterApiMessageTypeInitBackend);
-    return should_unlock_api;
+    if(should_unlock_api) matter_api_unlock_and_cancel_timeout(instance, MatterStatusOk);
 }
 
-static bool
+static void
     matter_switch_state_response_handler(Matter* instance, const MatterIntercomFrame* response) {
     const MatterIntercomSwitchStateFrame* switch_state_frame = &response->switch_state;
     const MatterSwitchState new_switch_state = switch_state_frame->state;
@@ -197,14 +190,10 @@ static bool
     if(new_switch_state != prev_switch_state) {
         furi_state_set(instance->switch_state, &new_switch_state);
     }
-
-    return false;
 }
 
-static bool
+static void
     matter_pairing_codes_response_handler(Matter* instance, const MatterIntercomFrame* response) {
-    bool should_unlock_api = false;
-
     if(matter_api_is_waiting_for_response(instance, MatterApiMessageTypeStartCommissioning)) {
         const MatterIntercomPairingCodesFrame* pairing_codes_frame = &response->codes;
         MatterCommissioningInfo* info = instance->api_message.data.start_commissioning.info;
@@ -216,13 +205,12 @@ static bool
         FURI_LOG_I(TAG, "QR code: %s", info->qr_code);
         FURI_LOG_I(TAG, "Manual code: %s", info->manual_code);
 
-        should_unlock_api = true;
+        matter_api_unlock_and_cancel_timeout(
+            instance, pairing_codes_frame->success ? MatterStatusOk : MatterStatusUnprovisioned);
     }
-
-    return should_unlock_api;
 }
 
-static bool matter_commissioning_status_response_handler(
+static void matter_commissioning_status_response_handler(
     Matter* instance,
     const MatterIntercomFrame* response) {
     const MatterIntercomCommissionStatusFrame* commission_status = &response->commission_status;
@@ -239,16 +227,12 @@ static bool matter_commissioning_status_response_handler(
     };
 
     furi_pubsub_publish(instance->pubsub, &event);
-
-    return false;
 }
 
-static bool
+static void
     matter_fabric_count_response_handler(Matter* instance, const MatterIntercomFrame* response) {
     const MatterIntercomFabricCountUpdateFrame* fabric_count = &response->fabric_count;
     instance->fabrics.count = fabric_count->fabric_count;
-
-    return false;
 }
 
 static const MatterResponseHandler matter_response_handlers[MatterIntercomFrameTypeMax] = {
@@ -362,6 +346,15 @@ static MatterStatus matter_get_commissioned_fabrics_api_message_handler(
     return MatterStatusOk;
 }
 
+static void matter_deferred_reboot(void* context) {
+    UNUSED(context);
+
+    Power* power = furi_record_open(RECORD_POWER);
+    power_reboot(power, PowerRebootNormal);
+    while(1)
+        ;
+}
+
 static MatterStatus
     matter_factory_reset_api_message_handler(Matter* instance, MatterApiMessageData* data) {
     UNUSED(data);
@@ -369,7 +362,22 @@ static MatterStatus
         .type = MatterIntercomFrameTypeReset,
     };
 
-    return matter_send_frame(instance, &frame);
+    MatterStatus status = matter_send_frame(instance, &frame);
+    if(status != MatterStatusOk) return status;
+
+    if(data->factory_reset.reboot_mode == MatterRebootAutomatically) {
+        MatterEvent event = {
+            .type = MatterEventTypeWillReboot,
+        };
+        furi_pubsub_publish(instance->pubsub, &event);
+
+        // this object leaks
+        // it's fine - it'll be freed by the ultimate garbage collector! a reset!
+        FuriTimer* timer = furi_timer_alloc(matter_deferred_reboot, FuriTimerTypeOnce, NULL);
+        furi_timer_start(timer, furi_ms_to_ticks(REBOOT_TIMER_MS));
+    }
+
+    return MatterStatusOk;
 }
 
 static const MatterApiMessageHandler matter_api_message_handlers[MatterApiMessageTypeMax] = {

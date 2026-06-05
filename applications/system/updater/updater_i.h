@@ -24,7 +24,6 @@ typedef enum {
     MessageTypeInstallationPrepare,
     MessageTypeInstallationApply,
     MessageTypeCheckForUpdate,
-    MessageTypeGetSettings,
     MessageTypeSetSettings,
 
     MessageTypesCount
@@ -57,10 +56,6 @@ typedef struct {
         } as_get_check_info;
 
         struct {
-            UpdaterSettings* get_settings;
-        } as_get_settings;
-
-        struct {
             const UpdaterSettings* set_settings;
         } as_set_settings;
     };
@@ -77,8 +72,7 @@ struct Updater {
     FuriEventLoop* event_loop;
     FuriMessageQueue* message_queue;
     UpdaterSettings settings;
-
-    FuriPubSub* pubsub;
+    FuriState* settings_state;
 
     FuriSemaphore* update_lock;
     FuriState* update_state;
@@ -116,7 +110,9 @@ UpdaterStatus updater_internal_do_download(Updater* instance, UpdaterMessage* me
 UpdaterStatus updater_internal_do_verify_bundle_sha(Updater* instance, UpdaterMessage* message);
 UpdaterStatus updater_internal_do_unpack(Updater* instance, UpdaterMessage* message);
 
-void updater_internal_settings_change_build_specific(Updater* instance);
+void updater_internal_settings_change_build_specific(
+    Updater* instance,
+    const UpdaterSettings* settings);
 
 void updater_internal_setup_build_specific(Updater* instance);
 

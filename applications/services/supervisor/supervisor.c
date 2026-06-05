@@ -1,55 +1,68 @@
-#include <furi/furi.h>
-#include <furi_hal_nvm.h>
-#include <power/power_service/power.h>
-#include <gui/gui.h>
-#include <gui/modules/label.h>
-#include <storage/storage.h>
-#include <storage/storage_backup.h>
+#include <gui/gui_i.h>
+#include <gui/modules/status_view.h>
+
 #include <intercom/intercom.h>
+#include <matter/matter.h>
+
+#include <furi_hal_nvm.h>
+
+#include <assets_images.h>
 
 #define TAG "Supervisor"
 
-#define SUPERVISOR_BATTERY_LOW_TIMEOUT_MS 5000
 #define SUPERVISOR_BATTERY_TIME_TO_DIE_S  30
-
-#define SUPERVISOR_REBOOT_GRACE_PERIOD_MS (30000)
+#define SUPERVISOR_REBOOT_GRACE_PERIOD_MS 30000
 
 typedef struct Supervisor Supervisor;
 
-typedef void (*SupervisorGuiOkCb)(Supervisor* supervisor);
+typedef struct {
+    const char* primary_text;
+    const char* auxiliary_text;
+
+    union {
+        const void* as_any;
+        const char* as_path;
+        const lv_image_dsc_t* as_image;
+    } icon;
+
+    bool is_icon_animated;
+} SupervisorUiPreset;
 
 typedef struct {
-    Gui* gui;
-    Label* front_label;
-    Label* back_label;
-    bool input_locked;
-    SupervisorGuiOkCb ok_callback;
-    uint32_t current_warnings;
-} SupervisorGui;
+    SupervisorUiPreset ui_presets[GuiDisplayIdMax];
+    void (*ok_callback)(Supervisor* supervisor, const void* context);
+    const void* context;
+    bool do_lock_input;
+} SupervisorWarning;
 
 struct Supervisor {
     FuriEventLoop* event_loop;
-    FuriMessageQueue* message_queue;
-    FuriEventLoopTimer* battery_low_timer;
     FuriEventLoopTimer* battery_critical_timer;
-    size_t battery_critical_counter;
+    FuriMessageQueue* message_queue;
+
     Power* power;
     Storage* storage;
     Intercom* intercom;
+    Matter* matter;
+    Gui* gui;
 
-    SupervisorGui gui;
+    StatusView* status_views[GuiDisplayIdMax];
+
+    uint32_t active_warnings;
+    const SupervisorWarning* _Atomic displayed_warning;
+
+    size_t battery_critical_counter;
 };
 
 typedef enum {
     SupervisorEventTypeBatteryCriticalStart,
     SupervisorEventTypeBatteryCriticalStop,
-    SupervisorEventTypeBatteryLowStart,
-    SupervisorEventTypeBatteryLowStop,
     SupervisorEventTypeBatteryNotPresent,
     SupervisorEventTypeBatteryPresent,
     SupervisorEventTypeTickToDie,
     SupervisorEventTypeIntercomStatusChanged,
-    SupervisorEventTypeOKPressed,
+    SupervisorEventTypeOkPressed,
+    SupervisorEventTypeWillReboot,
 } SupervisorEventType;
 
 typedef struct {
@@ -59,90 +72,187 @@ typedef struct {
     };
 } SupervisorEvent;
 
-typedef struct {
-    const char* front_text;
-    const char* back_text;
-    bool input_locked;
-    SupervisorGuiOkCb ok_callback;
-} SupervisorWarning;
-
 // if multiple warnings are active, the one with the lowest enum value is shown
 typedef enum {
     SupervisorWarningTypeBatteryNotReady,
     SupervisorWarningTypeBatteryCritical, // must be higher than others to power off properly
+    SupervisorWarningTypeRebooting,
     SupervisorWarningTypeStorageNoPartitions,
     SupervisorWarningTypeStorageNoBackup,
     SupervisorWarningTypeStorageNoExternal,
-    SupervisorWarningTypeBatteryLow,
     SupervisorWarningTypeIntercomError, // must be last
 
-    SupervisorWarningTypeMax, // must be last
+    SupervisorWarningTypesCount,
 } SupervisorWarningType;
 
-static void supervisor_make_filesystem(Supervisor* supervisor);
-static void supervisor_format_backup(Supervisor* supervisor);
-static void supervisor_format_external(Supervisor* supervisor);
+static void supervisor_make_filesystem(Supervisor* supervisor, const void* context);
+static void supervisor_format_partition(Supervisor* supervisor, const void* context);
 
 static const SupervisorWarning supervisor_warnings[] = {
-    [SupervisorWarningTypeStorageNoPartitions] =
-        {
-            .front_text = "No partitions\nPress OK to format",
-            .back_text = "Incorrect partitions\nPress OK to format\nDevice will reboot",
-            .input_locked = true,
-            .ok_callback = supervisor_make_filesystem,
-        },
-    [SupervisorWarningTypeStorageNoBackup] =
-        {
-            .front_text = "Backup corrupted\nPress OK to format",
-            .back_text = "Backup partition corrupted\nPress OK to format\nDevice will reboot",
-            .input_locked = true,
-            .ok_callback = supervisor_format_backup,
-        },
-    [SupervisorWarningTypeStorageNoExternal] =
-        {
-            .front_text = "Partition corrupted\nPress OK to format",
-            .back_text = "Main partition corrupted\nPress OK to format\nDevice will reboot",
-            .input_locked = true,
-            .ok_callback = supervisor_format_external,
-        },
     [SupervisorWarningTypeBatteryNotReady] =
         {
-            .front_text = "Battery not present\nConnect battery",
-            .back_text = "Battery not present\nPlease connect battery\n>_<",
-            .input_locked = true,
+            .ui_presets =
+                {
+                    [GuiDisplayIdFront] =
+                        {
+                            .primary_text = "Battery issue,\ncontact support",
+                            .auxiliary_text = NULL,
+                            .icon.as_path = SHARED_IMG_PATH("missing_battery_front_8x8.image"),
+                            .is_icon_animated = false,
+                        },
+                    [GuiDisplayIdBack] =
+                        {
+                            .primary_text = "Battery issue",
+                            .auxiliary_text = "Please contact support",
+                            .icon.as_path = SHARED_IMG_PATH("error_back_11x11.image"),
+                            .is_icon_animated = false,
+                        },
+                },
             .ok_callback = NULL,
+            .do_lock_input = true,
         },
     [SupervisorWarningTypeBatteryCritical] =
         {
-            .front_text = "Connect charger\nPower off in 30 sec.",
-            .back_text = "Battery critical\nPlease connect charger\nPower off in 30 sec.",
-            .input_locked = false,
+            .ui_presets =
+                {
+                    [GuiDisplayIdFront] =
+                        {
+                            .primary_text = "Connect charger",
+                            .auxiliary_text = "Power off in 00:30",
+                            .icon.as_path = SHARED_IMG_PATH("low_battery_front_8x8.image"),
+                            .is_icon_animated = false,
+                        },
+                    [GuiDisplayIdBack] =
+                        {
+                            .primary_text = "Connect charger",
+                            .auxiliary_text = "Power off in 00:30",
+                            .icon.as_path = SHARED_IMG_PATH("error_back_11x11.image"),
+                            .is_icon_animated = false,
+                        },
+                },
             .ok_callback = NULL,
+            .do_lock_input = false,
         },
-    [SupervisorWarningTypeBatteryLow] =
+    [SupervisorWarningTypeRebooting] =
         {
-            .front_text = "Battery low",
-            .back_text = "Battery low",
-            .input_locked = false,
+            .ui_presets =
+                {
+                    [GuiDisplayIdFront] =
+                        {
+                            .primary_text = "Restarting device",
+                            .auxiliary_text = NULL,
+                            .icon.as_path = SHARED_ANIM_PATH("spinner_front_8x8.anim"),
+                            .is_icon_animated = true,
+                        },
+                    [GuiDisplayIdBack] =
+                        {
+                            .primary_text = "Restarting device",
+                            .auxiliary_text = NULL,
+                            .icon.as_path = SHARED_ANIM_PATH("spinner_back_16x16.anim"),
+                            .is_icon_animated = true,
+                        },
+                },
             .ok_callback = NULL,
+            .do_lock_input = true,
+        },
+    [SupervisorWarningTypeStorageNoPartitions] =
+        {
+            .ui_presets =
+                {
+                    [GuiDisplayIdFront] =
+                        {
+                            .primary_text = "Storage error\nOK = reset device",
+                            .auxiliary_text = NULL,
+                            .icon.as_image = &I_error_front_8x8,
+                            .is_icon_animated = false,
+                        },
+                    [GuiDisplayIdBack] =
+                        {
+                            .primary_text = "Storage error,\npress OK to reset device",
+                            .auxiliary_text = NULL,
+                            .icon.as_image = &I_error_back_11x11,
+                            .is_icon_animated = false,
+                        },
+                },
+            .ok_callback = supervisor_make_filesystem,
+            .do_lock_input = true,
+        },
+    [SupervisorWarningTypeStorageNoBackup] =
+        {
+            .ui_presets =
+                {
+                    [GuiDisplayIdFront] =
+                        {
+                            .primary_text = "Storage error\nOK = reset device",
+                            .auxiliary_text = NULL,
+                            .icon.as_path = SHARED_IMG_PATH("error_front_8x8.image"),
+                            .is_icon_animated = false,
+                        },
+                    [GuiDisplayIdBack] =
+                        {
+                            .primary_text = "Storage error,\npress OK to reset device",
+                            .auxiliary_text = NULL,
+                            .icon.as_path = SHARED_IMG_PATH("error_back_11x11.image"),
+                            .is_icon_animated = false,
+                        },
+                },
+            .ok_callback = supervisor_format_partition,
+            .context = STORAGE_BACKUP_PATH_PREFIX,
+            .do_lock_input = true,
+        },
+    [SupervisorWarningTypeStorageNoExternal] =
+        {
+            .ui_presets =
+                {
+                    [GuiDisplayIdFront] =
+                        {
+                            .primary_text = "Storage error\nOK = reset device",
+                            .auxiliary_text = NULL,
+                            .icon.as_image = &I_error_front_8x8,
+                            .is_icon_animated = false,
+                        },
+                    [GuiDisplayIdBack] =
+                        {
+                            .primary_text = "Storage error,\npress OK to reset device",
+                            .auxiliary_text = NULL,
+                            .icon.as_image = &I_error_back_11x11,
+                            .is_icon_animated = false,
+                        },
+                },
+            .ok_callback = supervisor_format_partition,
+            .context = STORAGE_EXT_PATH_PREFIX,
+            .do_lock_input = true,
         },
     [SupervisorWarningTypeIntercomError] =
         {
-            .front_text = "Intercom error\nReboot device",
-            .back_text = "Intercom error\nPlease reboot the device",
-            .input_locked = true,
+            .ui_presets =
+                {
+                    [GuiDisplayIdFront] =
+                        {
+                            .primary_text = "System error,\nrestart device",
+                            .auxiliary_text = NULL,
+                            .icon.as_path = SHARED_IMG_PATH("error_front_8x8.image"),
+                            .is_icon_animated = false,
+                        },
+                    [GuiDisplayIdBack] =
+                        {
+                            .primary_text = "System error",
+                            .auxiliary_text = "To restart device, hold\nBACK + START buttons",
+                            .icon.as_path = SHARED_IMG_PATH("error_back_11x11.image"),
+                            .is_icon_animated = false,
+                        },
+                },
             .ok_callback = NULL,
+            .do_lock_input = true,
         },
 };
 
-#define SUPERVISOR_WARNINGS_SIZE COUNT_OF(supervisor_warnings)
-
 static_assert(
-    SUPERVISOR_WARNINGS_SIZE == SupervisorWarningTypeMax,
+    COUNT_OF(supervisor_warnings) == SupervisorWarningTypesCount,
     "SupervisorWarningType enum must match the number of SupervisorWarning entries");
 
 static_assert(
-    SUPERVISOR_WARNINGS_SIZE < 32,
+    COUNT_OF(supervisor_warnings) < sizeof(uint32_t) * CHAR_BIT,
     "SupervisorWarningType enum must fit into a 32-bit integer");
 
 static void supervisor_send_event_ex(Supervisor* instance, const SupervisorEvent* event) {
@@ -153,11 +263,11 @@ static void supervisor_send_event_ex(Supervisor* instance, const SupervisorEvent
 static void supervisor_send_event(Supervisor* instance, SupervisorEventType type) {
     furi_check(instance);
 
-    const SupervisorEvent event = {
-        .type = type,
-    };
-
-    supervisor_send_event_ex(instance, &event);
+    supervisor_send_event_ex(
+        instance,
+        &(SupervisorEvent){
+            .type = type,
+        });
 }
 
 static void supervisor_intercom_state_callback(const void* message, void* context) {
@@ -166,12 +276,12 @@ static void supervisor_intercom_state_callback(const void* message, void* contex
 
     Supervisor* instance = context;
 
-    const SupervisorEvent event = {
-        .type = SupervisorEventTypeIntercomStatusChanged,
-        .intercom_status = *(IntercomStatus*)message,
-    };
-
-    supervisor_send_event_ex(instance, &event);
+    supervisor_send_event_ex(
+        instance,
+        &(SupervisorEvent){
+            .type = SupervisorEventTypeIntercomStatusChanged,
+            .intercom_status = *(IntercomStatus*)message,
+        });
 }
 
 static void supervisor_power_callback(const void* message, void* context) {
@@ -181,240 +291,204 @@ static void supervisor_power_callback(const void* message, void* context) {
     const PowerEvent* event = message;
     Supervisor* instance = context;
 
+    SupervisorEventType supervisor_event;
     switch(event->type) {
-    case PowerEventBatteryLowStart:
-        supervisor_send_event(instance, SupervisorEventTypeBatteryLowStart);
-        break;
-    case PowerEventBatteryLowStop:
-        supervisor_send_event(instance, SupervisorEventTypeBatteryLowStop);
-        break;
     case PowerEventBatteryCriticalStart:
-        supervisor_send_event(instance, SupervisorEventTypeBatteryCriticalStart);
+        supervisor_event = SupervisorEventTypeBatteryCriticalStart;
         break;
+
     case PowerEventBatteryCriticalStop:
-        supervisor_send_event(instance, SupervisorEventTypeBatteryCriticalStop);
+        supervisor_event = SupervisorEventTypeBatteryCriticalStop;
         break;
+
     case PowerEventBatteryNotPresent:
-        supervisor_send_event(instance, SupervisorEventTypeBatteryNotPresent);
+        supervisor_event = SupervisorEventTypeBatteryNotPresent;
         break;
+
     case PowerEventBatteryPresent:
-        supervisor_send_event(instance, SupervisorEventTypeBatteryPresent);
+        supervisor_event = SupervisorEventTypeBatteryPresent;
         break;
-    case PowerEventBatteryNormalStart:
-        /* fall-through */
-    case PowerEventBatteryNormalStop:
-        /* fall-through */
-    case PowerEventChargingStateUpdate:
-        /* fall-through */
-    case PowerEventChargeAmountUpdate:
-        /* fall-through */
-    case PowerEventUsbConnectionStateUpdate:
-        /* fall-through */
-    case PowerEventShutdown:
-        break;
+
+    default:
+        return;
     }
+
+    supervisor_send_event(instance, supervisor_event);
 }
 
-static void supervisor_timer_bat_low_callback(void* context) {
+static void supervisor_matter_callback(const void* message, void* context) {
+    furi_assert(message);
+    furi_assert(context);
+
+    const MatterEvent* event = message;
     Supervisor* instance = context;
-    supervisor_send_event(instance, SupervisorEventTypeBatteryLowStop);
+
+    switch(event->type) {
+    case MatterEventTypeWillReboot:
+        supervisor_send_event(instance, SupervisorEventTypeWillReboot);
+        break;
+
+    default:
+        break;
+    }
 }
 
 static void supervisor_timer_bat_critical_callback(void* context) {
+    furi_assert(context);
+
     Supervisor* instance = context;
+
     supervisor_send_event(instance, SupervisorEventTypeTickToDie);
 }
 
-static int32_t supervisor_get_topmost_warning(SupervisorGui* gui) {
-    for(uint32_t i = 0; i < SUPERVISOR_WARNINGS_SIZE; ++i) {
-        if((gui->current_warnings & (1 << i)) != 0) {
-            return i;
-        }
-    }
-    return -1; // No warnings
+static int32_t supervisor_get_topmost_warning(Supervisor* instance) {
+    furi_assert(instance);
+
+    if(instance->active_warnings == 0) return -1;
+
+    uint32_t idx = __builtin_ctz(instance->active_warnings);
+    return (idx < COUNT_OF(supervisor_warnings)) ? (int32_t)idx : -1;
 }
 
-static void
-    supervisor_update_warning(SupervisorGui* gui, SupervisorWarningType warning_type, bool add) {
-    furi_check(warning_type < SUPERVISOR_WARNINGS_SIZE);
-    with_gui(gui->gui, {
-        if(add) {
-            gui->current_warnings |= (1 << warning_type);
-        } else {
-            gui->current_warnings &= ~(1 << warning_type);
-        }
+static void supervisor_update_warning(Supervisor* instance, SupervisorWarningType type, bool add) {
+    furi_check(type < COUNT_OF(supervisor_warnings));
 
-        int32_t topmost_warning_type = supervisor_get_topmost_warning(gui);
+    if(add) {
+        instance->active_warnings |= (1 << type);
+    } else {
+        instance->active_warnings &= ~(1 << type);
+    }
 
-        if(topmost_warning_type >= 0) {
-            const SupervisorWarning* warning = &supervisor_warnings[topmost_warning_type];
+    int32_t topmost_warning_idx = supervisor_get_topmost_warning(instance);
+    const SupervisorWarning* topmost_warning =
+        (topmost_warning_idx >= 0) ? &supervisor_warnings[topmost_warning_idx] : NULL;
 
-            gui->input_locked = warning->input_locked;
-            gui->ok_callback = warning->ok_callback;
+    with_gui(instance->gui, {
+        if(topmost_warning) {
+            for(GuiDisplayId display = GuiDisplayIdFront; display < GuiDisplayIdMax; display++) {
+                StatusView* status_view = instance->status_views[display];
+                const SupervisorUiPreset* ui_preset = &topmost_warning->ui_presets[display];
 
-            GuiLayer* main_layer = gui_get_layer(gui->gui, GuiLayerIdSystem);
-            Color background = COLOR_MAKE_HEXA(0x000000E5);
-
-            // back display label
-            {
-                Widget* root = gui_layer_get_root_widget(main_layer, GuiDisplayIdBack);
-                if(!gui->back_label) {
-                    gui->back_label = label_alloc(root);
-                }
-                Widget* widget = label_get_base(gui->back_label);
-
-                size_t screen_width_half = widget_get_width(root) / 2;
-                size_t screen_height_half = widget_get_height(root) / 2;
-
-                widget_set_padding(
-                    widget,
-                    screen_width_half,
-                    screen_width_half,
-                    screen_height_half,
-                    screen_height_half);
-                widget_set_align(widget, AlignCenter);
-                widget_set_background_color(widget, background);
-
-                label_set_text_fmt(gui->back_label, warning->back_text);
-                label_set_text_align(gui->back_label, TextAlignCenter);
-                label_set_line_spacing(gui->back_label, 4);
-            }
-
-            // front display label
-            {
-                Widget* root = gui_layer_get_root_widget(main_layer, GuiDisplayIdFront);
-                if(!gui->front_label) {
-                    gui->front_label = label_alloc(root);
-                }
-                Widget* widget = label_get_base(gui->front_label);
-
-                size_t screen_width_half = widget_get_width(root) / 2;
-                size_t screen_height_half = widget_get_height(root) / 2;
-
-                widget_set_padding(
-                    widget,
-                    screen_width_half,
-                    screen_width_half,
-                    screen_height_half,
-                    screen_height_half);
-                widget_set_align(widget, AlignCenter);
-                widget_set_background_color(widget, background);
-
-                label_set_text_fmt(gui->front_label, warning->front_text);
-                label_set_text_align(gui->front_label, TextAlignCenter);
+                widget_set_visible(status_view_get_base(status_view), true);
+                status_view_set_primary_text(status_view, ui_preset->primary_text);
+                status_view_set_auxiliary_text(status_view, ui_preset->auxiliary_text);
+                status_view_set_icon(
+                    status_view, ui_preset->icon.as_any, ui_preset->is_icon_animated);
             }
         } else {
-            // No warnings, remove labels
-            if(gui->front_label) {
-                label_free(gui->front_label);
-                gui->front_label = NULL;
-            }
+            for(GuiDisplayId display = GuiDisplayIdFront; display < GuiDisplayIdMax; display++) {
+                StatusView* status_view = instance->status_views[display];
 
-            if(gui->back_label) {
-                label_free(gui->back_label);
-                gui->back_label = NULL;
+                widget_set_visible(status_view_get_base(status_view), false);
+                status_view_set_primary_text(status_view, NULL);
+                status_view_set_auxiliary_text(status_view, NULL);
+                status_view_set_icon(status_view, NULL, false);
             }
-
-            gui->input_locked = false;
-            gui->ok_callback = NULL;
         }
     });
+
+    instance->displayed_warning = topmost_warning;
 }
 
 static bool supervisor_input(const InputEvent* event, void* context) {
     furi_assert(event);
     furi_assert(context);
+
     Supervisor* instance = context;
 
-    if(instance->gui.ok_callback) {
-        if(event->type == InputTypePress && event->key == InputKeyOk) {
-            supervisor_send_event(instance, SupervisorEventTypeOKPressed);
+    /* thread-safe: `displayed_warning` is an atomic pointer to a constant */
+    const SupervisorWarning* warning = instance->displayed_warning;
+
+    if(!warning) return false;
+
+    if(warning->ok_callback && event->type == InputTypePress) {
+        switch(event->key) {
+        case InputKeyOk:
+        /* fall-through */
+        case InputKeyStart:
+            supervisor_send_event(instance, SupervisorEventTypeOkPressed);
             return true;
+
+        default:
+            break;
         }
     }
 
-    if(instance->gui.input_locked) {
-        return true;
-    }
-
-    return false;
+    return warning->do_lock_input;
 }
 
-static void supervisor_reset(void) {
+static void supervisor_reset(Supervisor* supervisor) {
     furi_hal_nvm_reset();
+
     FURI_LOG_I(TAG, "Rebooting...");
+
     furi_delay_ms(100);
-    Power* pwr = furi_record_open(RECORD_POWER);
-    power_reboot(pwr, PowerRebootNormal);
-    furi_record_close(RECORD_POWER);
+    power_reboot(supervisor->power, PowerRebootNormal);
 }
 
-static void supervisor_make_filesystem(Supervisor* supervisor) {
-    SupervisorGui* gui = &supervisor->gui;
-    with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, "Creating filesystem...\nPlease wait");
-        label_set_text_fmt(gui->back_label, "Creating filesystem...\nPlease wait");
+static void supervisor_make_filesystem(Supervisor* instance, const void* context) {
+    UNUSED(context);
+
+    furi_assert(instance);
+
+    with_gui(instance->gui, {
+        for(GuiDisplayId display = GuiDisplayIdFront; display < GuiDisplayIdMax; display++) {
+            StatusView* status_view = instance->status_views[display];
+
+            status_view_set_primary_text(status_view, "Resetting device...\nPlease wait");
+            status_view_set_auxiliary_text(status_view, NULL);
+            status_view_set_icon(status_view, NULL, false);
+        }
     });
 
     FURI_LOG_I(TAG, "Creating filesystem...");
-    FS_Error error = storage_sd_make_filesystem(supervisor->storage, STORAGE_ROOT_PREFIX);
-    if(error != FSE_OK) {
-        FURI_LOG_E(TAG, "Failed to make filesystem: %s", storage_error_get_desc(error));
+
+    FS_Error fs_error = storage_sd_make_filesystem(instance->storage, STORAGE_ROOT_PREFIX);
+    if(fs_error != FSE_OK) {
+        FURI_LOG_E(TAG, "Failed to create filesystem: %s", storage_error_get_desc(fs_error));
     } else {
         FURI_LOG_I(TAG, "Filesystem was successfully created");
     }
 
-    supervisor_reset();
+    supervisor_reset(instance);
 }
 
-static void supervisor_format_backup(Supervisor* supervisor) {
-    SupervisorGui* gui = &supervisor->gui;
-    with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, "Formatting backup...\nPlease wait");
-        label_set_text_fmt(gui->back_label, "Formatting backup partition...\nPlease wait");
+static void supervisor_format_partition(Supervisor* instance, const void* context) {
+    furi_assert(instance);
+    furi_assert(context);
+
+    const char* path = context;
+
+    with_gui(instance->gui, {
+        for(GuiDisplayId display = GuiDisplayIdFront; display < GuiDisplayIdMax; display++) {
+            StatusView* status_view = instance->status_views[display];
+
+            status_view_set_primary_text(status_view, "Resetting device...\nPlease wait");
+            status_view_set_auxiliary_text(status_view, NULL);
+            status_view_set_icon(status_view, NULL, false);
+        }
     });
 
-    FURI_LOG_I(TAG, "Formatting backup partition...");
+    FURI_LOG_I(TAG, "Formatting %s partition...", path);
 
-    FS_Error error = storage_sd_format(supervisor->storage, STORAGE_BACKUP_PATH_PREFIX);
-    if(error != FSE_OK) {
-        FURI_LOG_E(TAG, "Failed to format backup partition: %s", storage_error_get_desc(error));
+    FS_Error fs_error = storage_sd_format(instance->storage, path);
+    if(fs_error != FSE_OK) {
+        FURI_LOG_E(
+            TAG, "Failed to format %s partition: %s", path, storage_error_get_desc(fs_error));
     } else {
-        FURI_LOG_I(TAG, "Backup partition formatted successfully");
+        FURI_LOG_I(TAG, "Partition %s formatted successfully", path);
     }
 
-    supervisor_reset();
+    supervisor_reset(instance);
 }
 
-static void supervisor_format_external(Supervisor* supervisor) {
-    SupervisorGui* gui = &supervisor->gui;
-    with_gui(gui->gui, {
-        label_set_text_fmt(gui->front_label, "Formatting external...\nPlease wait");
-        label_set_text_fmt(gui->back_label, "Formatting external partition...\nPlease wait");
-    });
+static void supervisor_update_time_to_die(Supervisor* instance, size_t seconds) {
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "Power off in %02zu:%02zu", seconds / 60, seconds % 60);
 
-    FURI_LOG_I(TAG, "Formatting external partition...");
-
-    FS_Error error = storage_sd_format(supervisor->storage, STORAGE_EXT_PATH_PREFIX);
-    if(error != FSE_OK) {
-        FURI_LOG_E(TAG, "Failed to format external partition: %s", storage_error_get_desc(error));
-    } else {
-        FURI_LOG_I(TAG, "External partition formatted successfully");
-    }
-
-    supervisor_reset();
-}
-
-static void supervisor_update_time_to_die(Supervisor* supervisor, size_t seconds) {
-    SupervisorGui* gui = &supervisor->gui;
-    with_gui(gui->gui, {
-        if(gui->front_label && gui->back_label) {
-            label_set_text_fmt(
-                gui->front_label, "Connect charger\nPower off in %zu sec.", seconds);
-            label_set_text_fmt(
-                gui->back_label,
-                "Battery critical\nPlease connect charger\nPower off in %zu sec.",
-                seconds);
+    with_gui(instance->gui, {
+        for(GuiDisplayId display = GuiDisplayIdFront; display < GuiDisplayIdMax; display++) {
+            status_view_set_auxiliary_text(instance->status_views[display], buffer);
         }
     });
 }
@@ -435,7 +509,7 @@ static void supervisor_handle_intercom_status(Supervisor* instance, IntercomStat
         }
     }
 
-    supervisor_update_warning(&instance->gui, SupervisorWarningTypeIntercomError, true);
+    supervisor_update_warning(instance, SupervisorWarningTypeIntercomError, true);
 }
 
 static void supervisor_process(FuriEventLoopObject* object, void* context) {
@@ -448,48 +522,44 @@ static void supervisor_process(FuriEventLoopObject* object, void* context) {
     }
 
     switch(event.type) {
-    case SupervisorEventTypeBatteryLowStart:
-        FURI_LOG_I(TAG, "Battery low warning received");
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryLow, true);
-        furi_event_loop_timer_start(
-            instance->battery_low_timer, SUPERVISOR_BATTERY_LOW_TIMEOUT_MS);
-        break;
-    case SupervisorEventTypeBatteryLowStop:
-        FURI_LOG_I(TAG, "Clearing battery low warning");
-        furi_event_loop_timer_stop(instance->battery_low_timer);
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryLow, false);
-        break;
     case SupervisorEventTypeBatteryCriticalStart:
         FURI_LOG_I(TAG, "Battery critical warning received");
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryCritical, true);
+        supervisor_update_warning(instance, SupervisorWarningTypeBatteryCritical, true);
         furi_event_loop_timer_start(instance->battery_critical_timer, 1000); // 1 second interval
         instance->battery_critical_counter = 0;
         break;
+
     case SupervisorEventTypeBatteryCriticalStop:
         FURI_LOG_I(TAG, "Clearing battery critical warning");
         furi_event_loop_timer_stop(instance->battery_critical_timer);
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryCritical, false);
+        supervisor_update_warning(instance, SupervisorWarningTypeBatteryCritical, false);
         break;
+
     case SupervisorEventTypeBatteryNotPresent:
         FURI_LOG_I(TAG, "Battery not present warning received");
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryNotReady, true);
+        supervisor_update_warning(instance, SupervisorWarningTypeBatteryNotReady, true);
         break;
+
     case SupervisorEventTypeBatteryPresent:
         FURI_LOG_I(TAG, "Battery present event received");
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryNotReady, false);
+        supervisor_update_warning(instance, SupervisorWarningTypeBatteryNotReady, false);
         break;
-    case SupervisorEventTypeOKPressed:
-        FURI_LOG_I(TAG, "OK pressed event received");
-        if(instance->gui.ok_callback) {
-            instance->gui.ok_callback(instance);
-        }
-        break;
-    case SupervisorEventTypeTickToDie: {
-        size_t topmost_warning_type = supervisor_get_topmost_warning(&instance->gui);
 
+    case SupervisorEventTypeOkPressed: {
+        FURI_LOG_I(TAG, "OK pressed event received");
+
+        const SupervisorWarning* displayed_warning = instance->displayed_warning;
+        if(displayed_warning && displayed_warning->ok_callback) {
+            displayed_warning->ok_callback(instance, displayed_warning->context);
+        }
+
+        break;
+    }
+
+    case SupervisorEventTypeTickToDie:
         // with the assumption that only BatteryNotPresent warning has higher priority
-        // this will garantee that we will power off in any other state
-        if(topmost_warning_type == SupervisorWarningTypeBatteryCritical) {
+        // this will guarantee that we will power off in any other state
+        if(supervisor_get_topmost_warning(instance) == SupervisorWarningTypeBatteryCritical) {
             instance->battery_critical_counter++;
 
             supervisor_update_time_to_die(
@@ -497,29 +567,33 @@ static void supervisor_process(FuriEventLoopObject* object, void* context) {
 
             if(instance->battery_critical_counter >= SUPERVISOR_BATTERY_TIME_TO_DIE_S) {
                 FURI_LOG_I(TAG, "Battery critical timeout reached");
+
                 if(!power_off(instance->power)) {
                     FURI_LOG_E(TAG, "Power off failed");
+
+                    furi_event_loop_timer_stop(instance->battery_critical_timer);
                 }
             }
         }
-    } break;
-    case SupervisorEventTypeIntercomStatusChanged: {
+        break;
+
+    case SupervisorEventTypeIntercomStatusChanged:
         supervisor_handle_intercom_status(instance, event.intercom_status);
-    } break;
+        break;
+
+    case SupervisorEventTypeWillReboot:
+        FURI_LOG_I(TAG, "Will Reboot event received");
+        supervisor_update_warning(instance, SupervisorWarningTypeRebooting, true);
+        break;
     }
 }
 
-int32_t supervisor_start(void* p) {
-    UNUSED(p);
+int32_t supervisor_start(void* argument) {
+    UNUSED(argument);
 
-    Supervisor* instance = malloc(sizeof(Supervisor));
+    Supervisor* instance = malloc(sizeof(*instance));
     instance->event_loop = furi_event_loop_alloc();
     instance->message_queue = furi_message_queue_alloc(8, sizeof(SupervisorEvent));
-    instance->battery_low_timer = furi_event_loop_timer_alloc(
-        instance->event_loop,
-        supervisor_timer_bat_low_callback,
-        FuriEventLoopTimerTypeOnce,
-        instance);
     instance->battery_critical_timer = furi_event_loop_timer_alloc(
         instance->event_loop,
         supervisor_timer_bat_critical_callback,
@@ -533,20 +607,41 @@ int32_t supervisor_start(void* p) {
         instance);
 
     instance->power = furi_record_open(RECORD_POWER);
-
-    instance->gui.gui = furi_record_open(RECORD_GUI);
     instance->storage = furi_record_open(RECORD_STORAGE);
     instance->intercom = furi_record_open(RECORD_INTERCOM);
+    instance->matter = furi_record_open(RECORD_MATTER);
+    instance->gui = furi_record_open(RECORD_GUI);
+
+    instance->displayed_warning = NULL;
+
+    with_gui(instance->gui, {
+        GuiLayer* gui_system_layer = gui_get_layer(instance->gui, GuiLayerIdSystem);
+        gui_layer_add_input_callback(gui_system_layer, supervisor_input, instance);
+
+        for(GuiDisplayId display = GuiDisplayIdFront; display < GuiDisplayIdMax; display++) {
+            Widget* root_widget = gui_layer_get_root_widget(gui_system_layer, display);
+
+            StatusView* status_view = status_view_alloc(root_widget);
+            widget_set_visible(status_view_get_base(status_view), false);
+            widget_set_background_color(
+                status_view_get_base(status_view), (Color)COLOR_MAKE_RGB(0x00, 0x00, 0x00));
+
+            instance->status_views[display] = status_view;
+        }
+
+        StatusView* back_status_view = instance->status_views[GuiDisplayIdBack];
+        widget_set_padding(status_view_get_base(back_status_view), 0, BACK_STATUS_BAR_WIDTH, 0, 0);
+    });
 
     furi_pubsub_subscribe(power_get_pubsub(instance->power), supervisor_power_callback, instance);
     furi_state_subscribe(
         intercom_get_state(instance->intercom), supervisor_intercom_state_callback, instance);
 
-    gui_layer_add_input_callback(
-        gui_get_layer(instance->gui.gui, GuiLayerIdSystem), supervisor_input, instance);
+    furi_pubsub_subscribe(
+        matter_get_pubsub(instance->matter), supervisor_matter_callback, instance);
 
     if(!power_is_battery_ready(instance->power)) {
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeBatteryNotReady, true);
+        supervisor_update_warning(instance, SupervisorWarningTypeBatteryNotReady, true);
     }
 
     // Check storage partitions
@@ -556,13 +651,13 @@ int32_t supervisor_start(void* p) {
 
     if(!backup_exists && !external_exists) {
         FURI_LOG_E(TAG, "No partitions found");
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeStorageNoPartitions, true);
+        supervisor_update_warning(instance, SupervisorWarningTypeStorageNoPartitions, true);
     } else if(!backup_exists) {
         FURI_LOG_E(TAG, "Backup partition not found");
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeStorageNoBackup, true);
+        supervisor_update_warning(instance, SupervisorWarningTypeStorageNoBackup, true);
     } else if(!external_exists) {
         FURI_LOG_E(TAG, "External partition not found");
-        supervisor_update_warning(&instance->gui, SupervisorWarningTypeStorageNoExternal, true);
+        supervisor_update_warning(instance, SupervisorWarningTypeStorageNoExternal, true);
     } else {
         FURI_LOG_I(TAG, "All partitions are OK");
     }

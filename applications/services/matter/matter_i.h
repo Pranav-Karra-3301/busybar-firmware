@@ -37,11 +37,16 @@ typedef struct {
     MatterCommissionedFabrics* fabrics;
 } MatterApiMessageGetFabrics;
 
+typedef struct {
+    MatterReboot reboot_mode;
+} MatterApiMessageFactoryReset;
+
 typedef union {
     MatterApiMessageSetSwitchState set_switch_state;
     MatterApiMessageSetSwitchStartupMode set_switch_startup_mode;
     MatterApiMessageStartCommissioning start_commissioning;
     MatterApiMessageGetFabrics get_fabrics;
+    MatterApiMessageFactoryReset factory_reset;
 } MatterApiMessageData;
 
 typedef struct {
@@ -72,6 +77,8 @@ void matter_init_backend(Matter* instance);
 bool matter_api_is_waiting_for_response(Matter* instance, MatterApiMessageType message_type);
 
 void matter_api_unlock(Matter* instance, MatterStatus status);
+
+void matter_api_unlock_and_cancel_timeout(Matter* instance, MatterStatus status);
 
 // matter_certification.c
 

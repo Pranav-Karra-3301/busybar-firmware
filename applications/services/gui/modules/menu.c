@@ -14,6 +14,8 @@
 
 #define SCROLL_ANIM_DURATION_MS (0)
 
+#define ARROW_SYMBOL ">"
+
 struct Menu {
     Widget base;
     lv_group_t* group;
@@ -114,7 +116,7 @@ static lv_obj_t* menu_item_alloc(
         if(strlen(sub_label)) {
             lv_label_set_text(instance->sub_label, sub_label);
         }
-        lv_label_set_text(instance->arrow, ">");
+        lv_label_set_text(instance->arrow, ARROW_SYMBOL);
     }
 
     return obj;
@@ -202,7 +204,6 @@ Menu* menu_alloc(Widget* widget) {
     lv_obj_class_init_obj(obj);
 
     Menu* instance = (Menu*)obj;
-    widget_set_input_feed_callback((Widget*)instance, menu_input_callback);
 
     return instance;
 }
@@ -279,6 +280,15 @@ const lv_obj_class_t menu_lvgl_class = {
     .width_def = LV_PCT(100),
     .height_def = LV_PCT(100),
     .instance_size = sizeof(Menu),
+    .user_data =
+        (void*)&(const WidgetClassData){
+            .input_callback = menu_input_callback,
+            .style_callbacks =
+                {
+                    [GuiDisplayIdFront] = NULL,
+                    [GuiDisplayIdBack] = NULL,
+                },
+        },
 };
 
 const lv_obj_class_t menu_item_lvgl_class = {

@@ -2,7 +2,6 @@
 
 #include <brightness_control/brightness_control.h>
 #include <time/time.h>
-#include <device_name/device_name.h>
 #include <wifi/wifi.h>
 #include <wifi/wifi_util.h>
 #include <matter/matter.h>
@@ -16,6 +15,7 @@ static void time_settings_state_callback(const void* item, void* context);
 static void wifi_info_state_callback(const void* item, void* context);
 static void updater_update_state_callback(const void* item, void* context);
 static void updater_check_state_callback(const void* item, void* context);
+static void updater_settings_state_callback(const void* item, void* context);
 
 static void power_pubsub_callback(const void* message, void* context);
 static void audio_pubsub_callback(const void* message, void* context);
@@ -23,14 +23,14 @@ static void device_name_pubsub_callback(const void* message, void* context);
 static void matter_pubsub_callback(const void* message, void* context);
 static void input_event_pubsub_callback(const void* message, void* context);
 static void busy_timer_pubsub_callback(const void* message, void* context);
-static void updater_pubsub_callback(const void* message, void* context);
+static void busy_timer_profiles_pubsub_callback(const void* message, void* context);
 static void ble_pubsub_callback(const void* message, void* context);
 
 void state_publisher_subscribe(StatePublisher* instance) {
     {
         const BrightnessControl* brightness_control = furi_record_open(RECORD_BRIGHTNESS_CONTROL);
-        FuriState* stat = brightness_control_get_state(brightness_control);
-        furi_state_subscribe(stat, brightness_state_callback, instance);
+        instance->state_brightness = brightness_control_get_state(brightness_control);
+        furi_state_subscribe(instance->state_brightness, brightness_state_callback, instance);
     }
     {
         instance->power = furi_record_open(RECORD_POWER);
@@ -39,8 +39,9 @@ void state_publisher_subscribe(StatePublisher* instance) {
     }
     {
         Time* time = furi_record_open(RECORD_TIME);
-        FuriState* state = time_get_settings_state(time);
-        furi_state_subscribe(state, time_settings_state_callback, instance);
+        instance->state_time_settings = time_get_settings_state(time);
+        furi_state_subscribe(
+            instance->state_time_settings, time_settings_state_callback, instance);
     }
     {
         instance->audio = furi_record_open(RECORD_AUDIO);
@@ -48,14 +49,14 @@ void state_publisher_subscribe(StatePublisher* instance) {
         furi_pubsub_subscribe(pubsub, audio_pubsub_callback, instance);
     }
     {
-        DeviceName* device_name = furi_record_open(RECORD_DEVICE_NAME);
-        FuriPubSub* pubsub = device_name_get_pubsub(device_name);
+        instance->device_name = furi_record_open(RECORD_DEVICE_NAME);
+        FuriPubSub* pubsub = device_name_get_pubsub(instance->device_name);
         furi_pubsub_subscribe(pubsub, device_name_pubsub_callback, instance);
     }
     {
         Wifi* wifi = furi_record_open(RECORD_WIFI);
-        FuriState* state = wifi_get_state(wifi);
-        furi_state_subscribe(state, wifi_info_state_callback, instance);
+        instance->state_wifi = wifi_get_state(wifi);
+        furi_state_subscribe(instance->state_wifi, wifi_info_state_callback, instance);
     }
     {
         instance->matter = furi_record_open(RECORD_MATTER);
@@ -66,10 +67,10 @@ void state_publisher_subscribe(StatePublisher* instance) {
         instance->updater = furi_record_open(RECORD_UPDATER);
         FuriState* update_state = updater_get_update_state(instance->updater);
         FuriState* check_state = updater_get_check_state(instance->updater);
+        FuriState* settings_state = updater_get_settings_state(instance->updater);
         furi_state_subscribe(update_state, updater_update_state_callback, instance);
         furi_state_subscribe(check_state, updater_check_state_callback, instance);
-        FuriPubSub* updater_pubsub = updater_get_pubsub(instance->updater);
-        furi_pubsub_subscribe(updater_pubsub, updater_pubsub_callback, instance);
+        furi_state_subscribe(settings_state, updater_settings_state_callback, instance);
     }
     {
         FuriPubSub* input_pubsub = furi_record_open(RECORD_INPUT_EVENTS);
@@ -79,6 +80,9 @@ void state_publisher_subscribe(StatePublisher* instance) {
         instance->busy_timer = furi_record_open(RECORD_BUSY_TIMER);
         FuriPubSub* pubsub = busy_timer_get_pubsub(instance->busy_timer);
         furi_pubsub_subscribe(pubsub, busy_timer_pubsub_callback, instance);
+
+        pubsub = busy_timer_get_profiles_pubsub(instance->busy_timer);
+        furi_pubsub_subscribe(pubsub, busy_timer_profiles_pubsub_callback, instance);
     }
     {
         instance->ble = furi_record_open(RECORD_BLE);
@@ -87,10 +91,7 @@ void state_publisher_subscribe(StatePublisher* instance) {
     }
 }
 
-static void brightness_state_callback(const void* item, void* context) {
-    StatePublisher* instance = context;
-    const BrightnessControlState* state = item;
-
+static BSB_State_StateUpdate* collect_brightness(const BrightnessControlState* state) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
     update->which_state = BSB_State_StateUpdate_brightness_tag;
     switch(state->mode) {
@@ -107,12 +108,19 @@ static void brightness_state_callback(const void* item, void* context) {
 
     update->state.brightness.actual_brightness = state->effective_brightness;
 
+    return update;
+}
+
+static void brightness_state_callback(const void* item, void* context) {
+    StatePublisher* instance = context;
+    const BrightnessControlState* state = item;
+
+    BSB_State_StateUpdate* update = collect_brightness(state);
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
 
-void state_publisher_publish_power(StatePublisher* instance) {
+static BSB_State_StateUpdate* collect_power(StatePublisher* instance) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
-
     PowerInfo power_info;
     power_get_info(instance->power, &power_info);
 
@@ -132,11 +140,16 @@ void state_publisher_publish_power(StatePublisher* instance) {
     update->state.power.state.known.battery_voltage_mv = power_info.voltage_battery;
     update->state.power.state.known.usb_voltage_mv = power_info.voltage_usb;
     update->state.power.state.known.battery_current_ma = power_info.current_battery;
+    return update;
+}
+
+void state_publisher_publish_power(StatePublisher* instance) {
+    BSB_State_StateUpdate* update = collect_power(instance);
 
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
 
-void state_publisher_publish_audio(StatePublisher* instance) {
+static BSB_State_StateUpdate* collect_audio(StatePublisher* instance) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
 
     float volume = audio_get_volume(instance->audio);
@@ -145,10 +158,16 @@ void state_publisher_publish_audio(StatePublisher* instance) {
 
     update->state.audio_volume.volume = (uint8_t)roundf(volume * 100.0f);
 
+    return update;
+}
+
+void state_publisher_publish_audio(StatePublisher* instance) {
+    BSB_State_StateUpdate* update = collect_audio(instance);
+
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
 
-void state_publisher_publish_matter(StatePublisher* instance) {
+static BSB_State_StateUpdate* collect_matter(StatePublisher* instance) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
 
     MatterCommissionedFabrics info;
@@ -174,12 +193,26 @@ void state_publisher_publish_matter(StatePublisher* instance) {
         update->state.matter.has_state = false;
     }
 
+    return update;
+}
+
+void state_publisher_publish_matter(StatePublisher* instance) {
+    BSB_State_StateUpdate* update = collect_matter(instance);
+
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
 
 void state_publisher_publish_update_check(StatePublisher* instance, const UpdaterCheckState* info) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
     update->which_state = BSB_State_StateUpdate_update_check_tag;
+
+    static const BSB_Update_CheckEvent check_event_lookup[] = {
+        [UpdaterCheckEventStart] = BSB_Update_CheckEvent_START,
+        [UpdaterCheckEventStop] = BSB_Update_CheckEvent_STOP,
+        [UpdaterCheckEventNone] = BSB_Update_CheckEvent_NONE,
+    };
+    static_assert(COUNT_OF(check_event_lookup) == UpdaterCheckEventsCount);
+    update->state.update_check.event = check_event_lookup[info->event];
 
     switch(info->result) {
     case UpdaterCheckResultAvailable: {
@@ -216,41 +249,86 @@ void state_publisher_publish_update_check(StatePublisher* instance, const Update
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
 
+static BSB_State_StateUpdate* collect_autoupdate(const UpdaterSettings* settings) {
+    BSB_State_StateUpdate* update = malloc(sizeof(*update));
+    update->which_state = BSB_State_StateUpdate_auto_update_state_tag;
+    update->state.auto_update_state.enabled = settings->autoupdate_enabled;
+
+    update->state.auto_update_state.has_interval = true;
+    update->state.auto_update_state.interval.start = settings->autoupdate_interval_start;
+    update->state.auto_update_state.interval.end = settings->autoupdate_interval_end;
+    return update;
+}
+
 void state_publisher_publish_autoupdate(StatePublisher* instance) {
     UpdaterSettings settings;
     updater_get_settings(instance->updater, &settings);
-
-    BSB_State_StateUpdate* update = malloc(sizeof(*update));
-    update->which_state = BSB_State_StateUpdate_auto_update_state_tag;
-    update->state.auto_update_state.enabled = settings.autoupdate_enabled;
-
-    update->state.auto_update_state.has_interval = true;
-    update->state.auto_update_state.interval.start = settings.autoupdate_interval_start;
-    update->state.auto_update_state.interval.end = settings.autoupdate_interval_end;
+    BSB_State_StateUpdate* update = collect_autoupdate(&settings);
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
 
-void state_publisher_publish_busy_timer(StatePublisher* instance) {
+static void set_json_from_text(BSB_Util_Json* json, const char* text) {
+    json->compression = BSB_Util_Compression_PLAIN;
+    size_t len = strlen(text);
+    json->data = malloc(PB_BYTES_ARRAY_T_ALLOCSIZE(len));
+    json->data->size = len;
+    memcpy(&json->data->bytes, text, len);
+}
+
+static BSB_State_StateUpdate* collect_busy_timer(StatePublisher* instance) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
 
     update->which_state = BSB_State_StateUpdate_timer_tag;
 
     update->state.timer.has_json = true;
-    update->state.timer.json.compression = BSB_Util_Compression_PLAIN;
 
     BusyTimerSnapshot snapshot;
     busy_timer_get_snapshot(instance->busy_timer, &snapshot);
     char* json_text = busy_timer_snapshot_serialize(&snapshot);
-    size_t len = strlen(json_text);
-    update->state.timer.json.data = malloc(PB_BYTES_ARRAY_T_ALLOCSIZE(len));
-    update->state.timer.json.data->size = len;
-    memcpy(&update->state.timer.json.data->bytes, json_text, len);
+    set_json_from_text(&update->state.timer.json, json_text);
     free(json_text);
+
+    return update;
+}
+
+void state_publisher_publish_busy_timer(StatePublisher* instance) {
+    BSB_State_StateUpdate* update = collect_busy_timer(instance);
+    state_publisher_schedule_state_update(instance, update, StreamFlagAll);
+}
+
+static BSB_State_StateUpdate* collect_busy_timer_profiles(StatePublisher* instance) {
+    BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
+
+    update->which_state = BSB_State_StateUpdate_timer_profiles_tag;
+
+    update->state.timer_profiles.profiles_count = BusyTimerProfileIdMax;
+    update->state.timer_profiles.profiles =
+        malloc(sizeof(BSB_Timer_Profile) * BusyTimerProfileIdMax);
+
+    for(BusyTimerProfileId id = 0; id != BusyTimerProfileIdMax; ++id) {
+        BSB_Timer_Profile* profile_rec = update->state.timer_profiles.profiles + id;
+
+        strlcpy(profile_rec->name, busy_timer_get_profile_name(id), sizeof(profile_rec->name));
+
+        BusyTimerProfile profile;
+        busy_timer_get_profile(instance->busy_timer, id, &profile);
+
+        char* json_text = busy_timer_profile_serialize(&profile);
+        profile_rec->has_json = true;
+        set_json_from_text(&profile_rec->json, json_text);
+        free(json_text);
+    }
+    return update;
+}
+
+void state_publisher_publish_busy_timer_profiles(StatePublisher* instance) {
+    BSB_State_StateUpdate* update = collect_busy_timer_profiles(instance);
 
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
 
-void state_publisher_publish_ble(StatePublisher* instance) {
+// Can return NULL
+static BSB_State_StateUpdate* collect_ble(StatePublisher* instance) {
     BleState ble_state;
     bool ok = ble_get_state(instance->ble, &ble_state);
 
@@ -281,6 +359,15 @@ void state_publisher_publish_ble(StatePublisher* instance) {
             update->state.ble.has_remote_address = false;
         }
 
+        return update;
+    } else {
+        return NULL;
+    }
+}
+
+void state_publisher_publish_ble(StatePublisher* instance) {
+    BSB_State_StateUpdate* update = collect_ble(instance);
+    if(update) {
         state_publisher_schedule_state_update(instance, update, StreamFlagAll);
     }
 }
@@ -297,14 +384,26 @@ static void power_pubsub_callback(const void* message, void* context) {
 }
 
 static void audio_pubsub_callback(const void* message, void* context) {
-    UNUSED(message);
     StatePublisher* instance = context;
+    const AudioEvent* event = message;
 
-    // dispatch because audio_get_volume cannot be called from audio task
-    Message msg = {
-        .type = MessageTypeAudioEvent,
-    };
-    state_publisher_send_message(instance, &msg);
+    if(event->type == AudioEventVolumeUpdate) {
+        // dispatch because audio_get_volume cannot be called from audio task
+        Message msg = {
+            .type = MessageTypeAudioEvent,
+        };
+        state_publisher_send_message(instance, &msg);
+    }
+}
+
+static BSB_State_StateUpdate* collect_device_name(const char* name) {
+    BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
+
+    update->which_state = BSB_State_StateUpdate_device_name_tag;
+    static_assert(
+        sizeof(update->state.device_name.name) > sizeof(void*)); // make sure it's an array
+    strlcpy(update->state.device_name.name, name, sizeof(update->state.device_name.name));
+    return update;
 }
 
 static void device_name_pubsub_callback(const void* message, void* context) {
@@ -312,15 +411,7 @@ static void device_name_pubsub_callback(const void* message, void* context) {
     const DeviceNameEvent* event = message;
 
     if(event->type == DeviceNameEventTypeNameChanged) {
-        BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
-
-        update->which_state = BSB_State_StateUpdate_device_name_tag;
-        static_assert(
-            sizeof(update->state.device_name.name) > sizeof(void*)); // make sure it's an array
-        strlcpy(
-            update->state.device_name.name,
-            event->name_changed.name,
-            sizeof(update->state.device_name.name));
+        BSB_State_StateUpdate* update = collect_device_name(event->name_changed.name);
 
         state_publisher_schedule_state_update(instance, update, StreamFlagAll);
     } else {
@@ -422,16 +513,14 @@ static void busy_timer_pubsub_callback(const void* message, void* context) {
     state_publisher_send_message(instance, &msg);
 }
 
-static void updater_pubsub_callback(const void* message, void* context) {
-    const UpdaterEvent* event = message;
+static void busy_timer_profiles_pubsub_callback(const void* message, void* context) {
+    UNUSED(message);
     StatePublisher* instance = context;
 
-    if(event->type == UpdaterEventTypeSettingsChanged) {
-        Message msg = {
-            .type = MessageTypeAutoupdateEvent,
-        };
-        state_publisher_send_message(instance, &msg);
-    }
+    Message msg = {
+        .type = MessageTypeBusyTimerProfiles,
+    };
+    state_publisher_send_message(instance, &msg);
 }
 
 static void ble_pubsub_callback(const void* message, void* context) {
@@ -444,10 +533,7 @@ static void ble_pubsub_callback(const void* message, void* context) {
     state_publisher_send_message(instance, &msg);
 }
 
-static void time_settings_state_callback(const void* item, void* context) {
-    StatePublisher* instance = context;
-    const TimeSettings* settings = item;
-
+static BSB_State_StateUpdate* collect_time_settings(const TimeSettings* settings) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
     update->which_state = BSB_State_StateUpdate_timezone_tag;
 
@@ -464,6 +550,14 @@ static void time_settings_state_callback(const void* item, void* context) {
     } else {
         update->state.timezone.abbr[0] = 0;
     }
+    return update;
+}
+
+static void time_settings_state_callback(const void* item, void* context) {
+    StatePublisher* instance = context;
+    const TimeSettings* settings = item;
+
+    BSB_State_StateUpdate* update = collect_time_settings(settings);
 
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
@@ -509,10 +603,7 @@ static void convert_ip_config(BSB_State_Wifi* dst, const WifiIpConfig* ip_config
     }
 }
 
-static void wifi_info_state_callback(const void* item, void* context) {
-    StatePublisher* instance = context;
-    const WifiInfo* info = item;
-
+static BSB_State_StateUpdate* collect_wifi_info(const WifiInfo* info) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
     update->which_state = BSB_State_StateUpdate_wifi_tag;
 
@@ -585,6 +676,14 @@ static void wifi_info_state_callback(const void* item, void* context) {
         furi_assert(false);
         break;
     }
+    return update;
+}
+
+static void wifi_info_state_callback(const void* item, void* context) {
+    StatePublisher* instance = context;
+    const WifiInfo* info = item;
+
+    BSB_State_StateUpdate* update = collect_wifi_info(info);
 
     state_publisher_schedule_state_update(instance, update, StreamFlagAll);
 }
@@ -657,13 +756,17 @@ static void updater_check_state_callback(const void* item, void* context) {
     state_publisher_send_message(instance, &msg);
 }
 
-void screen_streamer_callback(
-    GuiDisplayId display,
-    const ScreenStreamerFrame* frame,
-    uint8_t stream_flags,
-    void* context) {
+static void updater_settings_state_callback(const void* item, void* context) {
     StatePublisher* instance = context;
+    const UpdaterSettings* settings = item;
 
+    BSB_State_StateUpdate* update = collect_autoupdate(settings);
+
+    state_publisher_schedule_state_update(instance, update, StreamFlagAll);
+}
+
+static BSB_State_StateUpdate*
+    collect_frame(GuiDisplayId display, const ScreenStreamerFrame* frame) {
     BSB_State_StateUpdate* update = malloc(sizeof(BSB_State_StateUpdate));
     update->which_state = BSB_State_StateUpdate_frame_tag;
 
@@ -688,5 +791,91 @@ void screen_streamer_callback(
     update->state.frame.data = malloc(PB_BYTES_ARRAY_T_ALLOCSIZE(frame->data_size));
     update->state.frame.data->size = frame->data_size;
     memcpy(&update->state.frame.data->bytes, frame->data, frame->data_size);
+    return update;
+}
+
+void screen_streamer_callback(
+    GuiDisplayId display,
+    const ScreenStreamerFrame* frame,
+    uint8_t stream_flags,
+    void* context) {
+    StatePublisher* instance = context;
+
+    BSB_State_StateUpdate* update = collect_frame(display, frame);
+
     state_publisher_schedule_state_update(instance, update, stream_flags);
+}
+
+static void get_frame_cb(
+    GuiDisplayId display,
+    const ScreenStreamerFrame* frame,
+    uint8_t stream_flags,
+    void* context) {
+    UNUSED(stream_flags);
+    BSB_State_StateUpdate** update = context;
+
+    *update = collect_frame(display, frame);
+}
+
+ARRAY_DEF(StateUpdatePtrArray, BSB_State_StateUpdate*, M_PTR_OPLIST);
+BSB_State_State* state_publisher_collect_all(StatePublisher* instance) {
+    StateUpdatePtrArray_t updates;
+    StateUpdatePtrArray_init(updates);
+
+    {
+        BrightnessControlState state;
+        furi_state_get(instance->state_brightness, &state);
+        StateUpdatePtrArray_push_back(updates, collect_brightness(&state));
+    }
+    StateUpdatePtrArray_push_back(updates, collect_power(instance));
+    StateUpdatePtrArray_push_back(updates, collect_audio(instance));
+    StateUpdatePtrArray_push_back(updates, collect_matter(instance));
+    {
+        UpdaterSettings settings;
+        updater_get_settings(instance->updater, &settings);
+        StateUpdatePtrArray_push_back(updates, collect_autoupdate(&settings));
+    }
+    StateUpdatePtrArray_push_back(updates, collect_busy_timer(instance));
+    StateUpdatePtrArray_push_back(updates, collect_busy_timer_profiles(instance));
+    {
+        BSB_State_StateUpdate* update = collect_ble(instance);
+        if(update) {
+            StateUpdatePtrArray_push_back(updates, update);
+        }
+    }
+    {
+        FuriString* name = furi_string_alloc();
+        device_name_get(instance->device_name, name);
+        StateUpdatePtrArray_push_back(updates, collect_device_name(furi_string_get_cstr(name)));
+        furi_string_free(name);
+    }
+    {
+        TimeSettings time_settings;
+        furi_state_get(instance->state_time_settings, &time_settings);
+        StateUpdatePtrArray_push_back(updates, collect_time_settings(&time_settings));
+    }
+    {
+        WifiInfo wifi_info;
+        furi_state_get(instance->state_wifi, &wifi_info);
+        StateUpdatePtrArray_push_back(updates, collect_wifi_info(&wifi_info));
+    }
+    {
+        BSB_State_StateUpdate* update = NULL;
+        screen_streamer_get_single_frame(instance->screen_streamer_front, get_frame_cb, &update);
+        StateUpdatePtrArray_push_back(updates, update);
+    }
+
+    BSB_State_State* state = malloc(sizeof(BSB_State_State));
+    state->has_error = false;
+    state->timestamp = time_get_timestamp_ms();
+
+    state->updates_count = StateUpdatePtrArray_size(updates);
+    state->updates = malloc(sizeof(BSB_State_StateUpdate) * state->updates_count);
+    for(size_t i = 0; i != state->updates_count; ++i) {
+        BSB_State_StateUpdate* update = *StateUpdatePtrArray_cget(updates, i);
+        memcpy(state->updates + i, update, sizeof(BSB_State_StateUpdate));
+        free(update);
+    }
+    StateUpdatePtrArray_clear(updates);
+    return state;
 }

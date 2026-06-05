@@ -588,7 +588,8 @@
  *  @endcode
  */
 #define LV_FONT_CUSTOM_DECLARE \
-    LV_FONT_DECLARE(lv_font_busy_regular_5)
+    LV_FONT_DECLARE(lv_font_busy_regular_5) \
+    LV_FONT_DECLARE(lv_font_busy_regular_9)
 
 /** Always set a default font */
 #define LV_FONT_DEFAULT &lv_font_busy_regular_5
@@ -728,10 +729,10 @@
 
 #define LV_USE_SLIDER     0   /**< Requires: lv_bar */
 
-#define LV_USE_SPAN       0
+#define LV_USE_SPAN       1
 #if LV_USE_SPAN
     /** A line of text can contain this maximum number of span descriptors. */
-    #define LV_SPAN_SNIPPET_STACK_SIZE 64
+    #define LV_SPAN_SNIPPET_STACK_SIZE 16
 #endif
 
 #define LV_USE_SPINBOX    0

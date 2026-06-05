@@ -2,6 +2,7 @@
 
 #include <sl_net.h>
 #include <sl_wifi.h>
+#include <sli_wifi_utility.h>
 #include <sl_si91x_driver.h>
 #include <sl_wifi_callback_framework.h>
 
@@ -86,9 +87,9 @@ static void wifi_backend_info_callback(void* context) {
             break;
         }
 
-        sl_si91x_rsp_wireless_info_t wl_info;
+        sl_wifi_interface_info_t wl_info;
 
-        status = sl_wifi_get_wireless_info(&wl_info);
+        status = sl_wifi_get_interface_info(SL_WIFI_CLIENT_2_4GHZ_INTERFACE, &wl_info);
 
         if(status != SL_STATUS_OK) {
             FURI_LOG_E(TAG, "Failed to get wireless info: %lX", status);
@@ -173,13 +174,14 @@ static sl_status_t wifi_connect_request_handler(
 
     do {
         const WifiCredentials* credentials = &request->connect_request.credentials;
+        const WifiSecurityMode security_mode = credentials->security_mode;
 
         // Initialise client profile
         sl_net_wifi_client_profile_t profile = {
             .config =
                 {
-                    .security = wifi_encode_security_mode(credentials->security_mode),
-                    .credential_id = SL_NET_DEFAULT_WIFI_CLIENT_CREDENTIAL_ID,
+                    .security = wifi_encode_security_mode(security_mode),
+                    .credential_id = wifi_get_credential_id(security_mode),
                 },
         };
 
@@ -194,9 +196,9 @@ static sl_status_t wifi_connect_request_handler(
             break;
         }
 
-        if(credentials->security_mode != WifiSecurityModeOpen) {
+        if(security_mode != WifiSecurityModeOpen) {
             status = sl_net_set_credential(
-                SL_NET_DEFAULT_WIFI_CLIENT_CREDENTIAL_ID,
+                wifi_get_credential_id(security_mode),
                 // TODO: Other passphrase types than PSK?
                 SL_NET_WIFI_PSK,
                 credentials->passphrase,
@@ -323,12 +325,12 @@ static void wifi_scan_finished_event_handler(Wifi* instance, const WifiScanFinis
     if(response.status == WifiStatusOk) {
         uint16_t results_count = 0;
 
-        const size_t results_size = sizeof(sl_wifi_extended_scan_result_t) * SCAN_MAX_RESULTS;
-        sl_wifi_extended_scan_result_t* scan_results = malloc(results_size);
+        sl_wifi_extended_scan_result_t* scan_results =
+            malloc(sizeof(sl_wifi_extended_scan_result_t) * SCAN_MAX_RESULTS);
 
         sl_wifi_extended_scan_result_parameters_t params = {
             .scan_results = scan_results,
-            .array_length = results_size,
+            .array_length = SCAN_MAX_RESULTS,
             .result_count = &results_count,
         };
 

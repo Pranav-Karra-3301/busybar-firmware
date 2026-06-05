@@ -67,12 +67,14 @@ MatterStatus matter_set_switch_startup_mode(Matter* instance, MatterSwitchStartu
     return matter_api_send_message(instance, &api_message);
 }
 
-MatterStatus matter_factory_reset(Matter* instance) {
+MatterStatus matter_factory_reset(Matter* instance, MatterReboot reboot) {
     furi_check(instance);
 
     MatterApiMessage api_message = {
         .type = MatterApiMessageTypeFactoryReset,
-    };
+        .data.factory_reset = {
+            .reboot_mode = reboot,
+        }};
 
     return matter_api_send_message(instance, &api_message);
 }
@@ -149,4 +151,10 @@ void matter_api_unlock(Matter* instance, MatterStatus status) {
     matter_api_reset_message(api_message);
 
     furi_check(furi_semaphore_release(instance->api_semaphore) == FuriStatusOk);
+}
+
+void matter_api_unlock_and_cancel_timeout(Matter* instance, MatterStatus status) {
+    furi_assert(instance);
+    furi_event_loop_timer_stop(instance->timeout_timer);
+    matter_api_unlock(instance, status);
 }

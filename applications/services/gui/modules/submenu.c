@@ -8,7 +8,7 @@
 #define MY_ITEM_CLASS   (&submenu_item_lvgl_class)
 #define MY_CURSOR_CLASS (&submenu_cursor_lvgl_class)
 
-#define SYM_ARROW_RIGHT ">"
+#define SYM_ARROW_RIGHT "▶" // U+25B6
 
 #define SCROLL_ANIM_DURATION_MS (0)
 
@@ -151,7 +151,6 @@ Submenu* submenu_alloc(Widget* widget) {
     lv_obj_class_init_obj(obj);
 
     Submenu* instance = (Submenu*)obj;
-    widget_set_input_feed_callback((Widget*)instance, submenu_input_callback);
 
     return instance;
 }
@@ -219,6 +218,15 @@ const lv_obj_class_t submenu_lvgl_class = {
     .width_def = LV_PCT(100),
     .height_def = LV_PCT(100),
     .instance_size = sizeof(Submenu),
+    .user_data =
+        (void*)&(const WidgetClassData){
+            .input_callback = submenu_input_callback,
+            .style_callbacks =
+                {
+                    [GuiDisplayIdFront] = NULL,
+                    [GuiDisplayIdBack] = NULL,
+                },
+        },
 };
 
 const lv_obj_class_t submenu_item_lvgl_class = {
