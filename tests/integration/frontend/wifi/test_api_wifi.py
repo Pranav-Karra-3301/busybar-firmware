@@ -45,8 +45,11 @@ def connect_to_test_network_or_fail(wifi_api: WifiAPI, timeout: int = 30) -> Non
     """Connect to the test SSID and fail with diagnostics if the API rejects it.
     """
     response = wifi_api.connect_to_test_network(timeout=timeout)
-    if response.status_code != 200:
-        body = response.text.strip() or "(empty body)"
+    body = response.text.strip() or "(empty body)"
+    already_connected = (
+        response.status_code == 400 and "already connected" in body.lower()
+    )
+    if response.status_code != 200 and not already_connected:
         pytest.fail(
             f"POST /api/wifi/connect to {WIFI_SSID!r} failed: "
             f"HTTP {response.status_code} — {body}"
