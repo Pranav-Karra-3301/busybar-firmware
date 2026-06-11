@@ -1,6 +1,8 @@
 #include "ble_security.h"
 
-#include "../ble_common.h"
+#include "rsi_ble_common_config.h"
+
+#include "../../ble_common.h"
 #include "nvm/nvm.h"
 
 #include <furi_hal_random.h>
