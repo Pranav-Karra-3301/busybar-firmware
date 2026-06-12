@@ -43,8 +43,11 @@ static void scene_main_on_enter(void* context) {
                 const FlipperInternalApplication* debug_app = &FLIPPER_DEBUG_APPS[i];
                 SubmenuItemCallback callback =
                     (display == GuiDisplayIdFront) ? scene_main_submenu_item_callback : NULL;
-                submenu_add_item(scene->submenus[display], debug_app->name, i, callback, app);
+                submenu_add_item(
+                    scene->submenus[display], debug_app->name, NULL, i, callback, app);
             }
+
+            widget_set_scrollbar_enabled(submenu_get_base(scene->submenus[display]), true);
         }
     });
 

@@ -30,13 +30,17 @@ static void scene_forget_device_on_enter(void* context) {
         submenu_add_item(
             data->front_menu,
             "Forget device",
+            NULL,
             SceneEventRemovePairing,
             scene_main_menu_item_callback,
             instance);
 
         data->back_menu = submenu_alloc(instance->back_scene_window);
         submenu_add_item(
-            data->back_menu, "Forget device", SceneEventRemovePairing, NULL, instance);
+            data->back_menu, "Forget device", NULL, SceneEventRemovePairing, NULL, instance);
+
+        widget_set_scrollbar_enabled(submenu_get_base(data->front_menu), true);
+        widget_set_scrollbar_enabled(submenu_get_base(data->back_menu), true);
     });
 }
 
