@@ -1,9 +1,15 @@
 
 #include "ble_transmitter_i.h"
 
+#define BLE_TX_QUEUE_SIZE            (20)
+#define BLE_TX_QUEUE_PUT_TIMEOUT     (300)
+#define BLE_TRANSMIT_FAILURE_TIMEOUT (500)
+
 typedef struct {
     FuriMessageQueue* tx_queue;
     FuriSemaphore* more_data_sem;
+    bool send_buffer_error;
+    bool enabled;
 } BleTransmitterSetContext;
 
 typedef struct {
@@ -41,10 +47,13 @@ static bool
             break;
         }
 
-        if(furi_semaphore_acquire(instance->more_data_sem, 500) != FuriStatusOk) {
+        if(furi_semaphore_acquire(instance->more_data_sem, BLE_TRANSMIT_FAILURE_TIMEOUT) !=
+           FuriStatusOk) {
             BLE_LOG_W("Notify timeout");
+            instance->send_buffer_error = true;
             break;
         }
+
     } while(true);
 
     return result;
@@ -57,18 +66,18 @@ static void ble_transmitter_tx_queue_handler(FuriEventLoopObject* object, void* 
 
     BleDataItemPtr item = NULL;
     while(furi_message_queue_get(instance->tx_queue, &item, 0) == FuriStatusOk) {
-        ///TODO: process return value
-        ble_transmitter_send_item(instance, item);
+        if(!instance->send_buffer_error) {
+            ble_transmitter_send_item(instance, item);
+        }
         free(item);
         item = NULL;
     }
 }
 
-// static inline bool ble_worker_set_chunk(uint16_t handle, uint16_t data_size, const uint8_t* data) {
-//     sl_status_t status = rsi_ble_set_local_att_value(handle, data_size, data);
-//     if(status != RSI_SUCCESS) BLE_LOG_W("Send fail %08lX", status);
-//     return status == RSI_SUCCESS;
-// }
+void ble_transmitter_set_enable(BleTransmitterGeneric* transport) {
+    BleTransmitterSetContext* instance = transport;
+    instance->enabled = true;
+}
 
 bool ble_transmitter_set_chunk(
     BleTransmitterGeneric* transport,
@@ -77,13 +86,20 @@ bool ble_transmitter_set_chunk(
     const uint16_t data_size,
     const uint8_t* data) {
     BleTransmitterSetContext* instance = transport;
+
+    if(!instance->enabled) {
+        BLE_LOG_W("Notification drop");
+        return false;
+    }
+
     BleDataItemPtr item = malloc(sizeof(BleDataHeader) + data_size);
     item->header.data_size = data_size;
     item->header.handle = handle;
     memcpy(item->header.remote_dev_address, dev_addr, sizeof(item->header.remote_dev_address));
     memcpy(item->data, data, data_size);
 
-    FuriStatus status = furi_message_queue_put(instance->tx_queue, &item, 250);
+    FuriStatus status =
+        furi_message_queue_put(instance->tx_queue, &item, BLE_TX_QUEUE_PUT_TIMEOUT);
 
     if(status != FuriStatusOk) {
         BLE_LOG_W("[%04X] - failed to put in queue", handle);
@@ -99,13 +115,15 @@ void ble_transmitter_set_reset(BleTransmitterGeneric* transport) {
     while(furi_message_queue_get(instance->tx_queue, &item, 0) == FuriStatusOk) {
         free(item);
     }
+    instance->enabled = false;
+    instance->send_buffer_error = false;
 }
 
 BleTransmitterGeneric* ble_transmitter_set_alloc() {
     BleTransmitterSetContext* instance = malloc(sizeof(BleTransmitterSetContext));
 
     instance->more_data_sem = furi_semaphore_alloc(1, 0);
-    instance->tx_queue = furi_message_queue_alloc(20, sizeof(BleDataItemPtr));
+    instance->tx_queue = furi_message_queue_alloc(BLE_TX_QUEUE_SIZE, sizeof(BleDataItemPtr));
 
     return instance;
 }
@@ -124,6 +142,10 @@ void ble_transmitter_set_more_data(BleTransmitterGeneric* transport) {
     BleTransmitterSetContext* instance = transport;
 
     furi_semaphore_release(instance->more_data_sem);
+    if(instance->send_buffer_error) {
+        instance->send_buffer_error = false;
+        BLE_LOG_W("Restore more data");
+    }
 }
 
 void ble_transmitter_set_subscribe(
