@@ -2,10 +2,6 @@
 
 #include <gui/modules/submenu.h>
 
-typedef struct {
-    Submenu* submenus[GuiDisplayIdMax];
-} WidgetGallerySceneStart;
-
 typedef enum {
     WidgetGallerySceneStartIdxWidget,
     WidgetGallerySceneStartIdxLabel,
@@ -22,6 +18,11 @@ typedef struct {
     const char* const text;
     WidgetGallerySceneId scene_id;
 } WidgetGallerySceneStartItem;
+
+typedef struct {
+    Submenu* submenus[GuiDisplayIdMax];
+    WidgetGallerySceneStartIdx item_idx;
+} WidgetGallerySceneStart;
 
 static const WidgetGallerySceneStartItem widget_gallery_scene_start_items[] = {
     [WidgetGallerySceneStartIdxWidget] = {"Widget", WidgetGallerySceneIdWidget},
@@ -66,10 +67,12 @@ static void widget_gallery_scene_start_on_enter(void* context) {
     with_gui(instance->gui, {
         for(GuiDisplayId id = 0; id < GuiDisplayIdMax; ++id) {
             Widget* window = instance->windows[id];
+
             Submenu* submenu = submenu_alloc(window);
 
-            widget_set_scrollbar_enabled(submenu_get_base(submenu), true);
             widget_gallery_scene_start_fill_submenu(instance, submenu, (id == GuiDisplayIdFront));
+            widget_set_scrollbar_enabled(submenu_get_base(submenu), true);
+            submenu_set_selected_item_index(submenu, data->item_idx);
 
             data->submenus[id] = submenu;
         }
@@ -100,9 +103,13 @@ static bool widget_gallery_scene_start_on_event(const SceneManagerEvent* event, 
 
     if(event->type == SceneManagerEventTypeCustom) {
         furi_assert(event->event < WidgetGallerySceneStartIdxMax);
+        const WidgetGallerySceneStartIdx item_idx = event->event;
 
-        const WidgetGallerySceneId scene_id =
-            widget_gallery_scene_start_items[event->event].scene_id;
+        WidgetGallerySceneStart* data =
+            scene_manager_get_scene_data(instance->scene_manager, WidgetGallerySceneIdStart);
+        data->item_idx = item_idx;
+
+        const WidgetGallerySceneId scene_id = widget_gallery_scene_start_items[item_idx].scene_id;
         scene_manager_next_scene(instance->scene_manager, scene_id);
     }
 
