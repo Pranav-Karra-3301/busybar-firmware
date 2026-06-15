@@ -1,0 +1,10 @@
+App(
+    appid="widget_gallery",
+    name="Widget Gallery",
+    apptype=FlipperAppType.DEBUG,
+    entry_point="widget_gallery_app",
+    requires=["gui"],
+    order=10,
+    stack_size=2 * 1024,
+    targets=["f20", "f21", "f22"],
+)
