@@ -13,6 +13,7 @@ env.AppendUnique(
     CPPPATH=[
         Dir(INC_DIR).srcnode(),
         Dir(SRC_DIR + "/bindings/capi").srcnode(),
+        Dir(SRC_DIR + "/loaders/lottie/jerryscript/jerry-core/include").srcnode(),
     ],
 )
 
@@ -23,6 +24,7 @@ libenv.AppendUnique(
     CPPDEFINES=[
         "alloca=__builtin_alloca",
         "JERRY_GLOBAL_HEAP_SIZE=8", # 8 KiB
+        "JERRY_EXTERNAL_CONTEXT=1"
     ],
     CPPPATH=[
         Dir(SRC_DIR + "/common").srcnode(),

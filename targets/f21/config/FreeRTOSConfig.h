@@ -60,7 +60,7 @@
    if lengths will always be less than the number of bytes in a size_t. */
 #define configMESSAGE_BUFFER_LENGTH_TYPE size_t
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS \
-    2 // one for furi_thread, one for furi_hal_usb_interface
+    3 // one for furi_thread, one for furi_hal_usb_interface
 #define configEXPECTED_IDLE_TIME_BEFORE_SLEEP 4
 
 /* Co-routine definitions. */
