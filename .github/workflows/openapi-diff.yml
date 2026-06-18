@@ -4,14 +4,20 @@ on:
     pull_request:
         types: [opened, synchronize]
         paths:
-            - "applications/services/web_server/resources/apps_assets/web_server/www/openapi.yaml"
+            - "applications/services/web_server/openapi/**"
             - "applications/services/web_server/http_api/http_api.h"
+            - "scripts/openapi_merge.py"
+            - "scripts/fbt_env_modules/fwenv/bsb_assets.scons"
+            - ".github/workflows/openapi-diff.yml"
     push:
         branches:
             - dev
         paths:
-            - "applications/services/web_server/resources/apps_assets/web_server/www/openapi.yaml"
+            - "applications/services/web_server/openapi/**"
             - "applications/services/web_server/http_api/http_api.h"
+            - "scripts/openapi_merge.py"
+            - "scripts/fbt_env_modules/fwenv/bsb_assets.scons"
+            - ".github/workflows/openapi-diff.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,18 +27,60 @@ jobs:
     oasdiff:
         runs-on: ubuntu-latest
 
+        env:
+            OAPI_DIR: applications/services/web_server/openapi
+            OAS_OUT: dist/openapi.yaml
+
         steps:
             - name: Checkout current
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
                   ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-                  fetch-depth: 2
+                  sparse-checkout: |
+                    scripts/openapi_merge.py
+                    scripts/flipper/app.py
+                    applications/services/web_server/openapi/
+                    applications/services/web_server/http_api/http_api.h
+                  sparse-checkout-cone-mode: false
 
             - name: Checkout base
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
                   ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
                   path: base
+                  sparse-checkout: |
+                    scripts/openapi_merge.py
+                    scripts/flipper/app.py
+                    applications/services/web_server/openapi/
+                    applications/services/web_server/http_api/http_api.h
+                  sparse-checkout-cone-mode: false
+
+            - name: Install Python dependencies
+              run: pip3 install pyyaml colorlog
+
+            - name: Build current spec
+              shell: bash
+              run: |
+                set -euo pipefail
+                mkdir -p dist
+                python3 scripts/openapi_merge.py merge \
+                  "${OAS_OUT}" \
+                  "${OAPI_DIR}/"*.yaml
+                python3 scripts/openapi_merge.py validate "${OAS_OUT}"
+
+            - name: Build base spec
+              shell: bash
+              run: |
+                set -euo pipefail
+                mkdir -p base/dist
+                if python3 base/scripts/openapi_merge.py merge \
+                     "base/${OAS_OUT}" \
+                     "base/${OAPI_DIR}/"*.yaml 2>/dev/null; then
+                  python3 base/scripts/openapi_merge.py validate "base/${OAS_OUT}"
+                else
+                  echo "WARNING: base does not support openapi_merge; copying from source"
+                  cp "base/${OAPI_DIR}/openapi.yaml" "base/${OAS_OUT}"
+                fi
 
             - name: Install oasdiff
               run: |
@@ -40,12 +88,10 @@ jobs:
 
             - name: Run oasdiff
               id: oasdiff
-              env:
-                  OAS_PATH: applications/services/web_server/resources/apps_assets/web_server/www/openapi.yaml
               run: |
                   set -o pipefail
 
-                  SUMMARY="$(oasdiff summary --exclude-elements description,summary,examples "base/$OAS_PATH" "$OAS_PATH" 2>&1)" || true
+                  SUMMARY="$(oasdiff summary --exclude-elements description,summary,examples "base/${OAS_OUT}" "${OAS_OUT}" 2>&1)" || true
                   echo 'summary<<EOF' >> "$GITHUB_OUTPUT"
                   echo "$SUMMARY" >> "$GITHUB_OUTPUT"
                   echo 'EOF' >> "$GITHUB_OUTPUT"
@@ -57,18 +103,18 @@ jobs:
                     echo "has_changes=false" >> "$GITHUB_OUTPUT"
                   fi
 
-                  if oasdiff breaking -o ERR --format markdown "base/$OAS_PATH" "$OAS_PATH" > breaking.md 2>&1; then
+                  if oasdiff breaking -o ERR --format markdown "base/${OAS_OUT}" "${OAS_OUT}" > breaking.md 2>&1; then
                     echo "exit_code=0" >> "$GITHUB_OUTPUT"
                   else
                     echo "exit_code=$?" >> "$GITHUB_OUTPUT"
                   fi
 
-                  CHANGELOG="$(oasdiff changelog --format markdown "base/$OAS_PATH" "$OAS_PATH" 2>&1 | sed -E 's/(^|[^#])#([0-9]+)/\1`#\2`/g')" || true
+                  CHANGELOG="$(oasdiff changelog --format markdown "base/${OAS_OUT}" "${OAS_OUT}" 2>&1 | sed -E 's/(^|[^#])#([0-9]+)/\1`#\2`/g')" || true
                   echo 'changelog<<EOF' >> "$GITHUB_OUTPUT"
                   echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
                   echo 'EOF' >> "$GITHUB_OUTPUT"
 
-                  REPORT_MD="$(oasdiff diff --format markdown --exclude-elements description,summary,examples "base/$OAS_PATH" "$OAS_PATH" 2>&1 | sed -E 's/(^|[^#])#([0-9]+)/\1`#\2`/g')" || true
+                  REPORT_MD="$(oasdiff diff --format markdown --exclude-elements description,summary,examples "base/${OAS_OUT}" "${OAS_OUT}" 2>&1 | sed -E 's/(^|[^#])#([0-9]+)/\1`#\2`/g')" || true
                   echo 'report_md<<EOF' >> "$GITHUB_OUTPUT"
                   echo "$REPORT_MD" >> "$GITHUB_OUTPUT"
                   echo 'EOF' >> "$GITHUB_OUTPUT"
@@ -76,12 +122,11 @@ jobs:
             - name: Check version bump
               id: version_check
               env:
-                  OAS_PATH: applications/services/web_server/resources/apps_assets/web_server/www/openapi.yaml
                   HAS_BREAKING: ${{ steps.oasdiff.outputs.exit_code }}
                   HAS_CHANGES: ${{ steps.oasdiff.outputs.has_changes }}
               run: |
-                  BASE_VERSION=$(grep -m1 '^  version:' "base/$OAS_PATH" | sed 's/.*version: *//; s/["'\'']*//g')
-                  CURR_VERSION=$(grep -m1 '^  version:' "$OAS_PATH" | sed 's/.*version: *//; s/["'\'']*//g')
+                  BASE_VERSION=$(grep -m1 'version:' "base/${OAS_OUT}" | sed 's/.*version: *//; s/[^0-9.]//g')
+                  CURR_VERSION=$(grep -m1 'version:' "${OAS_OUT}" | sed 's/.*version: *//; s/[^0-9.]//g')
 
                   echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
                   echo "current_version=$CURR_VERSION" >> "$GITHUB_OUTPUT"

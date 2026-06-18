@@ -56,6 +56,7 @@ static void matter_scene_on_enter(void* context) {
             submenu_add_item(
                 scene->submenus[display],
                 "Pair device",
+                NULL,
                 SceneSubmenuIndexPairing,
                 add_callback ? matter_scene_submenu_item_callback : NULL,
                 app);
@@ -64,10 +65,13 @@ static void matter_scene_on_enter(void* context) {
                 submenu_add_item(
                     scene->submenus[display],
                     "Forget all pairings",
+                    NULL,
                     SceneSubmenuIndexReset,
                     add_callback ? matter_scene_submenu_item_callback : NULL,
                     app);
             }
+
+            widget_set_scrollbar_enabled(submenu_get_base(scene->submenus[display]), true);
         }
     });
 

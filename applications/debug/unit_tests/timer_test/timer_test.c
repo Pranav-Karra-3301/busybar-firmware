@@ -3,6 +3,7 @@
 #include <toolbox/timers.h>
 
 #define COARSE_TIMER_TIMEOUT_MS (10)
+#define COARSE_TIMER_ABSTOL_MS  (2)
 
 #define PRECISE_TIMER_TIMEOUT_US (1000)
 #define PRECISE_TIMER_ABSTOL_US  (5)
@@ -27,6 +28,9 @@ static bool true_after_expire(void* context) {
 }
 
 MU_TEST(coarse_timer_test) {
+    FuriThreadPriority old_priority = furi_thread_get_current_priority();
+    furi_thread_set_current_priority(FuriThreadPriorityHighest);
+
     FURI_CRITICAL_ENTER();
     const CoarseTimer timer = coarse_timer_create(COARSE_TIMER_TIMEOUT_MS);
 
@@ -38,13 +42,16 @@ MU_TEST(coarse_timer_test) {
 
     const uint32_t elapsed_end_ms = coarse_timer_get_elapsed(timer);
     const bool is_expired_end = coarse_timer_is_expired(timer);
+    furi_thread_set_current_priority(old_priority);
 
     mu_check(!is_expired_start);
     mu_check(is_expired_end);
 
     mu_assert_int_eq(0, elapsed_start_ms);
     mu_assert_int_between(
-        COARSE_TIMER_TIMEOUT_MS - 1, COARSE_TIMER_TIMEOUT_MS + 1, (int32_t)elapsed_end_ms);
+        COARSE_TIMER_TIMEOUT_MS,
+        COARSE_TIMER_TIMEOUT_MS + COARSE_TIMER_ABSTOL_MS,
+        (int32_t)elapsed_end_ms);
 }
 
 MU_TEST(precise_timer_test) {

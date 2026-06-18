@@ -1,7 +1,9 @@
 #include "submenu.h"
+#include "private/menu_base_i.h"
 
-#include <gui/widget_i.h>
+#include <gui/modules/label.h>
 
+#include <lvgl_addons/extensions/lv_label_ext.h>
 #include <lvgl/src/core/lv_obj_class_private.h>
 
 #define MY_CLASS        (&submenu_lvgl_class)
@@ -10,35 +12,32 @@
 
 #define SYM_ARROW_RIGHT "▶" // U+25B6
 
-#define SCROLL_ANIM_DURATION_MS (0)
+#define SCROLL_ANIM_DURATION_MS        0
+#define LONG_TEXT_ANIM_SPEED_PX_PER_M  1000
+#define LONG_TEXT_ANIM_START_DELAY_MS  1000
+#define LONG_TEXT_ANIM_REPEAT_DELAY_MS 2500
 
 struct Submenu {
-    Widget base;
-    lv_group_t* group;
+    MenuBase base;
+
+    lv_anim_t item_anim_template;
 };
 
 typedef struct {
     lv_obj_t base;
     lv_obj_t* cursor;
-    lv_obj_t* label;
+    lv_obj_t* primary_label;
+    lv_obj_t* auxiliary_label;
     uint32_t index;
     SubmenuItemCallback callback;
     void* context;
+
+    bool awaits_lazy_setup;
 } SubmenuItem;
 
 const lv_obj_class_t submenu_lvgl_class;
 const lv_obj_class_t submenu_item_lvgl_class;
 const lv_obj_class_t submenu_cursor_lvgl_class;
-
-// TODO: Make it a universal fix
-static void submenu_scroll_event_callback(lv_event_t* event) {
-    const lv_event_code_t code = lv_event_get_code(event);
-
-    if(code == LV_EVENT_SCROLL_BEGIN) {
-        lv_anim_t* anim = lv_event_get_scroll_anim(event);
-        if(anim) anim->duration = SCROLL_ANIM_DURATION_MS;
-    }
-}
 
 static bool submenu_input_callback(Widget* widget, const InputEvent* event) {
     Submenu* instance = (Submenu*)widget;
@@ -47,15 +46,15 @@ static bool submenu_input_callback(Widget* widget, const InputEvent* event) {
 
     if(event->type == InputTypeShort) {
         if(event->key == InputKeyUp) {
-            lv_group_focus_next(instance->group);
+            lv_group_focus_next(instance->base.group);
             consumed = true;
 
         } else if(event->key == InputKeyDown) {
-            lv_group_focus_prev(instance->group);
+            lv_group_focus_prev(instance->base.group);
             consumed = true;
 
         } else if(event->key == InputKeyOk || event->key == InputKeyStart) {
-            const SubmenuItem* item = (SubmenuItem*)lv_group_get_focused(instance->group);
+            const SubmenuItem* item = (SubmenuItem*)lv_group_get_focused(instance->base.group);
 
             if(item->callback) {
                 item->callback(item->index, item->context);
@@ -70,7 +69,8 @@ static bool submenu_input_callback(Widget* widget, const InputEvent* event) {
 
 static lv_obj_t* submenu_item_alloc(
     Submenu* parent,
-    const char* label,
+    const char* primary_text,
+    const char* auxiliary_text,
     uint32_t index,
     SubmenuItemCallback callback,
     void* context) {
@@ -81,9 +81,19 @@ static lv_obj_t* submenu_item_alloc(
     instance->index = index;
     instance->callback = callback;
     instance->context = context;
+    instance->awaits_lazy_setup = true;
 
-    lv_label_set_text(instance->label, label);
-    lv_group_add_obj(parent->group, obj);
+    lv_label_set_text(instance->primary_label, primary_text);
+
+    if(auxiliary_text) {
+        lv_label_set_text(instance->auxiliary_label, auxiliary_text);
+        lv_obj_clear_flag(instance->auxiliary_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_label_set_text_static(instance->auxiliary_label, "");
+        lv_obj_add_flag(instance->auxiliary_label, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    lv_group_add_obj(parent->base.group, obj);
 
     return obj;
 }
@@ -91,19 +101,12 @@ static lv_obj_t* submenu_item_alloc(
 static void submenu_lvgl_constructor(const lv_obj_class_t* class_p, lv_obj_t* obj) {
     UNUSED(class_p);
 
-    lv_obj_set_flex_flow(obj, LV_FLEX_FLOW_COLUMN);
-    lv_obj_add_event_cb(obj, submenu_scroll_event_callback, LV_EVENT_SCROLL_BEGIN, NULL);
-
     Submenu* instance = (Submenu*)obj;
-    instance->group = lv_group_create();
-    lv_group_set_wrap(instance->group, false);
-}
 
-static void submenu_lvgl_destructor(const lv_obj_class_t* class_p, lv_obj_t* obj) {
-    UNUSED(class_p);
-
-    Submenu* instance = (Submenu*)obj;
-    lv_group_delete(instance->group);
+    lv_anim_init(&instance->item_anim_template);
+    lv_anim_set_delay(&instance->item_anim_template, LONG_TEXT_ANIM_START_DELAY_MS);
+    lv_anim_set_repeat_delay(&instance->item_anim_template, LONG_TEXT_ANIM_REPEAT_DELAY_MS);
+    lv_anim_set_repeat_count(&instance->item_anim_template, LV_ANIM_REPEAT_INFINITE);
 }
 
 static void submenu_item_lvgl_constructor(const lv_obj_class_t* class_p, lv_obj_t* obj) {
@@ -115,14 +118,20 @@ static void submenu_item_lvgl_constructor(const lv_obj_class_t* class_p, lv_obj_
     lv_obj_add_flag(obj, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
 
     SubmenuItem* instance = (SubmenuItem*)obj;
+    Submenu* parent = (Submenu*)lv_obj_get_parent(obj);
 
     instance->cursor = lv_obj_class_create_obj(MY_CURSOR_CLASS, obj);
     lv_obj_class_init_obj(instance->cursor);
     lv_label_set_text(instance->cursor, SYM_ARROW_RIGHT);
 
-    instance->label = lv_label_create(obj);
-    lv_label_set_long_mode(instance->label, LV_LABEL_LONG_MODE_CLIP);
-    lv_obj_set_flex_grow(instance->label, 1);
+    instance->primary_label = lv_label_create(obj);
+    lv_label_set_long_mode(instance->primary_label, LV_LABEL_LONG_MODE_CLIP);
+    lv_obj_set_flex_grow(instance->primary_label, 1);
+    lv_obj_set_style_anim(instance->primary_label, &parent->item_anim_template, LV_PART_MAIN);
+
+    instance->auxiliary_label = lv_label_create(obj);
+    lv_obj_add_flag(instance->auxiliary_label, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_set_align(instance->auxiliary_label, LV_ALIGN_RIGHT_MID);
 }
 
 static void submenu_item_lvgl_event(const lv_obj_class_t* class_p, lv_event_t* event) {
@@ -137,8 +146,16 @@ static void submenu_item_lvgl_event(const lv_obj_class_t* class_p, lv_event_t* e
 
     if(code == LV_EVENT_FOCUSED) {
         lv_obj_add_state(instance->cursor, LV_STATE_FOCUSED);
+
+        if(instance->awaits_lazy_setup) {
+            lv_label_ext_set_anim_speed(instance->primary_label, LONG_TEXT_ANIM_SPEED_PX_PER_M);
+            instance->awaits_lazy_setup = false;
+        }
+
+        lv_label_set_long_mode(instance->primary_label, LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
     } else if(code == LV_EVENT_DEFOCUSED) {
         lv_obj_remove_state(instance->cursor, LV_STATE_FOCUSED);
+        lv_label_set_long_mode(instance->primary_label, LV_LABEL_LONG_MODE_CLIP);
     }
 }
 
@@ -167,15 +184,15 @@ Widget* submenu_get_base(Submenu* instance) {
 
 void submenu_add_item(
     Submenu* instance,
-    const char* label,
+    const char* primary_text,
+    const char* auxiliary_text,
     uint32_t index,
     SubmenuItemCallback callback,
     void* context) {
     furi_check(instance);
-    furi_check(label);
+    furi_check(primary_text);
 
-    lv_obj_t* item = submenu_item_alloc(instance, label, index, callback, context);
-    UNUSED(item);
+    submenu_item_alloc(instance, primary_text, auxiliary_text, index, callback, context);
 }
 
 void submenu_reset(Submenu* instance) {
@@ -186,7 +203,7 @@ void submenu_reset(Submenu* instance) {
 uint32_t submenu_get_selected_item_index(const Submenu* instance) {
     furi_check(instance);
 
-    const SubmenuItem* item = (SubmenuItem*)lv_group_get_focused(instance->group);
+    const SubmenuItem* item = (SubmenuItem*)lv_group_get_focused(instance->base.group);
     if(item) {
         return item->index;
     }
@@ -211,9 +228,8 @@ void submenu_set_selected_item_index(Submenu* instance, uint32_t index) {
 // LVGL class descriptors
 
 const lv_obj_class_t submenu_lvgl_class = {
-    .base_class = &widget_lvgl_class,
+    .base_class = &menu_base_lvgl_class,
     .constructor_cb = submenu_lvgl_constructor,
-    .destructor_cb = submenu_lvgl_destructor,
     .name = "widget-submenu",
     .width_def = LV_PCT(100),
     .height_def = LV_PCT(100),
