@@ -120,6 +120,7 @@
         "formatters",
         "flipper_format",
         "flipper_application",
+        "gui_application",
         "heatshrink",
         "bit_lib",
         "datetime",

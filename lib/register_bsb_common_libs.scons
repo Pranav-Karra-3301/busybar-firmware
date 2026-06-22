@@ -25,6 +25,7 @@ for libname in [
     "formatters",
     "flipper_format",
     "flipper_application",
+    "gui_application",
     "nanopb",
     "heatshrink",
     "ext_applications",
