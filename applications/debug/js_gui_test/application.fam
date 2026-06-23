@@ -1,0 +1,10 @@
+App(
+    appid="js_gui_test",
+    name="JS GUI",
+    apptype=FlipperAppType.DEBUG,
+    entry_point="js_gui_app",
+    requires=["gui"],
+    order=210,
+    stack_size=2 * 1024,
+    targets=["f20", "f21", "f22"],
+)

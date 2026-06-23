@@ -111,6 +111,7 @@
         "lwip",
         "netstat",
         "cjson",
+        "jerryscript",
         "thorvg",
         "lvgl",
         "network",

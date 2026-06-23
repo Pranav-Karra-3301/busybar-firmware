@@ -70,19 +70,19 @@ sources = [
     libenv.Glob(LOADERS_DIR + "/tvg/*.cpp", source=True),
     libenv.Glob(RENDERER_DIR + "/*.cpp", source=True),
     libenv.Glob(RENDERER_DIR + "/sw_engine/*.cpp", source=True),
-    # JerryScript for Lottie expressions support
-    libenv.Glob(JERRYSCRIPT_DIR + "/api/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/ecma/base/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/ecma/builtin-objects/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/ecma/builtin-objects/typedarray/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/ecma/operations/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/jcontext/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/jmem/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/jrt/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/lit/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/parser/js/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/parser/regexp/*.cpp", source=True),
-    libenv.Glob(JERRYSCRIPT_DIR + "/vm/*.cpp", source=True),
+    # # JerryScript for Lottie expressions support
+    # libenv.Glob(JERRYSCRIPT_DIR + "/api/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/ecma/base/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/ecma/builtin-objects/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/ecma/builtin-objects/typedarray/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/ecma/operations/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/jcontext/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/jmem/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/jrt/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/lit/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/parser/js/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/parser/regexp/*.cpp", source=True),
+    # libenv.Glob(JERRYSCRIPT_DIR + "/vm/*.cpp", source=True),
 ]
 
 lib = libenv.StaticLibrary("${FW_LIB_NAME}", sources)
