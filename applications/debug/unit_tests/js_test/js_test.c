@@ -15,12 +15,13 @@ static bool square_with_js(double input, double* output) {
     jerry_value_free(input_name);
     jerry_value_free(input_value);
 
-    static const char *script = "input * input;";
+    static const char* script = "input * input;";
 
-    jerry_value_t result = jerry_eval((const jerry_char_t*)script, strlen(script), JERRY_PARSE_NO_OPTS);
+    jerry_value_t result =
+        jerry_eval((const jerry_char_t*)script, strlen(script), JERRY_PARSE_NO_OPTS);
 
     bool ret = true;
-    if (jerry_value_is_exception(result)) {
+    if(jerry_value_is_exception(result)) {
         ret = false;
     } else {
         *output = jerry_value_as_number(result);

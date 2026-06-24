@@ -1,8 +1,8 @@
 #include <furi/furi.h>
-#include <jerryscript-port.h>
+#include <jerryscript.h>
 
 #define THREAD_STORAGE_INDEX 1
-#define HEAP_SIZE 8192
+#define HEAP_SIZE            8192
 
 size_t jerry_port_context_alloc(size_t context_size) {
     void* tlp = furi_thread_local_storage_pointer_get(NULL, THREAD_STORAGE_INDEX);
@@ -13,7 +13,7 @@ size_t jerry_port_context_alloc(size_t context_size) {
     return alloc_size;
 }
 
-struct jerry_context_t *jerry_port_context_get(void) {
+struct jerry_context_t* jerry_port_context_get(void) {
     return furi_thread_local_storage_pointer_get(NULL, THREAD_STORAGE_INDEX);
 }
 
@@ -21,4 +21,22 @@ void jerry_port_context_free(void) {
     void* tlp = furi_thread_local_storage_pointer_get(NULL, THREAD_STORAGE_INDEX);
     free(tlp);
     furi_thread_local_storage_pointer_set(NULL, THREAD_STORAGE_INDEX, NULL);
+}
+
+int32_t jerry_port_local_tza(double unix_ms) {
+    // TODO
+    UNUSED(unix_ms);
+    return 0;
+}
+
+void jerry_port_init(void) {
+}
+
+void jerry_port_fatal(jerry_fatal_code_t code) {
+    furi_crash(code);
+}
+
+double jerry_port_current_time(void) {
+    // TODO
+    return 0.0;
 }

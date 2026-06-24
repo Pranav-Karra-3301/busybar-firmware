@@ -22,26 +22,24 @@ typedef struct {
     jerry_value_t gui_obj;
 } JsGui;
 
-static const char* script =
-"class JsGui {"
-"   name;"
-"   constructor(name) {"
-"        this.name = name;"
-"   }"
-"   onDraw(gui) {"
-"       this.label = gui.label(this.name);"
-"   }"
-"}"
-"new JsGui(\"Hello JS\");"
-;
+static const char* script = "class JsGui {"
+                            "   name;"
+                            "   constructor(name) {"
+                            "        this.name = name;"
+                            "   }"
+                            "   onDraw(gui) {"
+                            "       this.label = gui.label(this.name);"
+                            "   }"
+                            "}"
+                            "new JsGui(\"Hello JS\");";
 
 static JsGui* jsgui = NULL;
 
 typedef struct label_context_t {
-    Label *labels[2];
+    Label* labels[2];
 } label_context_t;
 
-static void js_label_free(void *context, jerry_object_native_info_t *info) {
+static void js_label_free(void* context, jerry_object_native_info_t* info) {
     UNUSED(info);
     label_context_t* instance = context;
     with_gui(jsgui->gui, {
@@ -53,10 +51,7 @@ static void js_label_free(void *context, jerry_object_native_info_t *info) {
     FURI_LOG_D(TAG, "Label deleted");
 }
 
-static const jerry_object_native_info_t label_type_info =
-{
-  .free_cb = js_label_free
-};
+static const jerry_object_native_info_t label_type_info = {.free_cb = js_label_free};
 
 static bool input_callback(const InputEvent* event, void* context) {
     furi_assert(event);
@@ -77,7 +72,10 @@ static void custom_event_callback(uint32_t events, void* context) {
     }
 }
 
-static jerry_value_t gui_label_handler(const jerry_call_info_t *call_info_p, const jerry_value_t args_p[], const jerry_length_t args_cnt) {
+static jerry_value_t gui_label_handler(
+    const jerry_call_info_t* call_info_p,
+    const jerry_value_t args_p[],
+    const jerry_length_t args_cnt) {
     UNUSED(call_info_p);
     if(args_cnt == 1 && jerry_value_is_string(args_p[0])) {
         size_t buffer_size = jerry_string_length(args_p[0]) + 1;
@@ -154,7 +152,8 @@ static JsGui* js_gui_alloc(void) {
         gui_layer_add_input_callback(main_layer, input_callback, instance);
     });
 
-    instance->app_obj = jerry_eval((const jerry_char_t*)script, strlen(script), JERRY_PARSE_NO_OPTS);
+    instance->app_obj =
+        jerry_eval((const jerry_char_t*)script, strlen(script), JERRY_PARSE_NO_OPTS);
 
     if(!jerry_value_is_object(instance->app_obj)) {
         FURI_LOG_E(TAG, "App is not an object");
