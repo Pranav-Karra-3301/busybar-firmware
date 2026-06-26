@@ -18,7 +18,7 @@ typedef enum {
     BackDisplayPatternGradientVertical,
 
     BackDisplayPatternMax,
-} BackDisplayPattern;
+}
 
 #ifdef __cplusplus
 }
