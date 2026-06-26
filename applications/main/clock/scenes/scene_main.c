@@ -91,11 +91,11 @@ static void clock_scene_main_on_enter(void* context) {
             ClockSceneMainEventSetup,
             clock_scene_main_menu_callback,
             instance);
+
+        transition_overlay_start(instance->front_transition_overlay);
     });
 
     free(time_settings);
-
-    transition_overlay_start(instance->front_transition_overlay);
 }
 
 static void clock_scene_main_on_exit(void* context) {
@@ -134,12 +134,12 @@ static bool clock_scene_main_on_event(const SceneManagerEvent* event, void* cont
         case ClockSceneMainEventStart:
             with_gui(instance->gui, {
                 widget_set_visible(nav_bar_get_base(instance->back_nav_bar), false);
-            });
 
-            transition_overlay_set_preset(
-                instance->front_transition_overlay,
-                &clock_scene_main_start_transition_overlay_preset);
-            transition_overlay_show(instance->front_transition_overlay);
+                transition_overlay_set_preset(
+                    instance->front_transition_overlay,
+                    &clock_scene_main_start_transition_overlay_preset);
+                transition_overlay_show(instance->front_transition_overlay);
+            });
 
             scene_manager_next_scene(instance->scene_manager, ClockSceneIdxClock);
             return true;
