@@ -6,7 +6,7 @@
 
 // Controls debug output and features
 #ifndef KERMIT_DEBUG
-#define KERMIT_DEBUG 0
+#define KERMIT_DEBUG 1
 #endif
 
 #if KERMIT_DEBUG
@@ -31,6 +31,7 @@
 #define KERMIT_RPT          (' ')
 #define KERMIT_CAPAS_MASK   (0x02)
 #define KERMIT_WINDOW_SZ    (0)
+#define KERMIT_MAX_RETRIES  (10)
 
 #define KERMIT_EXT_PACKET_SIZE_MOD (95)
 #define KERMIT_SEQ_MODULO          (64)
@@ -91,6 +92,7 @@ struct Kermit {
     void* io_context;
     KermitRx rx;
     KermitPacket* last_packet;
+    uint8_t retry_count;
     KermitFileTransferState file_transfer_state;
 };
 
@@ -261,6 +263,7 @@ KermitPacket* kermit_create_ext_packet(
 
 void kermit_reset_state(Kermit* kermit) {
     kermit->seq_counter = 0;
+    kermit->retry_count = 0;
 
     kermit->max_packet_length = KERMIT_PACKET_MAX_LENGTH;
     kermit->max_ext_packet_length = KERMIT_PACKET_EXT_MAX_LENGTH;
@@ -425,6 +428,23 @@ static bool kermit_tx_packet(Kermit* kermit, const KermitPacket* packet) {
     return (kermit->io->comms_send(kermit->io_context, packet->data, packet->sz) == packet->sz);
 }
 
+bool kermit_on_timeout(Kermit* kermit) {
+    furi_check(kermit);
+
+    kermit->retry_count++;
+    if(kermit->retry_count > KERMIT_MAX_RETRIES) {
+        FURI_LOG_E(TAG, "ACK timeout retry limit reached (%u), aborting", kermit->retry_count);
+        return false;
+    }
+    if(!kermit->last_packet) {
+        FURI_LOG_E(TAG, "ACK timeout with no packet to retransmit");
+        return false;
+    }
+    FURI_LOG_W(
+        TAG, "ACK timeout, retransmitting (%u/%u)", kermit->retry_count, KERMIT_MAX_RETRIES);
+    return kermit_tx_packet(kermit, kermit->last_packet);
+}
+
 bool kermit_start(Kermit* kermit, const uint8_t timeout_seconds) {
     furi_check(kermit);
     furi_check(kermit->file_transfer_state == KermitFileTransferStateIdle);
@@ -569,6 +589,7 @@ static bool kermit_process_packet(Kermit* kermit) {
 
         kermit_packet_free(kermit->last_packet);
         kermit->last_packet = NULL;
+        kermit->retry_count = 0;
 
         switch(kermit->file_transfer_state) {
         case KermitFileTransferStateSyncParams:
@@ -602,7 +623,17 @@ static bool kermit_process_packet(Kermit* kermit) {
         break;
 
     case KermitPacketTypeNak:
-        FURI_LOG_W(TAG, "NAK received, retransmitting last packet");
+        kermit->retry_count++;
+        if(kermit->retry_count > KERMIT_MAX_RETRIES) {
+            FURI_LOG_E(TAG, "NAK retry limit reached (%u), aborting", kermit->retry_count);
+            rx_packet_is_sane = false;
+            break;
+        }
+        FURI_LOG_W(
+            TAG,
+            "NAK received, retransmitting last packet (%u/%u)",
+            kermit->retry_count,
+            KERMIT_MAX_RETRIES);
         if(kermit->last_packet) {
             response_packet = kermit->last_packet;
             kermit->last_packet = NULL;

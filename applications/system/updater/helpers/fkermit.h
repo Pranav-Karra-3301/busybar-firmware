@@ -102,6 +102,8 @@ bool kermit_is_active(Kermit* kermit);
  */
 bool kermit_feed_serial_data(Kermit* kermit, const uint8_t* data, size_t length);
 
+bool kermit_on_timeout(Kermit* kermit);
+
 /**
  * @brief Reset the session back to the idle state.
  *

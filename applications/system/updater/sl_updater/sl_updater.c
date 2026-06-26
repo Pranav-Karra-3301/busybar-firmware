@@ -364,6 +364,13 @@ static void sl_update_idle_timer_callback(void* context) {
         }
     }
 
+    if(instance->bootloader_state == Si917BootloaderStateKermitSend) {
+        if(kermit_on_timeout(instance->kermit)) {
+            furi_event_loop_timer_restart(instance->idle_timer);
+            return;
+        }
+    }
+
     FURI_LOG_W(TAG, "Watchdog expired");
     furi_event_loop_stop(instance->event_loop);
 }
