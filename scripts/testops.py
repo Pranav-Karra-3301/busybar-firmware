@@ -542,6 +542,8 @@ class BusyBarDevice:
         Runs 'device_info' and returns the output.
         """
         with self._telnet(timeout=timeout) as tn:
+            # sleep to make sure the device is ready to respond after reboot/reflash
+            sleep(1)
             res = tn.run("device_info", timeout=timeout)
             return res.ok, (res.stdout or "(No output received)")
 
