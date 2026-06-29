@@ -35,7 +35,7 @@ jobs:
 
       - name: 'Update submodules'
         run: |
-          git submodule update --init --depth 1 --filter=blob:none --recursive --jobs=$(nproc) scripts/toolchain fbt_layers/fbtng
+          git submodule update --init --depth 1 --filter=blob:none --jobs="$(nproc)" || (git lfs logs last && exit 1)
 
       - name: 'Download update package'
         run: |
