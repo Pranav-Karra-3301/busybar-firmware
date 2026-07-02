@@ -23,7 +23,7 @@ static void
     printf("%s", postamble[severity]);
 }
 
-void cli_command_js_run(PipeSide* pipe, FuriString* args, void* context) {
+void cli_command_js(PipeSide* pipe, FuriString* args, void* context) {
     UNUSED(pipe);
     UNUSED(context);
 

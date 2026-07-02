@@ -104,6 +104,8 @@ static bool ble_command_init_response(BleIntercomFrameGeneric* frame, void* cont
 
 static bool ble_command_deinit_request(BleIntercomFrameGeneric* frame, void* context) {
     BLE_LOG_D("BleCommandDeinit request");
+    Ble* instance = context;
+    ble_streaming_update(instance->streaming, BleServiceStatusError);
     return ble_command_deinit_process(frame, context);
 }
 
@@ -138,8 +140,8 @@ static bool ble_command_enable_response(BleIntercomFrameGeneric* frame, void* co
         ble_save_enabled_state(true);
     }
 
-    ble_command_unblock_with_result(instance, frame->header.result);
     ble_http_repeater_start(instance);
+    ble_command_unblock_with_result(instance, frame->header.result);
 
     BleState status = {
         .status = instance->status,
@@ -175,8 +177,8 @@ static bool ble_command_disable_response(BleIntercomFrameGeneric* frame, void* c
 
     ble_save_enabled_state(false);
 
-    ble_command_unblock_with_result(instance, frame->header.result);
     ble_http_repeater_stop();
+    ble_command_unblock_with_result(instance, frame->header.result);
 
     BleState status = {
         .status = instance->status,

@@ -27,6 +27,7 @@ extern "C" {
 #include "rate_limiter_test/rate_limiter_test.h"
 #include "crypto_test/crypto_test.h"
 #include "timer_test/timer_test.h"
+#include "record_test/record_test.h"
 #include "js_test/js_test.h"
 #undef TEST_FUNCTION_DECLS
 
@@ -49,6 +50,7 @@ static TestCallback unit_test_callbacks[] = {
 #include "rate_limiter_test/rate_limiter_test.h"
 #include "crypto_test/crypto_test.h"
 #include "timer_test/timer_test.h"
+#include "record_test/record_test.h"
 #include "js_test/js_test.h"
 #undef TEST_FUNCTION_REFS
 };
