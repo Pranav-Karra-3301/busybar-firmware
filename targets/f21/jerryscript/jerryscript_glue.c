@@ -1,32 +1,30 @@
 #include <furi/furi.h>
 #include <time/time.h>
-#include <thread_local_config.h>
+#include <js_runner/js_runner.h>
 
 #include <utz/utz.h>
 #include <jerryscript.h>
 
-#define TAG       "JSGlue"
-#define HEAP_SIZE 8192
+#define TAG "JSGlue"
 
 size_t jerry_port_context_alloc(size_t context_size) {
-    void* tlp =
-        furi_thread_local_storage_pointer_get(NULL, ThreadLocalStoragePointerIdJerryscript);
-    furi_check(tlp == NULL);
-    size_t alloc_size = context_size + HEAP_SIZE;
-    tlp = malloc(alloc_size);
-    furi_thread_local_storage_pointer_set(NULL, ThreadLocalStoragePointerIdJerryscript, tlp);
-    return alloc_size;
+    JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
+    size_t result = js_runner_context_alloc(js_runner, context_size);
+    furi_record_close(RECORD_JS_RUNNER);
+    return result;
 }
 
 struct jerry_context_t* jerry_port_context_get(void) {
-    return furi_thread_local_storage_pointer_get(NULL, ThreadLocalStoragePointerIdJerryscript);
+    JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
+    void* result = js_runner_context_get(js_runner);
+    furi_record_close(RECORD_JS_RUNNER);
+    return result;
 }
 
 void jerry_port_context_free(void) {
-    void* tlp =
-        furi_thread_local_storage_pointer_get(NULL, ThreadLocalStoragePointerIdJerryscript);
-    free(tlp);
-    furi_thread_local_storage_pointer_set(NULL, ThreadLocalStoragePointerIdJerryscript, NULL);
+    JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
+    js_runner_context_free(js_runner);
+    furi_record_close(RECORD_JS_RUNNER);
 }
 
 void jerry_port_init(void) {

@@ -6,6 +6,7 @@
 #include "cli_command_factory_reset.h"
 #include "cli_command_otp.h"
 #include "cli_command_rtc.h"
+#include "cli_command_js.h"
 
 #include <core/thread.h>
 #include <core/thread_list.h>
@@ -94,6 +95,8 @@ static void cli_commands_init(CliRegistry* registry) {
     cli_registry_add_command(
         registry, "timezone", CliCommandFlagParallelSafe, cli_command_rtc_timezone, NULL);
 #endif // SRV_TIME
+
+    cli_registry_add_command(registry, "js", CliCommandFlagParallelSafe, cli_command_js_run, NULL);
 
     // commands from `.fam`s
     for(size_t i = 0; i < FLIPPER_CLI_COMMANDS_COUNT; i++) {
