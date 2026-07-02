@@ -1,44 +1,55 @@
 #include "../unit_tests.h"
-#include <jerryscript.h>
+#include <js_runner/js_runner.h>
+#include <storage/storage.h>
 #include <string.h>
 
-static bool square_with_js(double input, double* output) {
-    jerry_init(JERRY_INIT_EMPTY);
+#define SCRIPT_FILE UNIT_TESTS_PATH("test.js")
 
-    jerry_value_t global = jerry_current_realm();
+static bool create_file(Storage* storage, const char* path, const char* data) {
+    File* file = storage_file_alloc(storage);
+    bool result = false;
+    do {
+        if(!storage_file_open(file, path, FSAM_WRITE, FSOM_CREATE_NEW)) {
+            break;
+        }
 
-    jerry_value_t input_name = jerry_string_sz("input");
-    jerry_value_t input_value = jerry_number(input);
+        if(storage_file_write(file, data, strlen(data)) != strlen(data)) {
+            break;
+        }
 
-    jerry_object_set(global, input_name, input_value);
+        if(!storage_file_close(file)) {
+            break;
+        }
 
-    jerry_value_free(input_name);
-    jerry_value_free(input_value);
+        result = true;
+    } while(0);
 
-    static const char* script = "input * input;";
+    storage_file_free(file);
+    return result;
+}
 
-    jerry_value_t result =
-        jerry_eval((const jerry_char_t*)script, strlen(script), JERRY_PARSE_NO_OPTS);
+static void
+    js_console_cb(JsRunnerConsoleSeverity severity, const char* buf, size_t size, void* context) {
+    UNUSED(severity);
 
-    bool ret = true;
-    if(jerry_value_is_exception(result)) {
-        ret = false;
-    } else {
-        *output = jerry_value_as_number(result);
-        ret = true;
-    }
-
-    jerry_value_free(result);
-    jerry_value_free(global);
-    jerry_cleanup();
-    return ret;
+    char* out_buf = context;
+    size_t out_buf_len = strlen(out_buf);
+    memcpy(out_buf + out_buf_len, buf, size);
 }
 
 MU_TEST(js_tests_expr) {
-    double input = 2.5;
-    double output = 0.0;
-    mu_check(square_with_js(input, &output));
-    mu_assert_double_eq(output, 6.25);
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    mu_check(create_file(storage, SCRIPT_FILE, "console.log(\"flipppper\");"));
+    furi_record_close(RECORD_STORAGE);
+
+    JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
+    char buf[64] = {0};
+
+    js_runner_run(js_runner, SCRIPT_FILE, 1024, js_console_cb, buf);
+
+    mu_assert_string_eq(buf, "flipppper\n");
+
+    furi_record_close(RECORD_JS_RUNNER);
 }
 
 MU_TEST_SUITE(js_test_suite) {
