@@ -4,8 +4,23 @@
 #include <cli/args.h>
 #include <js_runner/js_runner.h>
 
-static void js_console_cb(const char* buf, size_t size) {
+static void
+    js_console_cb(JsRunnerConsoleSeverity severity, const char* buf, size_t size, void* context) {
+    UNUSED(context);
+
+    static const char* const preamble[] = {
+        [JsRunnerConsoleSeverityLog] = "",
+        [JsRunnerConsoleSeverityError] = "\x1b[1;31m",
+        [JsRunnerConsoleSeverityInfo] = "\x1b[1;33m",
+    };
+    static const char* const postamble[] = {
+        [JsRunnerConsoleSeverityLog] = "",
+        [JsRunnerConsoleSeverityError] = "\x1b[0m",
+        [JsRunnerConsoleSeverityInfo] = "\x1b[0m",
+    };
+    printf("%s", preamble[severity]);
     printf("%.*s", size, buf);
+    printf("%s", postamble[severity]);
 }
 
 void cli_command_js_run(PipeSide* pipe, FuriString* args, void* context) {
@@ -14,14 +29,11 @@ void cli_command_js_run(PipeSide* pipe, FuriString* args, void* context) {
 
     if(furi_string_size(args) > 0) {
         JsRunner* runner = furi_record_open(RECORD_JS_RUNNER);
-        JsRunnerAppHandle* handle = js_runner_alloc(runner);
-        JsRunnerError error = js_runner_run(handle, furi_string_get_cstr(args), js_console_cb);
-        if(error == JsRunnerErrorNone) {
-            js_runner_join(handle);
-        } else {
+        JsRunnerError error =
+            js_runner_run(runner, furi_string_get_cstr(args), 8192, js_console_cb, NULL);
+        if(error != JsRunnerErrorNone) {
             printf("Error running script: %d", error);
         }
-        js_runner_free(handle);
         furi_record_close(RECORD_JS_RUNNER);
     } else {
         printf("Usage: js <filename>\r\n");

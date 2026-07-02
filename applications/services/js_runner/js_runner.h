@@ -5,14 +5,23 @@
 
 typedef struct JsRunner JsRunner;
 
-typedef struct JsRunnerAppHandle JsRunnerAppHandle;
-
 typedef enum JsRunnerError {
     JsRunnerErrorNone = 0,
     JsRunnerErrorCannotOpenFile,
+    JsRunnerParseException,
 } JsRunnerError;
 
-typedef void (*JsRunnerConsoleWriteCallback)(const char* buf, size_t size);
+typedef enum JsRunnerConsoleSeverity {
+    JsRunnerConsoleSeverityLog,
+    JsRunnerConsoleSeverityInfo,
+    JsRunnerConsoleSeverityError,
+} JsRunnerConsoleSeverity;
+
+typedef void (*JsRunnerConsoleWriteCallback)(
+    JsRunnerConsoleSeverity severity,
+    const char* buf,
+    size_t size,
+    void* context);
 
 size_t js_runner_context_alloc(JsRunner* instance, size_t context_size);
 
@@ -20,13 +29,9 @@ void js_runner_context_free(JsRunner* instance);
 
 void* js_runner_context_get(JsRunner* instance);
 
-JsRunnerAppHandle* js_runner_alloc(JsRunner* instance);
-
-void js_runner_free(JsRunnerAppHandle* handle);
-
 JsRunnerError js_runner_run(
-    JsRunnerAppHandle* handle,
+    JsRunner* instance,
     const char* filename,
-    JsRunnerConsoleWriteCallback console_write_cb);
-
-JsRunnerError js_runner_join(const JsRunnerAppHandle* handle);
+    size_t heap_size,
+    JsRunnerConsoleWriteCallback console_write_cb,
+    void* console_write_context);

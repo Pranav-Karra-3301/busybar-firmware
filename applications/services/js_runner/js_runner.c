@@ -14,18 +14,10 @@ typedef enum AppStatus {
 } AppStatus;
 
 typedef struct JsRunnerApp {
-    AppStatus status;
-    size_t script_size;
-    char* script;
     size_t heap_size;
     void* jrs_context;
     JsRunnerConsoleWriteCallback console_callback;
 } JsRunnerApp;
-
-typedef struct JsRunnerAppHandle {
-    JsRunner* instance;
-    FuriThread* thread;
-} JsRunnerAppHandle;
 
 static size_t app_dict_key_hash(const FuriThread* t) {
     return (size_t)t;
@@ -98,6 +90,8 @@ void* js_runner_context_get(JsRunner* instance) {
 
 typedef struct {
     JsRunnerConsoleWriteCallback write;
+    void* context;
+    JsRunnerConsoleSeverity severity;
 } ConsoleContext;
 
 static void console_context_free(void* native_p, jerry_object_native_info_t* info_p) {
@@ -113,7 +107,8 @@ static jerry_value_t console_log(
     const jerry_call_info_t* call_info,
     const jerry_value_t args[],
     const jerry_length_t args_count) {
-    ConsoleContext* ctx = jerry_object_get_native_ptr(call_info->this_value, &console_native_info);
+    ConsoleContext* ctx = jerry_object_get_native_ptr(call_info->function, &console_native_info);
+    JsRunnerConsoleSeverity severity = ctx->severity;
 
     furi_check(ctx);
 
@@ -130,100 +125,70 @@ static jerry_value_t console_log(
 
         jerry_string_to_buffer(str, JERRY_ENCODING_UTF8, (jerry_char_t*)buf, size);
 
-        ctx->write(buf, size);
+        ctx->write(severity, buf, size, ctx->context);
         free(buf);
 
-        if(i + 1 != args_count) ctx->write(" ", 1);
+        if(i + 1 != args_count) ctx->write(severity, " ", 1, ctx->context);
 
         jerry_value_free(str);
     }
 
-    ctx->write("\n", 1);
+    ctx->write(severity, "\n", 1, ctx->context);
 
     return jerry_undefined();
 }
 
-static void setup_console(JsRunnerConsoleWriteCallback console_callback) {
-    jerry_value_t global = jerry_current_realm();
+static void add_logging_method(
+    jerry_value_t console_obj,
+    const char* name,
+    JsRunnerConsoleSeverity severity,
+    JsRunnerConsoleWriteCallback console_callback,
+    void* console_write_context) {
+    ConsoleContext* fn_context = malloc(sizeof(ConsoleContext));
+    fn_context->write = console_callback;
+    fn_context->context = console_write_context;
+    fn_context->severity = severity;
 
-    ConsoleContext* console_ctx = malloc(sizeof(ConsoleContext));
-    console_ctx->write = console_callback;
+    jerry_value_t fn = jerry_function_external(console_log);
+    jerry_object_set_native_ptr(fn, &console_native_info, fn_context);
 
-    jerry_value_t console = jerry_object();
-    jerry_object_set_native_ptr(console, &console_native_info, console_ctx);
-
-    jerry_value_t log_fn = jerry_function_external(console_log);
-    jerry_value_t console_name = jerry_string_sz("console");
-    jerry_value_t log_name = jerry_string_sz("log");
-
-    jerry_object_set(console, log_name, log_fn);
-
-    jerry_object_set(global, console_name, console);
-
-    jerry_value_free(log_name);
-    jerry_value_free(console_name);
-    jerry_value_free(log_fn);
-    jerry_value_free(console);
-    jerry_value_free(global);
+    jerry_value_t name_val = jerry_string_sz(name);
+    jerry_object_set(console_obj, name_val, fn);
+    jerry_value_free(name_val);
+    jerry_value_free(fn);
 }
 
-static int32_t js_app_thread_callback(void* context) {
-    JsRunnerAppHandle* handle = context;
-    JsRunner* instance = handle->instance;
-    JsRunnerApp app;
-    {
-        furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
-        app = *AppDict_cget(instance->apps, handle->thread);
-        furi_mutex_release(instance->apps_mutex);
-    }
-    jerry_init(JERRY_INIT_EMPTY);
+static void
+    setup_console(JsRunnerConsoleWriteCallback console_callback, void* console_write_context) {
+    jerry_value_t global_obj = jerry_current_realm();
 
-    setup_console(app.console_callback);
+    jerry_value_t console_obj = jerry_object();
+    jerry_value_t console_name_val = jerry_string_sz("console");
+    jerry_object_set(global_obj, console_name_val, console_obj);
 
-    jerry_parse_options_t parse_options = {
-        .options = JERRY_PARSE_NO_OPTS,
-    };
+    add_logging_method(
+        console_obj, "log", JsRunnerConsoleSeverityLog, console_callback, console_write_context);
+    add_logging_method(
+        console_obj, "info", JsRunnerConsoleSeverityInfo, console_callback, console_write_context);
+    add_logging_method(
+        console_obj,
+        "error",
+        JsRunnerConsoleSeverityError,
+        console_callback,
+        console_write_context);
 
-    jerry_value_t parsed_script =
-        jerry_parse((const jerry_char_t*)app.script, app.script_size, &parse_options);
-    {
-        furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
-        JsRunnerApp* app = AppDict_get(instance->apps, handle->thread);
-        free(app->script);
-        app->script = NULL;
-        furi_mutex_release(instance->apps_mutex);
-    }
-    if(jerry_value_is_exception(parsed_script)) {
-        FURI_LOG_E(TAG, "Error parsing script");
-    } else {
-        jerry_value_free(jerry_run(parsed_script));
-    }
-    jerry_value_free(parsed_script);
-
-    jerry_cleanup();
-    return 0;
-}
-
-JsRunnerAppHandle* js_runner_alloc(JsRunner* instance) {
-    JsRunnerAppHandle* handle = malloc(sizeof(JsRunnerAppHandle));
-
-    handle->instance = instance;
-    handle->thread = furi_thread_alloc_ex("js", 4 * 1024, js_app_thread_callback, handle);
-    return handle;
-}
-
-void js_runner_free(JsRunnerAppHandle* handle) {
-    furi_thread_free(handle->thread);
-    free(handle);
+    jerry_value_free(console_name_val);
+    jerry_value_free(console_obj);
+    jerry_value_free(global_obj);
 }
 
 JsRunnerError js_runner_run(
-    JsRunnerAppHandle* handle,
+    JsRunner* instance,
     const char* filename,
-    JsRunnerConsoleWriteCallback console_write_cb) {
+    size_t heap_size,
+    JsRunnerConsoleWriteCallback console_write_cb,
+    void* console_write_context) {
     FURI_LOG_I(TAG, "Running script: %s", filename);
-
-    JsRunner* instance = handle->instance;
 
     JsRunnerError ret = JsRunnerErrorNone;
     Storage* storage = furi_record_open(RECORD_STORAGE);
@@ -242,43 +207,54 @@ JsRunnerError js_runner_run(
         }
 
         JsRunnerApp app = {
-            .script = buf,
-            .script_size = file_size,
-            .heap_size = 8192,
+            .heap_size = heap_size,
             .jrs_context = NULL,
-            .status = AppStatusIdle,
             .console_callback = console_write_cb,
         };
         {
             furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
-            AppDict_set_at(instance->apps, handle->thread, app);
+            AppDict_set_at(instance->apps, furi_thread_get_current(), app);
             furi_mutex_release(instance->apps_mutex);
         }
 
-        furi_thread_start(handle->thread);
+        jerry_init(JERRY_INIT_EMPTY);
+
+        setup_console(console_write_cb, console_write_context);
+
+        jerry_parse_options_t parse_options = {
+            .options = JERRY_PARSE_NO_OPTS,
+        };
+
+        jerry_value_t parsed_script =
+            jerry_parse((const jerry_char_t*)buf, file_size, &parse_options);
+        do {
+            if(jerry_value_is_exception(parsed_script)) {
+                FURI_LOG_E(TAG, "Error parsing script");
+                ret = JsRunnerParseException;
+                break;
+            } else {
+                jerry_value_free(jerry_run(parsed_script));
+            }
+        } while(false);
+        jerry_value_free(parsed_script);
+        jerry_cleanup();
+
+        {
+            furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
+            AppDict_erase(instance->apps, furi_thread_get_current());
+            furi_mutex_release(instance->apps_mutex);
+        }
     } while(false);
     storage_file_free(f);
     furi_record_close(RECORD_STORAGE);
     return ret;
 }
 
-JsRunnerError js_runner_join(const JsRunnerAppHandle* handle) {
-    furi_thread_join(handle->thread);
-    return JsRunnerErrorNone;
-}
-
-static JsRunner* js_runner_create(void) {
+static JsRunner* js_runner_alloc(void) {
     JsRunner* instance = malloc(sizeof(JsRunner));
     instance->event_loop = furi_event_loop_alloc();
     instance->apps_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
     AppDict_init(instance->apps);
-    // instance->message_queue = furi_message_queue_alloc(uint32_t msg_count, uint32_t msg_size)
-    // furi_event_loop_subscribe_message_queue(
-    //     instance->event_loop,
-    //     instance->message_queue,
-    //     FuriEventLoopEventIn,
-    //     message_queue_callback,
-    //     instance);
     furi_record_create(RECORD_JS_RUNNER, instance);
     return instance;
 }
@@ -288,7 +264,7 @@ int32_t js_runner_srv(void* p) {
 
     FURI_LOG_I(TAG, "Service starting...");
 
-    JsRunner* instance = js_runner_create();
+    JsRunner* instance = js_runner_alloc();
     furi_event_loop_run(instance->event_loop);
 
     return 0;
