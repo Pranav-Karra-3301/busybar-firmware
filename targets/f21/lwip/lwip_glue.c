@@ -1,7 +1,5 @@
 #include <furi.h>
 
-#include <thread_local_config.h>
-
 #include <lwip/debug.h>
 #include <lwip/sys.h>
 #include <lwip/mem.h>
@@ -237,7 +235,7 @@ sys_thread_t
 
 // netconn per thread semaphores
 
-#define FURI_THREAD_LOCAL_SEM_INDEX ThreadLocalStoragePointerIdLwip
+#define FURI_THREAD_LOCAL_SEM_INDEX 0
 
 sys_sem_t* sys_arch_netconn_sem_get(void) {
     return furi_thread_local_storage_pointer_get(NULL, FURI_THREAD_LOCAL_SEM_INDEX);
