@@ -25,6 +25,7 @@ import allure
 import pytest
 import requests
 
+from clients.api.base import APIError
 from clients.api.ble import BleAPI
 from clients.ble.client import BleDeviceClient
 from clients.ble.models import ScannedDevice
@@ -35,14 +36,21 @@ logger = logging.getLogger("ble.conftest")
 async def _wait_for_ble_ready_state(ble_api: BleAPI, timeout: float = 15.0) -> None:
     """Wait until the device returns to an advertising-capable BLE state."""
     deadline = time.time() + timeout
+    last_status = "unknown"
     while time.time() < deadline:
-        status = ble_api.get_status()
-        if status.status in ("connectable", "enabled"):
+        # The BLE stack answers 503 while it is reconfiguring right after
+        # connect/disconnect churn — treat it as "not ready yet", not a crash.
+        try:
+            last_status = ble_api.get_status().status
+        except APIError as exc:
+            logger.debug("BLE status not available yet: %s", exc)
+            last_status = "unavailable"
+        if last_status in ("connectable", "enabled"):
             return
         await asyncio.sleep(1.0)
     pytest.fail(
         f"BLE did not return to a ready state within {timeout:.0f} s "
-        f"(last status: {status.status})"
+        f"(last status: {last_status})"
     )
 
 
@@ -261,16 +269,21 @@ def ble_enabled(_ble_api_module: BleAPI, ble_suite_device_name: str) -> None:
         # Poll until the device reaches an advertising-capable state
         _READY_STATES = {"connectable", "enabled"}
         deadline = time.time() + 30.0
+        last_status = "unknown"
         while time.time() < deadline:
-            status = _ble_api_module.get_status()
-            logger.debug("BLE status: %s", status.status)
-            if status.status in _READY_STATES:
+            try:
+                last_status = _ble_api_module.get_status().status
+            except APIError as exc:
+                logger.debug("BLE status not available yet: %s", exc)
+                last_status = "unavailable"
+            logger.debug("BLE status: %s", last_status)
+            if last_status in _READY_STATES:
                 break
             time.sleep(1.0)
         else:
             pytest.fail(
                 f"BLE did not reach a ready state within 30 s "
-                f"(last status: {status.status})"
+                f"(last status: {last_status})"
             )
 
     yield
