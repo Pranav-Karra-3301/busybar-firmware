@@ -243,10 +243,20 @@ def ble_enabled(_ble_api_module: BleAPI, ble_suite_device_name: str) -> None:
         time.sleep(1)
 
         logger.info("Enabling BLE via HTTP API")
-        response = _ble_api_module.enable()
-        assert response.status_code == 200, (
-            f"Failed to enable BLE: {response.status_code}"
-        )
+        # Right after boot the BLE stack needs ~10 s of warm-up and returns
+        # transient 503 — retry instead of failing the whole module.
+        enable_deadline = time.time() + 30.0
+        while True:
+            response = _ble_api_module.enable()
+            if response.status_code == 200:
+                break
+            if time.time() >= enable_deadline:
+                pytest.fail(
+                    f"Failed to enable BLE within 30 s "
+                    f"(last status: {response.status_code})"
+                )
+            logger.info("BLE enable returned %s, retrying", response.status_code)
+            time.sleep(2.0)
 
         # Poll until the device reaches an advertising-capable state
         _READY_STATES = {"connectable", "enabled"}
@@ -278,9 +288,13 @@ def ble_enabled(_ble_api_module: BleAPI, ble_suite_device_name: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 async def _ble_pairing_agent():
-    """Module-scoped D-Bus pairing agent (Linux auto-accept, no-op on macOS)."""
+    """D-Bus pairing agent (Linux auto-accept, no-op on macOS).
+
+    Function-scoped: pytest-asyncio 0.23 has no module-scoped event_loop
+    here, so a module-scoped async fixture fails with 'event_loop not found'.
+    """
     bus, agent_mgr = await _start_dbus_pairing_agent()
     yield
     await _stop_dbus_pairing_agent(bus, agent_mgr)

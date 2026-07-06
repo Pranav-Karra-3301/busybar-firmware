@@ -53,7 +53,8 @@ ALL_SERVICE_UUIDS: list[str] = [
     SERVICE_BATTERY,
     SERVICE_NORDIC_UART,
     SERVICE_HM10_UART,
-    SERVICE_DEVICE_EVENTS,
+    # SERVICE_DEVICE_EVENTS is not implemented in firmware — the device
+    # exposes exactly the services above (see ble_service_index.h).
 ]
 """All GATT service UUIDs expected on the device."""
 

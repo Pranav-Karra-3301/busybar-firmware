@@ -15,7 +15,6 @@ from clients.ble.constants import (
     ALL_SERVICE_UUIDS,
     CHAR_BATTERY_LEVEL,
     CHAR_BATTERY_STATUS,
-    CHAR_DEVICE_EVENTS_FLAGS,
     CHAR_DEVICE_INFO_HW_REV,
     CHAR_DEVICE_INFO_SERIAL,
     CHAR_DEVICE_INFO_SW_REV,
@@ -25,7 +24,6 @@ from clients.ble.constants import (
     CHAR_NUS_RX,
     CHAR_NUS_TX,
     SERVICE_BATTERY,
-    SERVICE_DEVICE_EVENTS,
     SERVICE_DEVICE_INFO,
     SERVICE_HM10_UART,
     SERVICE_NORDIC_UART,
@@ -111,15 +109,3 @@ class TestBleServiceDiscovery:
                 f"Characteristic {expected} not found in HM-10 service"
             )
 
-    @allure.title("Device Events service has correct characteristics")
-    async def test_device_events_characteristics(
-        self, connected_ble_client: BleDeviceClient
-    ) -> None:
-        services = await connected_ble_client.discover_services()
-        svc = services.get(SERVICE_DEVICE_EVENTS)
-        assert svc is not None, "Device Events service not found"
-
-        char_uuids = {c.uuid for c in svc.characteristics}
-        assert CHAR_DEVICE_EVENTS_FLAGS in char_uuids, (
-            f"Flags characteristic not found in Device Events service"
-        )
