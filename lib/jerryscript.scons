@@ -40,7 +40,7 @@ libenv.AppendUnique(
         "JERRY_BUILTIN_SHAREDARRAYBUFFER=1",
         "JERRY_BUILTIN_ATOMICS=1",
         "JERRY_BUILTIN_WEAKREF=1",
-        "JERRY_MODULE_SYSTEM=0",
+        "JERRY_MODULE_SYSTEM=1",
     ],
     CPPPATH=[],
     CPPFLAGS=[

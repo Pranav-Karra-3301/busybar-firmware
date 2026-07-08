@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include <furi/core/string.h>
 
 #define RECORD_JS_RUNNER "js_runner"
 
@@ -29,9 +30,11 @@ void js_runner_context_free(JsRunner* instance);
 
 void* js_runner_context_get(JsRunner* instance);
 
+void js_runner_get_root_path(JsRunner* instance, FuriString* path);
+
 JsRunnerError js_runner_run(
     JsRunner* instance,
-    const char* filename,
+    const char* path,
     size_t heap_size,
     JsRunnerConsoleWriteCallback console_write_cb,
     void* console_write_context);

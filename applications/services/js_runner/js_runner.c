@@ -1,6 +1,7 @@
 #include "js_runner.h"
 #include <furi/furi.h>
 #include <storage/storage.h>
+#include <path.h>
 
 #include <m-dict.h>
 #include <jerryscript/jerryscript.h>
@@ -17,10 +18,15 @@ typedef struct JsRunnerApp {
     size_t heap_size;
     void* jrs_context;
     JsRunnerConsoleWriteCallback console_callback;
+    FuriString* root_path;
 } JsRunnerApp;
 
 static size_t app_dict_key_hash(const FuriThread* t) {
     return (size_t)t;
+}
+
+static void js_runner_app_clear(JsRunnerApp app) {
+    furi_string_free(app.root_path);
 }
 
 M_DICT_DEF2(
@@ -28,7 +34,7 @@ M_DICT_DEF2(
     FuriThread*,
     M_OPEXTEND(M_PTR_OPLIST, HASH(app_dict_key_hash)),
     JsRunnerApp,
-    M_POD_OPLIST);
+    M_OPEXTEND(M_POD_OPLIST, CLEAR(js_runner_app_clear)));
 
 typedef struct JsRunner {
     FuriEventLoop* event_loop;
@@ -38,54 +44,49 @@ typedef struct JsRunner {
     AppDict_t apps;
 } JsRunner;
 
+#define WITH_APP(APP, BLOCK)                                            \
+    do {                                                                \
+        furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);      \
+        FuriThread* current_thread = furi_thread_get_current();         \
+        JsRunnerApp* APP = AppDict_get(instance->apps, current_thread); \
+        if(APP) {                                                       \
+            BLOCK                                                       \
+        } else {                                                        \
+            FURI_LOG_E(TAG, "No JS app handle for current thread");     \
+            furi_crash();                                               \
+        }                                                               \
+        furi_mutex_release(instance->apps_mutex);                       \
+    } while(false)
+
 size_t js_runner_context_alloc(JsRunner* instance, size_t context_size) {
-    furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
-    FuriThread* current_thread = furi_thread_get_current();
-    JsRunnerApp* app = AppDict_get(instance->apps, current_thread);
     size_t alloc_size = 0;
-    if(app) {
+    WITH_APP(app, {
         furi_check(!app->jrs_context);
         alloc_size = context_size + app->heap_size;
         app->jrs_context = malloc(alloc_size);
-    } else {
-        FURI_LOG_E(TAG, "No JS app handle for current thread");
-        furi_crash();
-    }
-
-    furi_mutex_release(instance->apps_mutex);
+    });
     return alloc_size;
 }
 
 void js_runner_context_free(JsRunner* instance) {
-    furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
-    FuriThread* current_thread = furi_thread_get_current();
-    JsRunnerApp* app = AppDict_get(instance->apps, current_thread);
-    if(app) {
+    WITH_APP(app, {
         furi_check(app->jrs_context);
         free(app->jrs_context);
         app->jrs_context = NULL;
-    } else {
-        FURI_LOG_E(TAG, "No JS app handle for current thread");
-        furi_crash();
-    }
-    furi_mutex_release(instance->apps_mutex);
+    });
 }
 
 void* js_runner_context_get(JsRunner* instance) {
-    furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
-    FuriThread* current_thread = furi_thread_get_current();
-    const JsRunnerApp* app = AppDict_cget(instance->apps, current_thread);
     void* result = NULL;
-    if(app) {
+    WITH_APP(app, {
         furi_check(app->jrs_context);
         result = app->jrs_context;
-    } else {
-        FURI_LOG_E(TAG, "No JS app handle for current thread");
-        furi_crash();
-    }
-
-    furi_mutex_release(instance->apps_mutex);
+    });
     return result;
+}
+
+void js_runner_get_root_path(JsRunner* instance, FuriString* path) {
+    WITH_APP(app, { furi_string_set(path, app->root_path); });
 }
 
 typedef struct {
@@ -182,19 +183,32 @@ static void
     jerry_value_free(global_obj);
 }
 
+static void log_exception(const char* msg, jerry_value_t value) {
+    jerry_value_t str = jerry_object_get_sz(value, "message");
+    if(jerry_value_is_string(str)) {
+        char buf[64];
+        jerry_size_t size =
+            jerry_string_to_buffer(value, JERRY_ENCODING_UTF8, (jerry_char_t*)buf, sizeof(buf));
+        FURI_LOG_E(TAG, "%s: %.*s", msg, (int)size, buf);
+    } else {
+        FURI_LOG_E(TAG, "%s: XXXX (not a string)", msg);
+    }
+    jerry_value_free(str);
+}
+
 JsRunnerError js_runner_run(
     JsRunner* instance,
-    const char* filename,
+    const char* path,
     size_t heap_size,
     JsRunnerConsoleWriteCallback console_write_cb,
     void* console_write_context) {
-    FURI_LOG_I(TAG, "Running script: %s", filename);
+    FURI_LOG_I(TAG, "Running script: %s", path);
 
     JsRunnerError ret = JsRunnerErrorNone;
     Storage* storage = furi_record_open(RECORD_STORAGE);
     File* f = storage_file_alloc(storage);
     do {
-        if(!storage_file_open(f, filename, FSAM_READ, FSOM_OPEN_EXISTING)) {
+        if(!storage_file_open(f, path, FSAM_READ, FSOM_OPEN_EXISTING)) {
             ret = JsRunnerErrorCannotOpenFile;
             break;
         }
@@ -210,7 +224,10 @@ JsRunnerError js_runner_run(
             .heap_size = heap_size,
             .jrs_context = NULL,
             .console_callback = console_write_cb,
+            .root_path = furi_string_alloc(),
         };
+        path_extract_dirname(path, app.root_path);
+
         {
             furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);
             AppDict_set_at(instance->apps, furi_thread_get_current(), app);
@@ -221,22 +238,36 @@ JsRunnerError js_runner_run(
 
         setup_console(console_write_cb, console_write_context);
 
+        FuriString* path_furi = furi_string_alloc_set_str(path);
+        FuriString* filename_furi = furi_string_alloc();
+        path_extract_filename(path_furi, filename_furi, false);
+        jerry_value_t source_name = jerry_string_sz(furi_string_get_cstr(filename_furi));
+        furi_string_free(filename_furi);
+        furi_string_free(path_furi);
+
         jerry_parse_options_t parse_options = {
-            .options = JERRY_PARSE_NO_OPTS,
+            .options = JERRY_PARSE_HAS_SOURCE_NAME | JERRY_PARSE_MODULE,
+            .source_name = source_name,
         };
 
         jerry_value_t parsed_script =
             jerry_parse((const jerry_char_t*)buf, file_size, &parse_options);
         do {
             if(jerry_value_is_exception(parsed_script)) {
-                FURI_LOG_E(TAG, "Error parsing script");
+                log_exception("Error parsing script", parsed_script);
                 ret = JsRunnerParseException;
                 break;
             } else {
-                jerry_value_free(jerry_run(parsed_script));
+                jerry_value_free(jerry_module_link(parsed_script, NULL, NULL));
+                jerry_value_t result = jerry_module_evaluate(parsed_script);
+                if(jerry_value_is_exception(result)) {
+                    log_exception("Error running script", parsed_script);
+                }
+                jerry_value_free(result);
             }
         } while(false);
         jerry_value_free(parsed_script);
+        jerry_value_free(source_name);
         jerry_cleanup();
 
         {
