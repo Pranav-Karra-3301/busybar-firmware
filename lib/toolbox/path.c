@@ -167,7 +167,7 @@ void path_normalize(const char* path, FuriString* out_path, bool allow_escape_ro
     char* own_path = malloc(strlen(path) + 1);
     strcpy(own_path, path);
     size_t max_num_fragments = count_path_separators(path) + 1;
-    const char** fragments = malloc(sizeof(char*) * max_num_fragments);
+    const char** fragments = malloc(sizeof(char*) * (max_num_fragments + 1));
     size_t num_parents = 0;
     {
         char* lasts = NULL;

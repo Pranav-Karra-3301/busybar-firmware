@@ -183,17 +183,19 @@ static void
     jerry_value_free(global_obj);
 }
 
-static void log_exception(const char* msg, jerry_value_t value) {
-    jerry_value_t str = jerry_object_get_sz(value, "message");
+static void log_exception(const char* msg, jerry_value_t exception) {
+    jerry_value_t val = jerry_exception_value(exception, false);
+    jerry_value_t str = jerry_value_to_string(val);
     if(jerry_value_is_string(str)) {
         char buf[64];
         jerry_size_t size =
-            jerry_string_to_buffer(value, JERRY_ENCODING_UTF8, (jerry_char_t*)buf, sizeof(buf));
+            jerry_string_to_buffer(str, JERRY_ENCODING_UTF8, (jerry_char_t*)buf, sizeof(buf));
         FURI_LOG_E(TAG, "%s: %.*s", msg, (int)size, buf);
     } else {
         FURI_LOG_E(TAG, "%s: XXXX (not a string)", msg);
     }
     jerry_value_free(str);
+    jerry_value_free(val);
 }
 
 JsRunnerError js_runner_run(
@@ -252,6 +254,7 @@ JsRunnerError js_runner_run(
 
         jerry_value_t parsed_script =
             jerry_parse((const jerry_char_t*)buf, file_size, &parse_options);
+        free(buf);
         do {
             if(jerry_value_is_exception(parsed_script)) {
                 log_exception("Error parsing script", parsed_script);
