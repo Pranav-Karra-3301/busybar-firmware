@@ -4,7 +4,11 @@
 #include <path.h>
 
 #include <m-dict.h>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
 #include <jerryscript/jerryscript.h>
+#pragma GCC diagnostic pop
 
 #define TAG "JsRunner"
 

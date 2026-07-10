@@ -55,6 +55,7 @@ libenv.AppendUnique(
         "-Wno-unknown-pragmas",
         "-Wno-unused-parameter",
         "-Wno-undef",
+        "-Wno-attributes",
     ],
 )
 

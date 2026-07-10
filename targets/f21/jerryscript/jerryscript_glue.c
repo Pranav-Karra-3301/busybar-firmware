@@ -5,7 +5,10 @@
 #include <path.h>
 
 #include <utz/utz.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
 #include <jerryscript.h>
+#pragma GCC diagnostic pop
 #include <string.h>
 
 #define TAG "JSGlue"
