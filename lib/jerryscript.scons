@@ -1,6 +1,6 @@
 Import("env")
 
-LIB_DIR="jerryscript"
+LIB_DIR="jerryscript/amalgam"
 
 JERRYSCRIPT_DIR=LIB_DIR
 

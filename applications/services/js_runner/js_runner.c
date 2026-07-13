@@ -7,7 +7,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
-#include <jerryscript/jerryscript.h>
+#include <jerryscript.h>
 #pragma GCC diagnostic pop
 
 #define TAG "JsRunner"
