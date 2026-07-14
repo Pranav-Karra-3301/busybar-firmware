@@ -48,7 +48,8 @@ MU_TEST(js_tests_console) {
     JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
     char buf[64] = {0};
 
-    mu_assert_int_eq(JsRunnerErrorNone, js_runner_run(js_runner, SCRIPT_FILE, 1024, js_console_cb, buf));
+    mu_assert_int_eq(
+        JsRunnerErrorNone, js_runner_run(js_runner, SCRIPT_FILE, 1024, js_console_cb, buf));
 
     mu_assert_string_eq("flipppper\n", buf);
 
@@ -61,14 +62,14 @@ MU_TEST(js_tests_modules) {
         storage,
         MODULE1_FILE,
         "import { hello } from './mod2.js'; console.log(\"module\"); hello(\"flipper\");"));
-    mu_check(
-        create_file(storage, MODULE2_FILE, "export function hello(arg) {console.log(arg);}"));
+    mu_check(create_file(storage, MODULE2_FILE, "export function hello(arg) {console.log(arg);}"));
     furi_record_close(RECORD_STORAGE);
 
     JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
     char buf[64] = {0};
 
-    mu_assert_int_eq(JsRunnerErrorNone, js_runner_run(js_runner, MODULE1_FILE, 4096, js_console_cb, buf));
+    mu_assert_int_eq(
+        JsRunnerErrorNone, js_runner_run(js_runner, MODULE1_FILE, 4096, js_console_cb, buf));
 
     mu_assert_string_eq("module\nflipper\n", buf);
 
