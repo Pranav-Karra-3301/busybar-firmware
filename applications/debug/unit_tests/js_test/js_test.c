@@ -49,7 +49,7 @@ MU_TEST(js_tests_console) {
     char buf[64] = {0};
 
     mu_assert_int_eq(
-        JsRunnerErrorNone, js_runner_run(js_runner, SCRIPT_FILE, 1024, js_console_cb, buf));
+        JsRunnerErrorNone, js_runner_run(js_runner, SCRIPT_FILE, 4096, js_console_cb, buf));
 
     mu_assert_string_eq("flipppper\n", buf);
 
@@ -76,9 +76,98 @@ MU_TEST(js_tests_modules) {
     furi_record_close(RECORD_JS_RUNNER);
 }
 
+static void interval_test_js_console_cb(
+    JsRunnerConsoleSeverity severity,
+    const char* buf,
+    size_t size,
+    void* context) {
+    UNUSED(severity);
+
+    if(strncmp(buf, "\n", size) == 0) {
+        return;
+    }
+
+    FuriMessageQueue* queue = context;
+
+    FuriString* string = furi_string_alloc_printf("%.*s", size, buf);
+    furi_message_queue_put(queue, &string, FuriWaitForever);
+}
+
+static int32_t set_interval_thread_cb(void* context) {
+    char* buf = context;
+    JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
+    JsRunnerError error =
+        js_runner_run(js_runner, SCRIPT_FILE, 4096, interval_test_js_console_cb, buf);
+    FURI_LOG_D("JsTest", "run returned %d", error);
+    return error;
+}
+
+static void set_interval_check_output(FuriMessageQueue* queue, bool* success) {
+    FuriString* console_string = NULL;
+    FuriStatus status;
+
+    status = furi_message_queue_get(queue, &console_string, furi_ms_to_ticks(1000));
+    mu_assert_int_eq(FuriStatusOk, status);
+    mu_assert_string_eq("Hello 0", furi_string_get_cstr(console_string));
+    furi_string_free(console_string);
+
+    status = furi_message_queue_get(queue, &console_string, furi_ms_to_ticks(50));
+    mu_assert_int_eq(FuriStatusErrorTimeout, status);
+
+    status = furi_message_queue_get(queue, &console_string, furi_ms_to_ticks(200));
+    mu_assert_int_eq(FuriStatusOk, status);
+    mu_assert_string_eq("Hello 1", furi_string_get_cstr(console_string));
+    furi_string_free(console_string);
+
+    status = furi_message_queue_get(queue, &console_string, furi_ms_to_ticks(300));
+    mu_assert_int_eq(FuriStatusErrorTimeout, status);
+
+    FURI_LOG_D("JsTest", "all strings ok");
+
+    *success = true;
+}
+
+MU_TEST(js_tests_set_interval) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    mu_check(create_file(
+        storage,
+        SCRIPT_FILE,
+        "let count = 0; let id = undefined;"
+        "function callback() {"
+        "    if(count == 2) {"
+        "        clearInterval(id);"
+        "    } else {"
+        "        console.log('Hello ' + count);"
+        "        count++;"
+        "    }"
+        "}"
+        "id = setInterval(callback, 200);"));
+    furi_record_close(RECORD_STORAGE);
+
+    FuriMessageQueue* queue = furi_message_queue_alloc(4, sizeof(FuriString*));
+
+    FuriThread* thread =
+        furi_thread_alloc_ex("js_set_interval_test", 8192, set_interval_thread_cb, queue);
+
+    furi_thread_start(thread);
+
+    bool success = false;
+    set_interval_check_output(queue, &success);
+
+    furi_thread_join(thread);
+    mu_assert_int_eq(JsRunnerErrorNone, furi_thread_get_return_code(thread));
+    furi_thread_free(thread);
+
+    furi_record_close(RECORD_JS_RUNNER);
+    furi_message_queue_free(queue);
+
+    mu_check(success);
+}
+
 MU_TEST_SUITE(js_test_suite) {
     MU_RUN_TEST(js_tests_console);
     MU_RUN_TEST(js_tests_modules);
+    MU_RUN_TEST(js_tests_set_interval);
 }
 
 int run_minunit_js_test(void) {
