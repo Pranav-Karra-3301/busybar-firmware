@@ -29,6 +29,7 @@ import allure
 from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
+from bleak.exc import BleakDBusError
 
 from .constants import (
     CHAR_BATTERY_LEVEL,
@@ -148,7 +149,21 @@ class BleDeviceClient:
                 scan_kwargs = {"timeout": timeout, "return_adv": True}
                 if adapter:
                     scan_kwargs["adapter"] = adapter
-                device_map = await BleakScanner.discover(**scan_kwargs)
+                try:
+                    device_map = await BleakScanner.discover(**scan_kwargs)
+                except BleakDBusError as exc:
+                    # BlueZ leaves a discovery half-started when the device drops
+                    # mid-scan (StopDiscovery -> org.bluez.Error.InProgress). Don't
+                    # let one wedged scan error every following test — retry, and if
+                    # it never clears the fixture treats an empty result as a skip.
+                    if "InProgress" not in str(exc):
+                        raise
+                    logger.warning(
+                        "BLE scan hit BlueZ InProgress on attempt %d/%d, retrying: %s",
+                        attempt, retries, exc,
+                    )
+                    await asyncio.sleep(2.0)
+                    continue
                 logger.debug("Discovered %d devices", len(device_map))
 
                 for dev, adv in device_map.values():

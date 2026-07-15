@@ -240,16 +240,9 @@ def ble_enabled(_ble_api_module: BleAPI, ble_suite_device_name: str) -> None:
     Teardown disables BLE.
     """
     with allure.step("Prepare BLE on device"):
-        # Remove stale pairing — critical for Linux (forces public address,
-        # avoids RPA issues with BlueZ)
-        logger.info("Removing stale BLE pairing")
-        try:
-            _ble_api_module.remove_pairing()
-        except Exception:
-            pass  # may fail if no pairing exists
-
-        time.sleep(1)
-
+        # Device-side pairing is reset per-test in `_reset_linux_device_pairing`
+        # (connect fixtures), so no module-level remove_pairing here — the extra
+        # DELETE /api/ble/pairing only adds churn that can wedge the BLE stack.
         logger.info("Enabling BLE via HTTP API")
         # Right after boot the BLE stack needs ~10 s of warm-up and returns
         # transient 503 — retry instead of failing the whole module.
