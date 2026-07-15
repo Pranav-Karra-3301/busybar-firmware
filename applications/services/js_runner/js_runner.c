@@ -1,75 +1,4 @@
-#include "js_runner.h"
-#include <furi/furi.h>
-#include <storage/storage.h>
-#include <path.h>
-
-#include <m-dict.h>
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-#include <jerryscript.h>
-#pragma GCC diagnostic pop
-
-#define TAG "JsRunner"
-
-#define MIN_INTERVAL_DELAY_MS 10.0f
-
-typedef enum AppStatus {
-    AppStatusIdle,
-    AppStatusRunning,
-    AppStatusJoined,
-} AppStatus;
-
-typedef struct IntervalContext {
-    bool once;
-    FuriEventLoopTimer* timer;
-    jerry_value_t callback;
-} IntervalContext;
-
-M_DICT_DEF2(IntervalDict, uint32_t, M_DEFAULT_OPLIST, IntervalContext, M_POD_OPLIST);
-
-typedef struct JsRunnerApp {
-    size_t heap_size;
-    void* jrs_context;
-    FuriEventLoop* event_loop;
-    JsRunnerConsoleWriteCallback console_callback;
-    FuriString* root_path;
-    IntervalDict_t intervals;
-    uint32_t last_interval_id;
-} JsRunnerApp;
-
-static size_t app_dict_key_hash(const FuriThread* t) {
-    return (size_t)t;
-}
-
-M_DICT_DEF2(
-    AppDict,
-    FuriThread*,
-    M_OPEXTEND(M_PTR_OPLIST, HASH(app_dict_key_hash)),
-    JsRunnerApp*,
-    M_PTR_OPLIST);
-
-typedef struct JsRunner {
-    FuriEventLoop* event_loop;
-    FuriMessageQueue* message_queue;
-
-    FuriMutex* apps_mutex;
-    AppDict_t apps;
-} JsRunner;
-
-#define WITH_APP(APP, BLOCK)                                             \
-    do {                                                                 \
-        furi_mutex_acquire(instance->apps_mutex, FuriWaitForever);       \
-        FuriThread* current_thread = furi_thread_get_current();          \
-        JsRunnerApp* APP = *AppDict_get(instance->apps, current_thread); \
-        if(APP) {                                                        \
-            BLOCK                                                        \
-        } else {                                                         \
-            FURI_LOG_E(TAG, "No JS app handle for current thread");      \
-            furi_crash();                                                \
-        }                                                                \
-        furi_mutex_release(instance->apps_mutex);                        \
-    } while(false)
+#include "js_runner_i.h"
 
 size_t js_runner_context_alloc(JsRunner* instance, size_t context_size) {
     size_t alloc_size = 0;
@@ -106,7 +35,7 @@ static const jerry_object_native_info_t global_native_info = {
     .free_cb = NULL,
 };
 
-static JsRunner* get_instance(void) {
+JsRunner* js_runner_get_instance(void) {
     jerry_value_t global_obj = jerry_current_realm();
     JsRunner* instance = jerry_object_get_native_ptr(global_obj, &global_native_info);
     furi_check(instance);
@@ -118,234 +47,15 @@ static bool app_has_background_tasks(JsRunnerApp* app) {
     return !IntervalDict_empty_p(app->intervals);
 }
 
-static void check_event_loop(JsRunnerApp* app) {
+void js_runner_check_event_loop(JsRunnerApp* app) {
     if(!app_has_background_tasks(app)) {
         furi_event_loop_stop(app->event_loop);
     }
 }
 
-typedef struct {
-    JsRunnerConsoleWriteCallback write;
-    void* context;
-    JsRunnerConsoleSeverity severity;
-} ConsoleContext;
-
-static void console_context_free(void* native_p, jerry_object_native_info_t* info_p) {
-    UNUSED(info_p);
-    free(native_p);
-}
-
-static const jerry_object_native_info_t console_native_info = {
-    .free_cb = console_context_free,
-};
-
-static jerry_value_t console_log(
-    const jerry_call_info_t* call_info,
-    const jerry_value_t args[],
-    const jerry_length_t args_count) {
-    ConsoleContext* ctx = jerry_object_get_native_ptr(call_info->function, &console_native_info);
-    JsRunnerConsoleSeverity severity = ctx->severity;
-
-    furi_check(ctx);
-
-    if(ctx->write == NULL) {
-        return jerry_undefined();
-    }
-
-    for(jerry_length_t i = 0; i < args_count; i++) {
-        jerry_value_t str = jerry_value_to_string(args[i]);
-
-        jerry_size_t size = jerry_string_size(str, JERRY_ENCODING_UTF8);
-
-        char* buf = malloc(size);
-
-        jerry_string_to_buffer(str, JERRY_ENCODING_UTF8, (jerry_char_t*)buf, size);
-
-        ctx->write(severity, buf, size, ctx->context);
-        free(buf);
-
-        if(i + 1 != args_count) ctx->write(severity, " ", 1, ctx->context);
-
-        jerry_value_free(str);
-    }
-
-    ctx->write(severity, "\n", 1, ctx->context);
-
-    return jerry_undefined();
-}
-
-static void interval_callback(void* context) {
-    uint32_t timer_id = (uint32_t)context;
-    JsRunner* instance = get_instance();
-
-    FURI_LOG_D(TAG, "Interval callback (id=%lu)", timer_id);
-
-    WITH_APP(app, {
-        const IntervalContext* interval_context = IntervalDict_cget(app->intervals, timer_id);
-        if(interval_context) {
-            jerry_value_free(jerry_call(interval_context->callback, jerry_undefined(), NULL, 0));
-        } else {
-            FURI_LOG_E(TAG, "Dead interval timer with id = %lu", timer_id);
-        }
-
-        interval_context = IntervalDict_cget(app->intervals, timer_id);
-        if(interval_context && interval_context->once) {
-            jerry_value_free(interval_context->callback);
-            furi_event_loop_timer_free(interval_context->timer);
-            IntervalDict_erase(app->intervals, timer_id);
-            check_event_loop(app);
-        }
-    });
-}
-
-static jerry_value_t set_interval_or_timeout(
-    const jerry_value_t args[],
-    const jerry_length_t args_count,
-    bool once) {
-    JsRunner* instance = get_instance();
-
-    if(args_count != 2) {
-        return jerry_throw_sz(JERRY_ERROR_COMMON, "Wrong argument count");
-    }
-
-    jerry_value_t callback_val = args[0];
-    float timeout_ms = jerry_value_as_number(args[1]);
-    if(timeout_ms < MIN_INTERVAL_DELAY_MS) {
-        timeout_ms = MIN_INTERVAL_DELAY_MS;
-    }
-
-    FURI_LOG_D(TAG, "set_interval timeout = %d, once = %d", (int)timeout_ms, once);
-
-    uint32_t timer_id = 0;
-    WITH_APP(app, {
-        timer_id = app->last_interval_id;
-        app->last_interval_id += 1;
-    });
-
-    IntervalContext interval_context = {
-        .callback = jerry_value_copy(callback_val),
-        .once = once,
-    };
-    WITH_APP(app, {
-        interval_context.timer = furi_event_loop_timer_alloc(
-            app->event_loop,
-            interval_callback,
-            once ? FuriEventLoopTimerTypeOnce : FuriEventLoopTimerTypePeriodic,
-            (void*)timer_id);
-        IntervalDict_set_at(app->intervals, timer_id, interval_context);
-        furi_event_loop_timer_start(
-            interval_context.timer, furi_ms_to_ticks((uint32_t)timeout_ms));
-    });
-
-    return jerry_number(timer_id);
-}
-
-static jerry_value_t set_interval(
-    const jerry_call_info_t* call_info,
-    const jerry_value_t args[],
-    const jerry_length_t args_count) {
-    UNUSED(call_info);
-
-    return set_interval_or_timeout(args, args_count, false);
-}
-
-static jerry_value_t set_timeout(
-    const jerry_call_info_t* call_info,
-    const jerry_value_t args[],
-    const jerry_length_t args_count) {
-    UNUSED(call_info);
-    return set_interval_or_timeout(args, args_count, true);
-}
-
-static jerry_value_t clear_interval(
-    const jerry_call_info_t* call_info,
-    const jerry_value_t args[],
-    const jerry_length_t args_count) {
-    UNUSED(call_info);
-
-    JsRunner* instance = get_instance();
-
-    if(args_count != 1) {
-        return jerry_throw_sz(JERRY_ERROR_COMMON, "Wrong argument count");
-    }
-    uint32_t timer_id = (uint32_t)jerry_value_as_number(args[0]);
-    FURI_LOG_D(TAG, "clear_interval id = %lu", timer_id);
-
-    WITH_APP(app, {
-        const IntervalContext* interval_context = IntervalDict_cget(app->intervals, timer_id);
-        if(interval_context) {
-            jerry_value_free(interval_context->callback);
-            furi_event_loop_timer_free(interval_context->timer);
-            IntervalDict_erase(app->intervals, timer_id);
-        } else {
-            FURI_LOG_E(TAG, "Interval with ID %lu is not found", timer_id);
-        }
-        check_event_loop(app);
-    });
-    return jerry_undefined();
-}
-
-static void check_and_free(jerry_value_t val) {
+void js_runner_check_and_free(jerry_value_t val) {
     furi_check(!jerry_value_is_exception(val));
     jerry_value_free(val);
-}
-
-static void add_logging_method(
-    jerry_value_t console_obj,
-    const char* name,
-    JsRunnerConsoleSeverity severity,
-    JsRunnerConsoleWriteCallback console_callback,
-    void* console_write_context) {
-    ConsoleContext* fn_context = malloc(sizeof(ConsoleContext));
-    fn_context->write = console_callback;
-    fn_context->context = console_write_context;
-    fn_context->severity = severity;
-
-    jerry_value_t fn = jerry_function_external(console_log);
-    jerry_object_set_native_ptr(fn, &console_native_info, fn_context);
-
-    check_and_free(jerry_object_set_sz(console_obj, name, fn));
-    jerry_value_free(fn);
-}
-
-static void
-    setup_console(JsRunnerConsoleWriteCallback console_callback, void* console_write_context) {
-    jerry_value_t global_obj = jerry_current_realm();
-
-    jerry_value_t console_obj = jerry_object();
-    check_and_free(jerry_object_set_sz(global_obj, "console", console_obj));
-
-    add_logging_method(
-        console_obj, "log", JsRunnerConsoleSeverityLog, console_callback, console_write_context);
-    add_logging_method(
-        console_obj, "info", JsRunnerConsoleSeverityInfo, console_callback, console_write_context);
-    add_logging_method(
-        console_obj,
-        "error",
-        JsRunnerConsoleSeverityError,
-        console_callback,
-        console_write_context);
-
-    jerry_value_free(console_obj);
-    jerry_value_free(global_obj);
-}
-
-static void setup_interval_methods(void) {
-    jerry_value_t global_obj = jerry_current_realm();
-
-    jerry_value_t set_interval_fn = jerry_function_external(set_interval);
-    jerry_value_t set_timeout_fn = jerry_function_external(set_timeout);
-    jerry_value_t clear_interval_fn = jerry_function_external(clear_interval);
-
-    check_and_free(jerry_object_set_sz(global_obj, "setInterval", set_interval_fn));
-    check_and_free(jerry_object_set_sz(global_obj, "setTimeout", set_timeout_fn));
-    check_and_free(jerry_object_set_sz(global_obj, "clearInterval", clear_interval_fn));
-    check_and_free(jerry_object_set_sz(global_obj, "clearTimeout", clear_interval_fn));
-
-    jerry_value_free(set_interval_fn);
-    jerry_value_free(set_timeout_fn);
-    jerry_value_free(clear_interval_fn);
-    jerry_value_free(global_obj);
 }
 
 static void log_exception(const char* msg, jerry_value_t exception) {
@@ -411,8 +121,8 @@ JsRunnerError js_runner_run(
             jerry_object_set_native_ptr(global_obj, &global_native_info, instance);
             jerry_value_free(global_obj);
         }
-        setup_console(console_write_cb, console_write_context);
-        setup_interval_methods();
+        js_runner_setup_console(console_write_cb, console_write_context);
+        js_runner_setup_interval_methods();
 
         FuriString* path_furi = furi_string_alloc_set_str(path);
         FuriString* filename_furi = furi_string_alloc();

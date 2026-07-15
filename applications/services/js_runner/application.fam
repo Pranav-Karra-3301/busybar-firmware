@@ -8,7 +8,9 @@ App(
     targets=["f20", "f21", "f22"],
     provides=["cli_js"],
     sources=[
-        "js_runner.c"
+        "js_runner.c",
+        "js_runner_interval.c",
+        "js_runner_console.c",
     ],
 )
 
