@@ -28,6 +28,7 @@ extern "C" {
 #include "crypto_test/crypto_test.h"
 #include "timer_test/timer_test.h"
 #include "record_test/record_test.h"
+#include "argparse_test/argparse_test.h"
 #include "js_test/js_test.h"
 #undef TEST_FUNCTION_DECLS
 
@@ -51,6 +52,7 @@ static TestCallback unit_test_callbacks[] = {
 #include "crypto_test/crypto_test.h"
 #include "timer_test/timer_test.h"
 #include "record_test/record_test.h"
+#include "argparse_test/argparse_test.h"
 #include "js_test/js_test.h"
 #undef TEST_FUNCTION_REFS
 };
