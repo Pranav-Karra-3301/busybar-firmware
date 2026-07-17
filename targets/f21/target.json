@@ -112,6 +112,7 @@
         "netstat",
         "cjson",
         "jerryscript",
+        "thorvg",
         "lvgl",
         "network",
         "mongoose",

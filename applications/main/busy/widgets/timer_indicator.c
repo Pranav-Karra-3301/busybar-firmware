@@ -3,7 +3,7 @@
 #include <gui/widget_i.h>
 #include <gui/modules/image.h>
 #include <gui/modules/anim_player.h>
-// #include <gui/modules/lottie_animation.h>
+#include <gui/modules/lottie_animation.h>
 
 #define MY_CLASS (&timer_indicator_lvgl_class)
 
@@ -22,7 +22,7 @@
 struct TimerIndicator {
     Widget base;
     AnimPlayer* bg_anim;
-    // LottieAnimation* progress_lottie;
+    LottieAnimation* progress_lottie;
     Image* fg_image;
     char slot_store[SLOT_STR_LEN];
     const TimerIndicatorPreset* current_preset;
@@ -57,10 +57,10 @@ static void timer_indicator_reset(TimerIndicator* instance) {
         anim_player_free(instance->bg_anim);
         instance->bg_anim = NULL;
     }
-    // if(instance->progress_lottie) {
-    //     lottie_animation_free(instance->progress_lottie);
-    //     instance->progress_lottie = NULL;
-    // }
+    if(instance->progress_lottie) {
+        lottie_animation_free(instance->progress_lottie);
+        instance->progress_lottie = NULL;
+    }
     if(instance->fg_image) {
         image_free(instance->fg_image);
         instance->fg_image = NULL;
@@ -89,13 +89,12 @@ static void timer_indicator_apply_bg_animation(TimerIndicator* instance) {
 }
 
 static void timer_indicator_apply_progress_lottie(TimerIndicator* instance) {
-    UNUSED(instance);
-    // const TimerIndicatorProgressConfig* config = &instance->current_preset->progress_config;
+    const TimerIndicatorProgressConfig* config = &instance->current_preset->progress_config;
 
-    // if(config->lottie_path) {
-    //     instance->progress_lottie = lottie_animation_alloc(&instance->base);
-    //     lottie_animation_set_source(instance->progress_lottie, config->lottie_path);
-    // }
+    if(config->lottie_path) {
+        instance->progress_lottie = lottie_animation_alloc(&instance->base);
+        lottie_animation_set_source(instance->progress_lottie, config->lottie_path);
+    }
 }
 
 static void timer_indicator_apply_fg_image(TimerIndicator* instance) {
@@ -154,41 +153,40 @@ void timer_indicator_set_preset(
 
 void timer_indicator_set_progress(TimerIndicator* instance, float progress) {
     furi_check(instance);
-    UNUSED(progress);
 
-    // if(instance->progress_lottie) {
-    //     const TimerIndicatorProgressConfig* config = &instance->current_preset->progress_config;
+    if(instance->progress_lottie) {
+        const TimerIndicatorProgressConfig* config = &instance->current_preset->progress_config;
 
-    //     const TimerIndicatorProgressDirection progress_dir = config->direction;
-    //     furi_assert(progress_dir < TimerIndicatorProgressDirectionMax);
+        const TimerIndicatorProgressDirection progress_dir = config->direction;
+        furi_assert(progress_dir < TimerIndicatorProgressDirectionMax);
 
-    //     const float delta = progress * (config->end_offset_px - config->start_offset_px);
-    //     const float offset = delta + config->start_offset_px;
+        const float delta = progress * (config->end_offset_px - config->start_offset_px);
+        const float offset = delta + config->start_offset_px;
 
-    //     if(progress_dir == TimerIndicatorProgressDirectionHorizontal) {
-    //         snprintf(
-    //             instance->slot_store,
-    //             SLOT_STR_LEN,
-    //             SLOT_TEMPLATE,
-    //             "hor_offset",
-    //             (double)offset,
-    //             0.);
+        if(progress_dir == TimerIndicatorProgressDirectionHorizontal) {
+            snprintf(
+                instance->slot_store,
+                SLOT_STR_LEN,
+                SLOT_TEMPLATE,
+                "hor_offset",
+                (double)offset,
+                0.);
 
-    //     } else if(progress_dir == TimerIndicatorProgressDirectionVertical) {
-    //         snprintf(
-    //             instance->slot_store,
-    //             SLOT_STR_LEN,
-    //             SLOT_TEMPLATE,
-    //             "ver_offset",
-    //             0.,
-    //             (double)offset);
+        } else if(progress_dir == TimerIndicatorProgressDirectionVertical) {
+            snprintf(
+                instance->slot_store,
+                SLOT_STR_LEN,
+                SLOT_TEMPLATE,
+                "ver_offset",
+                0.,
+                (double)offset);
 
-    //     } else {
-    //         furi_crash("Invalid TimerIndicatorProgressDirection value");
-    //     }
+        } else {
+            furi_crash("Invalid TimerIndicatorProgressDirection value");
+        }
 
-    //     lottie_animation_override_slot(instance->progress_lottie, instance->slot_store);
-    // }
+        lottie_animation_override_slot(instance->progress_lottie, instance->slot_store);
+    }
 }
 
 void timer_indicator_enable_animations(TimerIndicator* instance, bool enable) {
