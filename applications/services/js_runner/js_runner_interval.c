@@ -1,8 +1,9 @@
 #include "js_runner_i.h"
 
+#define TAG "JsRunnerInterval"
+
 static void interval_callback(void* context) {
     uint32_t timer_id = (uint32_t)context;
-    JsRunner* instance = js_runner_get_instance();
 
     FURI_LOG_D(TAG, "Interval callback (id=%lu)", timer_id);
 
@@ -13,6 +14,8 @@ static void interval_callback(void* context) {
         } else {
             FURI_LOG_E(TAG, "Dead interval timer with id = %lu", timer_id);
         }
+
+        js_runner_run_jobs();
 
         interval_context = IntervalDict_cget(app->intervals, timer_id);
         if(interval_context && interval_context->once) {
@@ -28,8 +31,6 @@ static jerry_value_t set_interval_or_timeout(
     const jerry_value_t args[],
     const jerry_length_t args_count,
     bool once) {
-    JsRunner* instance = js_runner_get_instance();
-
     if(args_count != 2) {
         return jerry_throw_sz(JERRY_ERROR_COMMON, "Wrong argument count");
     }
@@ -88,8 +89,6 @@ static jerry_value_t clear_interval(
     const jerry_value_t args[],
     const jerry_length_t args_count) {
     UNUSED(call_info);
-
-    JsRunner* instance = js_runner_get_instance();
 
     if(args_count != 1) {
         return jerry_throw_sz(JERRY_ERROR_COMMON, "Wrong argument count");
