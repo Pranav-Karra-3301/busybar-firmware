@@ -204,6 +204,7 @@ void path_normalize(const char* path, FuriString* out_path, bool allow_escape_ro
         join_with_path_separator(out_path, *fragment);
     }
 
+    free(own_path);
     free(fragments);
 }
 

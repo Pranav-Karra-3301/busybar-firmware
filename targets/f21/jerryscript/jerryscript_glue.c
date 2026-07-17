@@ -76,7 +76,7 @@ jerry_size_t jerry_port_path_base(const jerry_char_t* path_p) {
     FURI_LOG_D(TAG, "Path base: %s", path_p);
     const char* last_slash = strrchr((const char*)path_p, '/');
     if(last_slash) {
-        return (const char*)path_p - last_slash + 1;
+        return last_slash - (const char*)path_p + 1;
     } else {
         return 0;
     }

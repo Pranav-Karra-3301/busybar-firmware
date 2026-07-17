@@ -91,7 +91,7 @@ JsRunnerError js_runner_run(
         }
         uint64_t file_size = storage_file_size(f);
         char* buf = malloc(file_size);
-        if(!storage_file_read(f, buf, file_size)) {
+        if(storage_file_read(f, buf, file_size) != file_size) {
             ret = JsRunnerErrorCannotOpenFile;
             free(buf);
             break;
@@ -145,10 +145,10 @@ JsRunnerError js_runner_run(
                 ret = JsRunnerParseException;
                 break;
             } else {
-                jerry_value_free(jerry_module_link(parsed_script, NULL, NULL));
+                js_runner_check_and_free(jerry_module_link(parsed_script, NULL, NULL));
                 jerry_value_t result = jerry_module_evaluate(parsed_script);
                 if(jerry_value_is_exception(result)) {
-                    log_exception("Error running script", parsed_script);
+                    log_exception("Error running script", result);
                 } else {
                     if(app_has_background_tasks(&app)) {
                         furi_event_loop_run(app.event_loop);
@@ -168,6 +168,7 @@ JsRunnerError js_runner_run(
         }
 
         furi_event_loop_free(app.event_loop);
+        furi_string_free(app.root_path);
         IntervalDict_clear(app.intervals);
     } while(false);
     storage_file_free(f);

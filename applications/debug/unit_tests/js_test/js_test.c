@@ -83,7 +83,7 @@ static void interval_test_js_console_cb(
     void* context) {
     UNUSED(severity);
 
-    if(strncmp(buf, "\n", size) == 0) {
+    if(size == 1 && buf[0] == '\n') {
         return;
     }
 
@@ -94,10 +94,10 @@ static void interval_test_js_console_cb(
 }
 
 static int32_t set_interval_thread_cb(void* context) {
-    char* buf = context;
     JsRunner* js_runner = furi_record_open(RECORD_JS_RUNNER);
     JsRunnerError error =
-        js_runner_run(js_runner, SCRIPT_FILE, 4096, interval_test_js_console_cb, buf);
+        js_runner_run(js_runner, SCRIPT_FILE, 4096, interval_test_js_console_cb, context);
+    furi_record_close(RECORD_JS_RUNNER);
     FURI_LOG_D("JsTest", "run returned %d", error);
     return error;
 }
@@ -158,7 +158,6 @@ MU_TEST(js_tests_set_interval) {
     mu_assert_int_eq(JsRunnerErrorNone, furi_thread_get_return_code(thread));
     furi_thread_free(thread);
 
-    furi_record_close(RECORD_JS_RUNNER);
     furi_message_queue_free(queue);
 
     mu_check(success);
