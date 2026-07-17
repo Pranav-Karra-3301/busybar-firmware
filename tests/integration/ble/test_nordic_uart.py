@@ -43,23 +43,32 @@ class TestBleNordicUart:
         self, connected_ble_client: BleDeviceClient
     ) -> None:
         """CNT should count processed RX requests and writing 0 should reset it."""
-        await connected_ble_client.reset_nus_session()
-        assert await connected_ble_client.read_nus_counter() == 0
+        # The firmware bumps the GATT-visible counter only after the full
+        # request/response cycle: the HTTP response is delivered back over TX
+        # *indications*, and without a subscriber the 4 s indication-confirm
+        # timeout resets the session to 0. Subscribe first so the cycle can
+        # complete (see ble_http_repeater.c).
+        await connected_ble_client.start_notify(CHAR_NUS_TX, lambda sender, data: None)
+        try:
+            await connected_ble_client.reset_nus_session()
+            assert await connected_ble_client.read_nus_counter() == 0
 
-        await connected_ble_client.write_nus_rx(b"GET /api/version\r\n")
+            await connected_ble_client.write_nus_rx(b"GET /api/version\r\n")
 
-        deadline = asyncio.get_event_loop().time() + 5.0
-        count = 0
-        while asyncio.get_event_loop().time() < deadline:
-            count = await connected_ble_client.read_nus_counter()
-            if count >= 1:
-                break
-            await asyncio.sleep(0.25)
+            deadline = asyncio.get_event_loop().time() + 5.0
+            count = 0
+            while asyncio.get_event_loop().time() < deadline:
+                count = await connected_ble_client.read_nus_counter()
+                if count >= 1:
+                    break
+                await asyncio.sleep(0.25)
 
-        assert count >= 1, "NUS counter did not increment after RX request"
+            assert count >= 1, "NUS counter did not increment after RX request"
 
-        await connected_ble_client.reset_nus_session()
-        assert await connected_ble_client.read_nus_counter() == 0
+            await connected_ble_client.reset_nus_session()
+            assert await connected_ble_client.read_nus_counter() == 0
+        finally:
+            await connected_ble_client.stop_notify(CHAR_NUS_TX)
 
     @allure.title("Write to NUS RX")
     async def test_write_nus_rx(
