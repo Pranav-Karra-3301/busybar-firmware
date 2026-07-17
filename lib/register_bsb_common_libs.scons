@@ -11,7 +11,6 @@ for libname in [
     "cli",
     "containers",
     "jerryscript",
-    "thorvg",
     "lvgl",
     "lvgl_addons",
     "network",
