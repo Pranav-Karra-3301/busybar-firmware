@@ -9,6 +9,8 @@
 #include <wifi/wifi.h>
 #include <usb_network/usb_network.h>
 
+#include <furi_hal_random.h>
+
 #define TAG "Discovery"
 
 // =====
@@ -33,6 +35,8 @@ struct Discovery {
     DiscoveryServices_t services;
 
     DeviceName* device_name;
+    DiscoveryInfo device_discovery;
+    char device_service_name[9];
 
     Wifi* wifi;
     WifiState wifi_state;
@@ -290,6 +294,20 @@ static void discovery_subscribe_to_network_drivers(Discovery* discovery) {
 // Service startup
 // ===============
 
+static void discovery_busybar_txt(DiscoveryRequest* request, void* context) {
+    Discovery* discovery = context;
+
+    FuriString* device_name = furi_string_alloc();
+    device_name_get(discovery->device_name, device_name);
+
+    FuriString* txt_record =
+        furi_string_alloc_printf("name=\"%s\"", furi_string_get_cstr(device_name));
+    discovery_request_feed_txt(request, furi_string_get_cstr(txt_record));
+
+    furi_string_free(txt_record);
+    furi_string_free(device_name);
+}
+
 static Discovery* discovery_alloc(void) {
     Discovery* discovery = malloc(sizeof(Discovery));
 
@@ -301,6 +319,17 @@ static Discovery* discovery_alloc(void) {
         device_name_get_pubsub(discovery->device_name), discovery_device_name_event, discovery);
 
     discovery_subscribe_to_network_drivers(discovery);
+
+    uint32_t temporary_id = furi_hal_random_get();
+    snprintf(discovery->device_service_name, strlen(discovery->device_service_name) - 1, "%08lx", temporary_id);
+    discovery->device_discovery = (DiscoveryInfo){
+        .name = discovery->device_service_name,
+        .service = "_busybar",
+        .transport = DiscoveryTransportTcp,
+        .port = 0,
+        .txt = discovery_busybar_txt,
+    };
+    discovery_service_add(discovery, &discovery->device_discovery, discovery);
 
     return discovery;
 }
