@@ -321,7 +321,11 @@ static Discovery* discovery_alloc(void) {
     discovery_subscribe_to_network_drivers(discovery);
 
     uint32_t temporary_id = furi_hal_random_get();
-    snprintf(discovery->device_service_name, strlen(discovery->device_service_name) - 1, "%08lx", temporary_id);
+    snprintf(
+        discovery->device_service_name,
+        strlen(discovery->device_service_name) - 1,
+        "%08lx",
+        temporary_id);
     discovery->device_discovery = (DiscoveryInfo){
         .name = discovery->device_service_name,
         .service = "_busybar",
