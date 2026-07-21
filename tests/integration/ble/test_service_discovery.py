@@ -1,8 +1,8 @@
 """
 GATT service discovery tests.
 
-Verifies that all five expected services are present with the correct
-characteristics and properties.
+Verifies that all expected services and their expected characteristics are
+present.
 """
 
 from __future__ import annotations
@@ -35,9 +35,9 @@ from clients.ble.models import GattServiceInfo
 @allure.story("Service Discovery")
 @pytest.mark.ble
 class TestBleServiceDiscovery:
-    """GATT service enumeration and property validation."""
+    """GATT service and characteristic presence validation."""
 
-    @allure.title("All five GATT services are present")
+    @allure.title("All expected GATT services are present")
     async def test_all_services_present(
         self, connected_ble_client: BleDeviceClient
     ) -> None:
@@ -108,4 +108,3 @@ class TestBleServiceDiscovery:
             assert expected in char_uuids, (
                 f"Characteristic {expected} not found in HM-10 service"
             )
-

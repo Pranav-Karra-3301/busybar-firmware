@@ -44,7 +44,7 @@ class TestBleDeviceInfo:
         assert software_revision, "Software revision is empty"
 
     @allure.title("Cross-check serial number with CLI device_info")
-    async def test_serial_matches_http_api(
+    async def test_serial_matches_cli_device_info(
         self,
         connected_ble_client: BleDeviceClient,
         cli_device_info: str,

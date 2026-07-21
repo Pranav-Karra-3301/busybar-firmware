@@ -8,6 +8,7 @@ name, manufacturer data, and RSSI values.
 from __future__ import annotations
 
 import asyncio
+import time
 
 import allure
 import pytest
@@ -85,13 +86,12 @@ class TestBleScanning:
         finally:
             with allure.step("Re-enable BLE"):
                 ble_api.enable()
-                import time
                 deadline = time.time() + 30.0
                 while time.time() < deadline:
                     status = ble_api.get_status()
                     if status.status in ("connectable", "enabled"):
                         break
-                    time.sleep(1.0)
+                    await asyncio.sleep(1.0)
 
     @allure.title("Custom device name is advertised and exposed after pairing")
     async def test_custom_name_advertised_and_read_after_pairing(
