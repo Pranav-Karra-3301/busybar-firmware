@@ -1,7 +1,7 @@
 #pragma once
+
 #include <stdint.h>
 #include <stdbool.h>
-#include <stm32u5xx.h>
 #include <core/common_defines.h>
 
 #ifdef __cplusplus

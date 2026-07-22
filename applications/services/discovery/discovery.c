@@ -1,6 +1,8 @@
 #include "discovery.h"
 
 #include <device_name/device_name.h>
+#include <lwip/api.h>
+#include <lwip/netif.h>
 #include <lwip/tcpip.h>
 #include <lwip/apps/mdns.h>
 #include <m-array.h>
@@ -322,11 +324,7 @@ static Discovery* discovery_alloc(void) {
 
     const uint8_t* usb_mac = furi_hal_version_get_usb_mac();
     for(size_t i = 0; i < FURI_HAL_VERSION_MAC_LENGTH; i++) {
-        snprintf(
-            discovery->device_service_name + (i * 2),
-            2,
-            "%08hhx",
-            usb_mac[i]);
+        snprintf(discovery->device_service_name + (i * 2), 3, "%02hhx", usb_mac[i]);
     }
     discovery->device_discovery = (DiscoveryInfo){
         .name = discovery->device_service_name,
