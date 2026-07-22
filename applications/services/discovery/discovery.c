@@ -9,7 +9,7 @@
 #include <wifi/wifi.h>
 #include <usb_network/usb_network.h>
 
-#include <furi_hal_random.h>
+#include <furi_hal_version.h>
 
 #define TAG "Discovery"
 
@@ -26,7 +26,7 @@ typedef struct {
     void* context;
 } DiscoveryService;
 
-ARRAY_DEF(DiscoveryServices, DiscoveryService, M_POD_OPLIST);
+ARRAY_DEF(DiscoveryServices, DiscoveryService, M_POD_OPLIST)
 #define M_OPL_DiscoveryServices_t() ARRAY_OPLIST(DiscoveryServices, M_POD_OPLIST)
 
 struct Discovery {
@@ -320,12 +320,14 @@ static Discovery* discovery_alloc(void) {
 
     discovery_subscribe_to_network_drivers(discovery);
 
-    uint32_t temporary_id = furi_hal_random_get();
-    snprintf(
-        discovery->device_service_name,
-        strlen(discovery->device_service_name) - 1,
-        "%08lx",
-        temporary_id);
+    const uint8_t* usb_mac = furi_hal_version_get_usb_mac();
+    for(size_t i = 0; i < FURI_HAL_VERSION_MAC_LENGTH; i++) {
+        snprintf(
+            discovery->device_service_name + (i * 2),
+            2,
+            "%08hhx",
+            usb_mac[i]);
+    }
     discovery->device_discovery = (DiscoveryInfo){
         .name = discovery->device_service_name,
         .service = "_busybar",
