@@ -26,6 +26,12 @@ BleReceiverContext* ble_receiver_alloc(const uint8_t* peer_addr);
 void ble_receiver_free(BleReceiverContext* instance);
 
 /**
+ * @brief Enables receiver
+ * @param[in] instance receiver instance
+ */
+void ble_receiver_enable(BleReceiverContext* instance);
+
+/**
  * @brief Processes write request from nwp
  * @param[in] instance receiver instance
  * @param[in] service service which characteristic is requested

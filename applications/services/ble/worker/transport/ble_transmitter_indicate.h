@@ -38,3 +38,9 @@ bool ble_transmitter_indicate_chunk(
  * @param[in] transport transmitter instance
  */
 void ble_transmitter_indicate_done(BleTransmitterGeneric* transport);
+
+/**
+ * @brief Reset all waiting semaphores and internal primitives
+ * @param[in] transport transmitter instance
+ */
+void ble_transmitter_indicate_reset(BleTransmitterGeneric* transport);

@@ -89,8 +89,14 @@ bool ble_device_connection_close(BleDevice* instance);
  * Calls ble_connection_start_update_parameters under the hood
  * @param[in] instance of device
  * @param[in] event_loop instance, through which processing is done
+ * @param[in] update_done_cb done callback will be triggered when update done
+ * @param[in] ctx done callback context
  */
-void ble_device_connection_update(BleDevice* instance, FuriEventLoop* event_loop);
+void ble_device_connection_update(
+    BleDevice* instance,
+    FuriEventLoop* event_loop,
+    BleConnectionUpdateParametersDoneCallback update_done_cb,
+    void* ctx);
 
 /**
  * @brief Force disconnect from the remote
