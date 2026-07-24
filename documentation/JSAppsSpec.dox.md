@@ -29,13 +29,13 @@ inside.
 
 **Installation flow**:
 1. Receive `.tgz`, unpack to a **temporary location** (`/tmp/app_install/`).
-2. Validate: `config/manifest.json` exists and is valid; no path traversal in
-   archive entries (`../` rejected); `scripts/main.js` exists.
+2. Validate: `appmeta/manifest.json` exists and is valid; no path traversal in
+   archive entries (`../` rejected); `scripts/main.js` exists (hardcoded entry point).
 3. If validation fails → delete temp, return error.
-4. If `/ext/user_apps/{name}/` already exists → compare `version` in the new manifest
+4. If `/ext/user_apps/{id}/` already exists → compare `version` in the new manifest
    against the existing one. Overwrite only if **new version > existing version**
    (semver comparison). If not newer → return 409.
-5. Atomically move temp → `/ext/user_apps/{name}/` (delete old if overwriting).
+5. Atomically move temp → `/ext/user_apps/{id}/` (delete old if overwriting).
 6. If move fails (disk full, etc.) → delete temp, return 503.
 
 **Atomicity**: Since unpacking happens in a temp location, a failed install
@@ -43,7 +43,7 @@ never leaves a partial app folder. The old app (if any) remains intact until the
 final move.
 
 **Removal**: `DELETE /api/apps/remove?application_name=...` deletes the app
-folder and its `configvalues.json`.
+folder and its config file at `/ext/apps_data/jsrunner/{id}.json`.
 
 **Discovery**: After install/remove, the App Service re-scans `/ext/user_apps/`
 and updates its index. The APPS menu and `/api/apps/list` reflect the change
@@ -64,10 +64,9 @@ API.
 └── com.example.weather/
     ├── appmeta/
     │   ├── manifest.json         # required
-    │   ├── settings.json         # optional — settings descriptor
-    │   └── configvalues.json     # auto-generated — runtime values
+    │   └── settings.json         # optional — settings descriptor
     ├── scripts/
-    │   └── main.js               # entry point
+    │   └── main.js               # hardcoded entry point
     ├── images/
     ├── animations/
     └── sounds/
@@ -83,16 +82,16 @@ Apps reference resources with paths relative to the app folder root
 
 ```jsonc
 {
+    "format_version": 1,                     // JSON structure version (firmware bumps on breaking changes)
     "id": "com.example.weather",             // unique ID, ^[a-zA-Z0-9._-]+$
     "name": "Weather",                        // display name
     "version": "1.2.0",                      // semver
     "description": "Weather forecast",       // optional
     "author": "BusyBar Team",                // optional
-    "entry": "scripts/main.js",              // required
     "icon": "images/icon.png",               // optional — stock "?" if absent
-    "background": "images/bg.png",           // optional — stock image if absent
+    "preview": "images/bg.png",              // optional — stock image if absent
     "settings": "appmeta/settings.json",      // optional — no settings submenu if absent
-    "permissions": ["network", "display"]    // optional — TBD
+    "debug": false                            // optional — defaults to false; if true, only visible in debug mode
 }
 ```
 
@@ -109,7 +108,8 @@ Sections are UI-only grouping; storage keys are flat (`{app_id}.{field_id}`).
 
 ```jsonc
 {
-    "version": 1,
+    "format_version": 1,    // JSON structure format version (firmware bumps on breaking format changes)
+    "version": 1,           // schema version (developer bumps to discard stored values)
     "sections": [{
         "id": "display",
         "label": "Display",
@@ -156,13 +156,19 @@ use default, log warning.
 
 ---
 
-## Runtime Config Values (`config/configvalues.json`)
+## Runtime Config Values (`/ext/apps_data/jsrunner/{app_id}.json`)
 
-Firmware-managed. Stores current settings. Not authored by the developer.
+Firmware-managed. One file per app, stored outside the app folder.
 
 ```jsonc
-{ "version": 1, "values": { "show_date": true, "theme": "dark" } }
+{ "format_version": 1, "version": 1, "values": { "show_date": true, "theme": "dark" } }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `format_version` | `integer` | JSON structure format version (firmware bumps on breaking changes). |
+| `version` | `integer` | The `settings.json` schema version this data was saved under. |
+| `values` | `object` | Flat key-value map of field IDs to current values. |
 
 **Lifecycle**:
 1. First launch → auto-created from defaults.
@@ -170,11 +176,11 @@ Firmware-managed. Stores current settings. Not authored by the developer.
 3. Save → validate all; atomic overwrite on success; reject batch on failure.
 4. Version mismatch → discard stored, recreate from defaults.
 
-**On app update**: When a newer app version is installed (via `.tgz`), the
-existing `configvalues.json` is **preserved** if `settings.json` has the same
-schema `version`. If the schema `version` changed, the old config is discarded
-per rule 4 above. The new app's `settings.json` defaults are only used for
-fields that don't exist in the preserved config.
+**On app update**: When a newer app version is installed, the existing config
+file is **preserved** if `settings.json` has the same schema `version`. If the
+schema `version` changed, the old config is discarded per rule 4 above. Defaults
+from the new `settings.json` are only used for fields not present in the
+preserved config.
 
 ---
 
@@ -202,7 +208,7 @@ Required API surface (subset of `@busy-app/busy-lib`):
 
 | Module | Key types/functions |
 |--------|---------------------|
-| **Settings** | `load()`, `save(values)` — backed by settings validator + `configvalues.json` |
+| **Settings** | `load()`, `save(values)` — backed by settings validator + `/ext/apps_data/jsrunner/{app_id}.json` |
 | **Display** | `DisplayDrawParams`, `draw(params)`, `clear()` — maps to canvas service |
 | **Audio** | `AudioVolumeInfo`, `play(file)`, `stop()`, `volume()` — maps to audio service |
 | **Network** | `WifiNetwork`, `WifiConnectParams`, `NetworkInterfaceInfo` — maps to Wi-Fi service |
@@ -228,7 +234,7 @@ A full list of required types is in the [busy-lib on-device port spec] (TBD:
 |---|-----------|----------|
 | 1 | **JerryScript runtime** — standalone engine (FreeRTOS task), C-to-JS bridge, busy-lib port, HTTPS (mbedtls), input (pubsub) | `applications/services/js_srv/` |
 | 2 | **App Service** — scans `/ext/user_apps/`, validates manifests, in-memory index | `applications/services/app_srv/` |
-| 3 | **Settings validator** — loads `settings.json`, validates values, reads/writes `configvalues.json` | `applications/services/app_srv/` |
+| 3 | **Settings validator** — loads `settings.json`, validates values, reads/writes `/ext/apps_data/jsrunner/{app_id}.json` | `applications/services/app_srv/` |
 | 4 | **`api_apps.c`** — HTTP endpoints: install (POST .tgz), list (GET), settings (GET/PUT), launch (POST), remove (DELETE). Follows existing handler pattern. Uses `microtar` for archive unpacking. | `applications/services/web_server/http_api/` |
 | 5 | **`apps.yaml`** — OpenAPI spec for new endpoints | `applications/services/web_server/openapi/` |
 | 6 | **APPS menu GUI** — gallett integration, submenu, on-device settings editor | GUI module |
