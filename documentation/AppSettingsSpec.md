@@ -62,7 +62,7 @@ API.
 ```
 /ext/user_apps/
 └── com.example.weather/
-    ├── config/
+    ├── appmeta/
     │   ├── manifest.json         # required
     │   ├── settings.json         # optional — settings descriptor
     │   └── configvalues.json     # auto-generated — runtime values
@@ -79,31 +79,31 @@ Apps reference resources with paths relative to the app folder root
 
 ---
 
-## Manifest (`config/manifest.json`)
+## Manifest (`appmeta/manifest.json`)
 
 ```jsonc
 {
-    "name": "com.example.weather",           // unique ID, ^[a-zA-Z0-9._-]+$
-    "title": "Weather",                      // display name
+    "id": "com.example.weather",             // unique ID, ^[a-zA-Z0-9._-]+$
+    "name": "Weather",                        // display name
     "version": "1.2.0",                      // semver
     "description": "Weather forecast",       // optional
     "author": "BusyBar Team",                // optional
     "entry": "scripts/main.js",              // required
     "icon": "images/icon.png",               // optional — stock "?" if absent
     "background": "images/bg.png",           // optional — stock image if absent
-    "settings": "config/settings.json",      // optional — no settings submenu if absent
+    "settings": "appmeta/settings.json",      // optional — no settings submenu if absent
     "permissions": ["network", "display"]    // optional — TBD
 }
 ```
 
 ---
 
-## Settings Descriptor (`config/settings.json`)
+## Settings Descriptor (`appmeta/settings.json`)
 
 Declares configurable parameters: types, constraints, defaults.
 Consumed by device UI, web interface, JS runtime, and companion apps.
 
-Sections are UI-only grouping; storage keys are flat (`{app_name}.{field_id}`).
+Sections are UI-only grouping; storage keys are flat (`{app_id}.{field_id}`).
 
 ### Structure
 
