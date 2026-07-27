@@ -12,6 +12,9 @@ typedef struct JsReadableStream {
     PromiseQueue_t promise_queue;
     bool data_expected;
 
+    bool has_closed_promise;
+    jerry_value_t closed_promise;
+
     ChildStatus readable_stream_status;
     ChildStatus async_iterator_status;
 } JsReadableStream;
@@ -34,6 +37,10 @@ static jerry_value_t readable_stream_cancel(
     const jerry_call_info_t* call_info,
     const jerry_value_t args[],
     const jerry_length_t args_count);
+static jerry_value_t get_reader(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count);
 
 static void detach_sink(JsReadableStream* instance);
 
@@ -43,6 +50,7 @@ jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
     instance->data_expected = true;
     instance->readable_stream_status = ChildStatusRunning;
     instance->async_iterator_status = ChildStatusNotYet;
+    instance->has_closed_promise = false;
     PromiseQueue_init(instance->promise_queue);
 
     jerry_value_t rs = jerry_object();
@@ -60,6 +68,12 @@ jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
         jerry_value_t cancel_fn = jerry_function_external(readable_stream_cancel);
         js_runner_check_and_free(jerry_object_set_sz(rs, "cancel", cancel_fn));
         jerry_value_free(cancel_fn);
+    }
+
+    {
+        jerry_value_t get_reader_fn = jerry_function_external(get_reader);
+        js_runner_check_and_free(jerry_object_set_sz(rs, "getReader", get_reader_fn));
+        jerry_value_free(get_reader_fn);
     }
 
     return rs;
@@ -98,10 +112,29 @@ static void resolve_everything_with_done(JsReadableStream* instance, jerry_value
     jerry_value_free(value);
 }
 
+static void resolve_closed_promise(JsReadableStream* instance, const char* error_msg) {
+    if(instance->has_closed_promise) {
+        FURI_LOG_D(TAG, "resolve_closed_promise");
+        if(error_msg) {
+            jerry_value_t error = jerry_throw_sz(JERRY_ERROR_TYPE, error_msg);
+            jerry_value_free(jerry_promise_reject(instance->closed_promise, error));
+            jerry_value_free(error);
+        } else {
+            jerry_value_t result = jerry_undefined();
+            jerry_value_free(jerry_promise_resolve(instance->closed_promise, result));
+            jerry_value_free(result);
+        }
+        jerry_value_free(instance->closed_promise);
+        instance->has_closed_promise = false;
+        js_runner_run_jobs();
+    }
+}
+
 static void free_if_can(JsReadableStream* instance) {
     if(instance->async_iterator_status != ChildStatusRunning &&
        instance->readable_stream_status != ChildStatusRunning) {
         FURI_LOG_D(TAG, "freeing readable_stream");
+        resolve_closed_promise(instance, NULL);
         furi_check(PromiseQueue_empty_p(instance->promise_queue));
         PromiseQueue_clear(instance->promise_queue);
 
@@ -214,6 +247,7 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
         case DataEventTypeDone: {
             FURI_LOG_D(TAG, "\tdata stream end");
             instance->data_expected = false;
+            resolve_closed_promise(instance, NULL);
             detach_sink(instance);
 
             resolve_everything_with_done(instance, jerry_undefined());
@@ -224,6 +258,8 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
         case DataEventTypeError: {
             FURI_LOG_D(TAG, "\tdata error: %s", furi_string_get_cstr(event->error));
             instance->data_expected = false;
+
+            resolve_closed_promise(instance, "cancelled");
             detach_sink(instance);
 
             resolve_everything_with_done(
@@ -287,6 +323,56 @@ static jerry_value_t async_iterator(
     instance->async_iterator_status = ChildStatusRunning;
 
     return iter;
+}
+
+
+static jerry_value_t get_reader(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    UNUSED(args);
+    UNUSED(args_count);
+
+    FURI_LOG_D(TAG, "Get reader");
+    JsReadableStream* instance =
+        jerry_object_get_native_ptr(call_info->this_value, &readable_stream_native_info);
+
+    bool set_data_sink_ok = instance->parent &&
+                            js_fetch_set_data_sink(instance->parent, instance, data_sink_callback);
+
+    if(!set_data_sink_ok) {
+        return jerry_throw_sz(JERRY_ERROR_TYPE, "Data is already in use");
+    }
+
+    jerry_value_t reader = jerry_object();
+    jerry_object_set_native_ptr(reader, &async_iterator_native_info, instance);
+
+    {
+        // .read() is the same as iterator's .next()
+        jerry_value_t next_fn = jerry_function_external(iterator_next);
+        js_runner_check_and_free(jerry_object_set_sz(reader, "read", next_fn));
+        jerry_value_free(next_fn);
+    }
+
+
+    {
+        // .cancel() is the same as iterator's .return()
+        jerry_value_t return_fn = jerry_function_external(iterator_return);
+        js_runner_check_and_free(jerry_object_set_sz(reader, "cancel", return_fn));
+        jerry_value_free(return_fn);
+    }
+
+    {
+        // .closed promise
+        instance->has_closed_promise = true;
+        instance->closed_promise = jerry_promise();
+        js_runner_check_and_free(jerry_object_set_sz(reader, "closed", instance->closed_promise));
+    }
+
+    instance->async_iterator_status = ChildStatusRunning;
+
+    return reader;
+
 }
 
 static void detach_sink(JsReadableStream* instance) {
