@@ -41,7 +41,7 @@ typedef enum FetchEventType {
 
 typedef struct FetchEvent {
     FetchEventType type;
-    JsFetch* context;
+    JsFetch* instance;
     union {
         struct {
             void* buf;
@@ -99,6 +99,8 @@ typedef struct JsRunner {
         furi_mutex_release(__instance->apps_mutex);                        \
         furi_record_close(RECORD_JS_RUNNER);                               \
     } while(false)
+
+#define JS_ARG(n) (args_count > (n) ? args[(n)] : jerry_undefined())
 
 void js_runner_check_and_free(jerry_value_t val);
 void js_runner_check_event_loop(JsRunnerApp* app);

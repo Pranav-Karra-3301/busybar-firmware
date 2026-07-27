@@ -63,6 +63,8 @@ bool js_fetch_set_data_sink(
     JsFetchDataSinkCallback callback);
 void js_fetch_data_sink_ready(JsFetch* instance);
 
+bool js_fetch_cancel(JsFetch* instance);
+
 /**
  * @param buffer if NULL, no more chunks
  * @return true if data is consumed

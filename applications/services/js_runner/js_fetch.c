@@ -5,7 +5,7 @@
 #define TAG                     "JsFetch"
 #define FETCH_THREAD_STACK_SIZE (10 * 1024)
 
-#define IS_RUNNING(child) (context->child.status == ChildStatusRunning)
+#define IS_RUNNING(child) (instance->child.status == ChildStatusRunning)
 
 typedef enum ResourceParseResultTag {
     ResourceParseResultOk,
@@ -63,7 +63,7 @@ static void fetch_headers_callback(const void* data, size_t data_size, void* ctx
     memcpy(buf, data, data_size);
     FetchEvent msg = {
         .type = FetchEventTypeHeaders,
-        .context = context,
+        .instance = context,
         .data =
             {
                 .buf = buf,
@@ -78,7 +78,7 @@ static void fetch_error_callback(const char* error, void* ctx) {
     FURI_LOG_D(TAG, "Error: %s", error);
     FetchEvent msg = {
         .type = FetchEventTypeError,
-        .context = context,
+        .instance = context,
         .error =
             {
                 .msg = furi_string_alloc_set(error),
@@ -94,7 +94,7 @@ static void fetch_rx_data_callback(const void* data, size_t data_size, void* ctx
     memcpy(buf, data, data_size);
     FetchEvent msg = {
         .type = FetchEventTypeRxData,
-        .context = context,
+        .instance = context,
         .data =
             {
                 .buf = buf,
@@ -123,7 +123,7 @@ static int32_t fetch_thread_callback(void* ctx) {
         FURI_LOG_D(TAG, "fetch succeeded");
         FetchEvent msg = {
             .type = FetchEventTypeDone,
-            .context = context,
+            .instance = context,
         };
         furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
     } else {
@@ -136,55 +136,59 @@ static int32_t fetch_thread_callback(void* ctx) {
     {
         FetchEvent msg = {
             .type = FetchEventTypeThreadExit,
-            .context = context,
+            .instance = context,
         };
         furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
     }
     return 0;
 }
 
-static bool free_if_not_running(JsFetch* context) {
-    if(!IS_RUNNING(sink) && !IS_RUNNING(fetch) && !IS_RUNNING(response) && !IS_RUNNING(promise) &&
-       !context->sink.feeding) {
-        FURI_LOG_D(TAG, "Deleting");
-        while(!DataEventQueue_empty_p(context->chunk_queue)) {
-            DataEvent event;
-            DataEventQueue_pop_front(&event, context->chunk_queue);
-            switch(event.type) {
-            case DataEventTypeData:
-                free(event.data.buffer);
-                break;
-            case DataEventTypeError:
-                furi_string_free(event.error);
-                break;
-            case DataEventTypeDone:
-                break;
-            }
+static void empty_event_queue(JsFetch* instance) {
+    while(!DataEventQueue_empty_p(instance->chunk_queue)) {
+        DataEvent event;
+        DataEventQueue_pop_front(&event, instance->chunk_queue);
+        switch(event.type) {
+        case DataEventTypeData:
+            free(event.data.buffer);
+            break;
+        case DataEventTypeError:
+            furi_string_free(event.error);
+            break;
+        case DataEventTypeDone:
+            break;
         }
-        DataEventQueue_clear(context->chunk_queue);
-        free(context);
+    }
+}
+
+static bool free_if_not_running(JsFetch* instance) {
+    if(!IS_RUNNING(sink) && !IS_RUNNING(fetch) && !IS_RUNNING(response) && !IS_RUNNING(promise) &&
+       !instance->sink.feeding) {
+        FURI_LOG_D(TAG, "Deleting");
+        empty_event_queue(instance);
+        DataEventQueue_clear(instance->chunk_queue);
+        free(instance);
 
         return true;
     } else {
         return false;
     }
 }
-static void feed_data_sink(JsFetch* context);
+static void feed_data_sink(JsFetch* instance);
 
 static void promise_free_cb(void* native_p, jerry_object_native_info_t* info_p) {
     UNUSED(info_p);
     FURI_LOG_D(TAG, "promise free");
-    JsFetch* context = native_p;
-    context->promise.status = ChildStatusDone;
-    free_if_not_running(context);
+    JsFetch* instance = native_p;
+    instance->promise.status = ChildStatusDone;
+    free_if_not_running(instance);
 }
 
 static void response_free_cb(void* native_p, jerry_object_native_info_t* info_p) {
     UNUSED(info_p);
     FURI_LOG_D(TAG, "response free");
-    JsFetch* context = native_p;
-    context->response.status = ChildStatusDone;
-    free_if_not_running(context);
+    JsFetch* instance = native_p;
+    instance->response.status = ChildStatusDone;
+    free_if_not_running(instance);
 }
 
 static const jerry_object_native_info_t promise_native_info = {.free_cb = promise_free_cb};
@@ -207,39 +211,39 @@ static jerry_value_t fetch(
         return result;
     }
 
-    JsFetch* context = malloc(sizeof(JsFetch));
-    context->request = resource_res.request;
+    JsFetch* instance = malloc(sizeof(JsFetch));
+    instance->request = resource_res.request;
 
-    context->promise.promise = jerry_promise();
-    context->promise.status = ChildStatusRunning;
-    context->response.status = ChildStatusNotYet;
-    context->fetch.status = ChildStatusRunning;
-    context->sink.status = ChildStatusNotYet;
-    jerry_object_set_native_ptr(context->promise.promise, &promise_native_info, context);
+    instance->promise.promise = jerry_promise();
+    instance->promise.status = ChildStatusRunning;
+    instance->response.status = ChildStatusNotYet;
+    instance->fetch.status = ChildStatusRunning;
+    instance->sink.status = ChildStatusNotYet;
+    jerry_object_set_native_ptr(instance->promise.promise, &promise_native_info, instance);
     FuriThread* thread =
-        furi_thread_alloc_ex("Fetch", FETCH_THREAD_STACK_SIZE, fetch_thread_callback, context);
-    context->fetch.thread = thread;
+        furi_thread_alloc_ex("Fetch", FETCH_THREAD_STACK_SIZE, fetch_thread_callback, instance);
+    instance->fetch.thread = thread;
 
-    DataEventQueue_init(context->chunk_queue);
+    DataEventQueue_init(instance->chunk_queue);
 
     WITH_APP(app, {
         app->num_fetch_threads += 1;
-        context->app = app;
-        context->event_queue = app->fetch_event_queue;
+        instance->app = app;
+        instance->event_queue = app->fetch_event_queue;
     });
 
     furi_thread_start(thread);
 
-    return jerry_value_copy(context->promise.promise);
+    return jerry_value_copy(instance->promise.promise);
 }
 
-static jerry_value_t create_response(JsFetch* context) {
+static jerry_value_t create_response(JsFetch* instance) {
     jerry_value_t response = jerry_object();
 
-    jerry_object_set_native_ptr(response, &response_native_info, context);
+    jerry_object_set_native_ptr(response, &response_native_info, instance);
 
-    context->response.response = response;
-    jerry_value_t readable_stream = js_readable_stream_alloc(context);
+    instance->response.response = response;
+    jerry_value_t readable_stream = js_readable_stream_alloc(instance);
 
     js_set_property(response, "body", readable_stream);
     js_set_property(response, "bodyUsed", jerry_boolean(false));
@@ -252,18 +256,18 @@ static jerry_value_t create_response(JsFetch* context) {
     return response;
 }
 
-static void process_headers(JsFetch* context, const void* data, size_t size) {
+static void process_headers(JsFetch* instance, const void* data, size_t size) {
     UNUSED(data);
     UNUSED(size);
 
-    if(context->promise.status != ChildStatusDone) {
-        jerry_value_t promise = context->promise.promise;
+    if(instance->promise.status != ChildStatusDone) {
+        jerry_value_t promise = instance->promise.promise;
 
         furi_check(jerry_object_delete_native_ptr(promise, &promise_native_info));
-        context->promise.status = ChildStatusDone;
-        context->response.status = ChildStatusRunning;
+        instance->promise.status = ChildStatusDone;
+        instance->response.status = ChildStatusRunning;
 
-        jerry_value_t response = create_response(context);
+        jerry_value_t response = create_response(instance);
         furi_check(!jerry_value_is_exception(response));
         furi_check(jerry_value_is_promise(promise));
         js_runner_check_and_free(jerry_promise_resolve(promise, response));
@@ -274,25 +278,25 @@ static void process_headers(JsFetch* context, const void* data, size_t size) {
     }
 }
 
-static void process_error(JsFetch* context, FuriString* msg) {
+static void process_error(JsFetch* instance, FuriString* msg) {
     bool free_msg = true;
-    if(context->promise.status == ChildStatusRunning) {
-        jerry_value_t promise = context->promise.promise;
+    if(instance->promise.status == ChildStatusRunning) {
+        jerry_value_t promise = instance->promise.promise;
         furi_check(jerry_object_delete_native_ptr(promise, &promise_native_info));
 
         jerry_value_t error = jerry_string_sz(furi_string_get_cstr(msg));
         jerry_value_free(jerry_promise_reject(promise, error));
         jerry_value_free(error);
         jerry_value_free(promise);
-        context->promise.status = ChildStatusDone;
-        context->response.status = ChildStatusDone;
+        instance->promise.status = ChildStatusDone;
+        instance->response.status = ChildStatusDone;
     }
-    if(context->response.status == ChildStatusRunning) {
+    if(instance->response.status == ChildStatusRunning) {
         furi_check(false);
     }
-    if(context->sink.status == ChildStatusRunning) {
+    if(instance->sink.status == ChildStatusRunning) {
         DataEventQueue_push_back(
-            context->chunk_queue,
+            instance->chunk_queue,
             (DataEvent){
                 .type = DataEventTypeError,
                 .error = msg,
@@ -302,35 +306,34 @@ static void process_error(JsFetch* context, FuriString* msg) {
     if(free_msg) {
         furi_string_free(msg);
     }
-    free_if_not_running(context);
+    free_if_not_running(instance);
 }
 
-static void feed_data_sink(JsFetch* context) {
-    if(context->sink.on_event) {
-        context->sink.feeding = true;
-        while(!DataEventQueue_empty_p(context->chunk_queue) &&
-              context->sink.status == ChildStatusRunning) {
+static void feed_data_sink(JsFetch* instance) {
+    if(instance->sink.on_event) {
+        instance->sink.feeding = true;
+        while(!DataEventQueue_empty_p(instance->chunk_queue) &&
+              instance->sink.status == ChildStatusRunning) {
             DataEvent event;
-            DataEventQueue_pop_front(&event, context->chunk_queue);
+            DataEventQueue_pop_front(&event, instance->chunk_queue);
             // During this call sink can be deregistered, js objects can be destroyed, but no events can come from the queue
-            bool consumed = context->sink.on_event(context, &event, context->sink.context);
+            bool consumed = instance->sink.on_event(instance, &event, instance->sink.context);
             if(!consumed) {
-                FURI_LOG_D(TAG, "data is not consumed");
-                DataEventQueue_push_front(context->chunk_queue, event);
+                DataEventQueue_push_front(instance->chunk_queue, event);
                 break;
             }
         }
-        context->sink.feeding = false;
-        free_if_not_running(context);
+        instance->sink.feeding = false;
+        free_if_not_running(instance);
     }
 }
 
-static void process_rx_data(JsFetch* context, void* data, size_t size) {
-    if(context->promise.status != ChildStatusDone || context->response.status != ChildStatusDone ||
-       context->sink.status != ChildStatusDone) {
+static void process_rx_data(JsFetch* instance, void* data, size_t size) {
+    if(instance->promise.status != ChildStatusDone ||
+       instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         FURI_LOG_D(TAG, "push data %zu", size);
         DataEventQueue_push_back(
-            context->chunk_queue,
+            instance->chunk_queue,
             (DataEvent){
                 .type = DataEventTypeData,
                 .data = {
@@ -340,94 +343,104 @@ static void process_rx_data(JsFetch* context, void* data, size_t size) {
     } else {
         free(data);
     }
-    if(context->sink.status == ChildStatusRunning) {
-        feed_data_sink(context);
+    if(instance->sink.status == ChildStatusRunning) {
+        feed_data_sink(instance);
     }
 }
 
-static void process_done(JsFetch* context) {
-    if(context->promise.status != ChildStatusDone || context->response.status != ChildStatusDone ||
-       context->sink.status != ChildStatusDone) {
+static void process_done(JsFetch* instance) {
+    if(instance->promise.status != ChildStatusDone ||
+       instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         DataEventQueue_push_back(
-            context->chunk_queue,
+            instance->chunk_queue,
             (DataEvent){
                 .type = DataEventTypeDone,
             });
     }
-    if(context->sink.status == ChildStatusRunning) {
-        feed_data_sink(context);
+    if(instance->sink.status == ChildStatusRunning) {
+        feed_data_sink(instance);
     }
 }
 
-static void process_thread_exit(JsFetch* context) {
-    furi_thread_join(context->fetch.thread);
-    furi_thread_free(context->fetch.thread);
-    context->app->num_fetch_threads -= 1;
-    context->fetch.thread = NULL;
-    context->fetch.status = ChildStatusDone;
-    JsRunnerApp* app = context->app;
-    free_if_not_running(context);
+static void process_thread_exit(JsFetch* instance) {
+    furi_thread_join(instance->fetch.thread);
+    furi_thread_free(instance->fetch.thread);
+    instance->app->num_fetch_threads -= 1;
+    instance->fetch.thread = NULL;
+    instance->fetch.status = ChildStatusDone;
+    JsRunnerApp* app = instance->app;
+    free_if_not_running(instance);
     js_runner_check_event_loop(app);
 }
 
 void js_fetch_process_event(const FetchEvent* event) {
-    JsFetch* context = event->context;
+    JsFetch* instance = event->instance;
     FURI_LOG_D(
         TAG,
         "process event: event=%d fetch.status=%d, sink.status=%d, promise.status=%d, response.status=%d",
         event->type,
-        context->fetch.status,
-        context->sink.status,
-        context->promise.status,
-        context->response.status);
+        instance->fetch.status,
+        instance->sink.status,
+        instance->promise.status,
+        instance->response.status);
     switch(event->type) {
     case FetchEventTypeHeaders:
-        process_headers(event->context, event->data.buf, event->data.size);
+        process_headers(instance, event->data.buf, event->data.size);
         break;
     case FetchEventTypeRxData:
-        process_rx_data(event->context, event->data.buf, event->data.size);
+        process_rx_data(instance, event->data.buf, event->data.size);
         break;
     case FetchEventTypeError:
-        process_error(event->context, event->error.msg);
+        process_error(instance, event->error.msg);
         break;
     case FetchEventTypeDone:
-        process_done(event->context);
+        process_done(instance);
         break;
     case FetchEventTypeThreadExit:
-        process_thread_exit(event->context);
+        process_thread_exit(instance);
         break;
     }
 }
 
 bool js_fetch_set_data_sink(
-    JsFetch* context,
+    JsFetch* instance,
     void* callback_context,
     JsFetchDataSinkCallback callback) {
-    if(context->sink.status == ChildStatusNotYet && callback) {
+    if(instance->sink.status == ChildStatusNotYet && callback) {
         FURI_LOG_D(TAG, "data sink set");
-        context->sink.on_event = callback;
-        context->sink.context = callback_context;
-        context->sink.feeding = false;
-        context->sink.status = ChildStatusRunning;
-        js_set_property(context->response.response, "bodyUsed", jerry_boolean(false));
-        feed_data_sink(context);
+        instance->sink.on_event = callback;
+        instance->sink.context = callback_context;
+        instance->sink.feeding = false;
+        instance->sink.status = ChildStatusRunning;
+        js_set_property(instance->response.response, "bodyUsed", jerry_boolean(true));
+        feed_data_sink(instance);
         return true;
-    } else if(context->sink.status == ChildStatusRunning && !callback) {
+    } else if(instance->sink.status == ChildStatusRunning && !callback) {
         // Data sink expired and won't accept any more packets
         FURI_LOG_D(TAG, "data sink expired");
-        context->sink.on_event = NULL;
-        context->sink.context = NULL;
-        context->sink.status = ChildStatusDone;
-        free_if_not_running(context);
+        instance->sink.on_event = NULL;
+        instance->sink.context = NULL;
+        instance->sink.status = ChildStatusDone;
+        free_if_not_running(instance);
         return true;
     }
     return false;
 }
 
-void js_fetch_data_sink_ready(JsFetch* context) {
-    if(!context->sink.feeding) {
-        feed_data_sink(context);
+void js_fetch_data_sink_ready(JsFetch* instance) {
+    if(!instance->sink.feeding) {
+        feed_data_sink(instance);
     }
+}
+
+bool js_fetch_cancel(JsFetch* instance) {
+    if(instance->sink.status == ChildStatusRunning) {
+        return false;
+    }
+    js_set_property(instance->response.response, "bodyUsed", jerry_boolean(true));
+    instance->sink.status = ChildStatusDone;
+    free_if_not_running(instance);
+    return true;
 }
 
 void js_runner_setup_fetch(void) {

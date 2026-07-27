@@ -30,7 +30,12 @@ static jerry_value_t async_iterator(
     const jerry_value_t args[],
     const jerry_length_t args_count);
 
-static void detach_from_parent(JsReadableStream* instance);
+static jerry_value_t readable_stream_cancel(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count);
+
+static void detach_sink(JsReadableStream* instance);
 
 jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
     JsReadableStream* instance = malloc(sizeof(JsReadableStream));
@@ -49,6 +54,12 @@ jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
         js_runner_check_and_free(jerry_object_set(rs, async_iterator_sym, async_iterator_fn));
         jerry_value_free(async_iterator_fn);
         jerry_value_free(async_iterator_sym);
+    }
+
+    {
+        jerry_value_t cancel_fn = jerry_function_external(readable_stream_cancel);
+        js_runner_check_and_free(jerry_object_set_sz(rs, "cancel", cancel_fn));
+        jerry_value_free(cancel_fn);
     }
 
     return rs;
@@ -115,15 +126,15 @@ static jerry_value_t iterator_next(
 
     FURI_LOG_D(TAG, "Next");
 
-    JsReadableStream* readable_stream =
+    JsReadableStream* instance =
         jerry_object_get_native_ptr(call_info->this_value, &async_iterator_native_info);
 
     jerry_value_t promise = jerry_promise();
 
-    if(readable_stream->data_expected && readable_stream->parent) {
-        PromiseQueue_push_back(readable_stream->promise_queue, jerry_value_copy(promise));
+    if(instance->data_expected && instance->parent) {
+        PromiseQueue_push_back(instance->promise_queue, jerry_value_copy(promise));
 
-        js_fetch_data_sink_ready(readable_stream->parent);
+        js_fetch_data_sink_ready(instance->parent);
     } else {
         jerry_value_t result = iterator_result(true, jerry_undefined());
         js_runner_check_and_free(jerry_promise_resolve(promise, result));
@@ -148,14 +159,9 @@ static jerry_value_t iterator_return(
 
     jerry_value_t promise = jerry_promise();
 
-    jerry_value_t value;
-    if(args_count == 0) {
-        value = jerry_undefined();
-    } else {
-        value = jerry_value_copy(args[0]);
-    }
+    jerry_value_t value = JS_ARG(0);
 
-    detach_from_parent(instance);
+    detach_sink(instance);
 
     jerry_value_t result = iterator_result(true, value);
     js_runner_check_and_free(jerry_promise_resolve(promise, result));
@@ -163,6 +169,28 @@ static jerry_value_t iterator_return(
     js_runner_run_jobs();
 
     return promise;
+}
+
+static jerry_value_t readable_stream_cancel(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    UNUSED(args);
+    UNUSED(args_count);
+
+    JsReadableStream* instance =
+        jerry_object_get_native_ptr(call_info->this_value, &readable_stream_native_info);
+
+    if(js_fetch_cancel(instance->parent)) {
+        jerry_value_t promise = jerry_promise();
+        jerry_value_t result = jerry_undefined();
+        js_runner_check_and_free(jerry_promise_resolve(promise, result));
+        jerry_value_free(result);
+
+        return promise;
+    } else {
+        return jerry_throw_sz(JERRY_ERROR_TYPE, "Invalid state: body is locked");
+    }
 }
 
 static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_context) {
@@ -185,20 +213,24 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
         }
         case DataEventTypeDone: {
             FURI_LOG_D(TAG, "\tdata stream end");
-            resolve_everything_with_done(instance, jerry_undefined());
-
             instance->data_expected = false;
-            detach_from_parent(instance);
+            detach_sink(instance);
+
+            resolve_everything_with_done(instance, jerry_undefined());
+            js_runner_run_jobs();
+
             break;
         }
         case DataEventTypeError: {
             FURI_LOG_D(TAG, "\tdata error: %s", furi_string_get_cstr(event->error));
+            instance->data_expected = false;
+            detach_sink(instance);
+
             resolve_everything_with_done(
                 instance, jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(event->error)));
 
             furi_string_free(event->error);
-            instance->data_expected = false;
-            detach_from_parent(instance);
+            js_runner_run_jobs();
             break;
         }
         }
@@ -215,7 +247,7 @@ static void async_iterator_free_cb(void* native_p, jerry_object_native_info_t* i
     JsReadableStream* instance = native_p;
     FURI_LOG_D(TAG, "async_iterator_free_cb");
 
-    detach_from_parent(instance);
+    detach_sink(instance);
     resolve_everything_with_done(instance, jerry_undefined());
     js_runner_run_jobs();
     instance->async_iterator_status = ChildStatusDone;
@@ -257,7 +289,7 @@ static jerry_value_t async_iterator(
     return iter;
 }
 
-static void detach_from_parent(JsReadableStream* instance) {
+static void detach_sink(JsReadableStream* instance) {
     if(instance->parent) {
         js_fetch_set_data_sink(instance->parent, NULL, NULL);
     }
