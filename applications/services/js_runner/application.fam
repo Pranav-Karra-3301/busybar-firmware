@@ -13,6 +13,7 @@ App(
         "js_runner_console.c",
         "js_fetch.c",
         "js_readable_stream.c",
+        "js_fetch_body_methods.c",
         "util.c",
     ],
 )

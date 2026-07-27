@@ -114,3 +114,4 @@ void js_runner_setup_console(
 void js_runner_setup_fetch(void);
 
 void js_set_property(jerry_value_t object, const char* name, jerry_value_t property);
+void js_set_method(jerry_value_t object, const char* name, jerry_external_handler_t handler);

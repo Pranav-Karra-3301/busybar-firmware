@@ -1,5 +1,6 @@
 #include "js_fetch.h"
 #include "js_readable_stream.h"
+#include "js_fetch_body_methods.h"
 #include <fetch/fetch.h>
 
 #define TAG                     "JsFetch"
@@ -192,7 +193,7 @@ static void response_free_cb(void* native_p, jerry_object_native_info_t* info_p)
 }
 
 static const jerry_object_native_info_t promise_native_info = {.free_cb = promise_free_cb};
-static const jerry_object_native_info_t response_native_info = {.free_cb = response_free_cb};
+const jerry_object_native_info_t js_fetch_response_native_info = {.free_cb = response_free_cb};
 
 static jerry_value_t fetch(
     const jerry_call_info_t* call_info,
@@ -240,7 +241,7 @@ static jerry_value_t fetch(
 static jerry_value_t create_response(JsFetch* instance) {
     jerry_value_t response = jerry_object();
 
-    jerry_object_set_native_ptr(response, &response_native_info, instance);
+    jerry_object_set_native_ptr(response, &js_fetch_response_native_info, instance);
 
     instance->response.response = response;
     jerry_value_t readable_stream = js_readable_stream_alloc(instance);
@@ -252,6 +253,13 @@ static jerry_value_t create_response(JsFetch* instance) {
     js_set_property(response, "statusText", jerry_string_sz("OK")); // TODO
     js_set_property(response, "type", jerry_string_sz("basic"));
     js_set_property(response, "url", jerry_string_sz("TODO"));
+
+    js_set_method(response, "arrayBuffer", js_fetch_array_buffer);
+    js_set_method(response, "blob", js_fetch_blob);
+    js_set_method(response, "bytes", js_fetch_bytes);
+    js_set_method(response, "formData", js_fetch_form_data);
+    js_set_method(response, "json", js_fetch_json);
+    js_set_method(response, "text", js_fetch_text);
 
     return response;
 }

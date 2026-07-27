@@ -325,7 +325,6 @@ static jerry_value_t async_iterator(
     return iter;
 }
 
-
 static jerry_value_t get_reader(
     const jerry_call_info_t* call_info,
     const jerry_value_t args[],
@@ -354,7 +353,6 @@ static jerry_value_t get_reader(
         jerry_value_free(next_fn);
     }
 
-
     {
         // .cancel() is the same as iterator's .return()
         jerry_value_t return_fn = jerry_function_external(iterator_return);
@@ -372,7 +370,6 @@ static jerry_value_t get_reader(
     instance->async_iterator_status = ChildStatusRunning;
 
     return reader;
-
 }
 
 static void detach_sink(JsReadableStream* instance) {
