@@ -30,6 +30,8 @@ static jerry_value_t async_iterator(
     const jerry_value_t args[],
     const jerry_length_t args_count);
 
+static void detach_from_parent(JsReadableStream* instance);
+
 jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
     JsReadableStream* instance = malloc(sizeof(JsReadableStream));
     instance->parent = parent;
@@ -72,16 +74,17 @@ static jerry_value_t iterator_result(bool done, jerry_value_t value) {
     return obj;
 }
 
-static void resolve_everything_with_done(JsReadableStream* instance) {
+static void resolve_everything_with_done(JsReadableStream* instance, jerry_value_t value) {
     while(!PromiseQueue_empty_p(instance->promise_queue)) {
         jerry_value_t promise;
         PromiseQueue_pop_front(&promise, instance->promise_queue);
 
-        jerry_value_t result = iterator_result(true, jerry_undefined());
+        jerry_value_t result = iterator_result(true, jerry_value_copy(value));
         js_runner_check_and_free(jerry_promise_resolve(promise, result));
         jerry_value_free(promise);
         jerry_value_free(result);
     }
+    jerry_value_free(value);
 }
 
 static void free_if_can(JsReadableStream* instance) {
@@ -103,7 +106,7 @@ static void readable_stream_free_cb(void* native_p, jerry_object_native_info_t* 
     free_if_can(instance);
 }
 
-static jerry_value_t next(
+static jerry_value_t iterator_next(
     const jerry_call_info_t* call_info,
     const jerry_value_t args[],
     const jerry_length_t args_count) {
@@ -117,7 +120,7 @@ static jerry_value_t next(
 
     jerry_value_t promise = jerry_promise();
 
-    if(readable_stream->data_expected) {
+    if(readable_stream->data_expected && readable_stream->parent) {
         PromiseQueue_push_back(readable_stream->promise_queue, jerry_value_copy(promise));
 
         js_fetch_data_sink_ready(readable_stream->parent);
@@ -131,25 +134,73 @@ static jerry_value_t next(
     return promise;
 }
 
-static bool data_sink_callback(JsFetch* fetch, void* buffer, size_t size, void* callback_context) {
-    JsReadableStream* readable_stream = callback_context;
+static jerry_value_t iterator_return(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    UNUSED(args);
+    UNUSED(args_count);
+
+    FURI_LOG_D(TAG, "Return");
+
+    JsReadableStream* instance =
+        jerry_object_get_native_ptr(call_info->this_value, &async_iterator_native_info);
+
+    jerry_value_t promise = jerry_promise();
+
+    jerry_value_t value;
+    if(args_count == 0) {
+        value = jerry_undefined();
+    } else {
+        value = jerry_value_copy(args[0]);
+    }
+
+    detach_from_parent(instance);
+
+    jerry_value_t result = iterator_result(true, value);
+    js_runner_check_and_free(jerry_promise_resolve(promise, result));
+    jerry_value_free(result);
+    js_runner_run_jobs();
+
+    return promise;
+}
+
+static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_context) {
+    UNUSED(fetch);
+    JsReadableStream* instance = callback_context;
     FURI_LOG_D(TAG, "data_sink_callback");
-    if(!PromiseQueue_empty_p(readable_stream->promise_queue)) {
-        if(buffer) {
+    if(!PromiseQueue_empty_p(instance->promise_queue)) {
+        switch(event->type) {
+        case DataEventTypeData: {
             FURI_LOG_D(TAG, "\tdata chunk consumed");
             jerry_value_t promise;
-            PromiseQueue_pop_front(&promise, readable_stream->promise_queue);
+            PromiseQueue_pop_front(&promise, instance->promise_queue);
 
-            jerry_value_t result = iterator_result(false, chunk_to_uint8array(buffer, size));
+            jerry_value_t result =
+                iterator_result(false, chunk_to_uint8array(event->data.buffer, event->data.size));
             js_runner_check_and_free(jerry_promise_resolve(promise, result));
             jerry_value_free(promise);
             jerry_value_free(result);
-        } else {
+            break;
+        }
+        case DataEventTypeDone: {
             FURI_LOG_D(TAG, "\tdata stream end");
-            resolve_everything_with_done(readable_stream);
+            resolve_everything_with_done(instance, jerry_undefined());
 
-            readable_stream->data_expected = false;
-            js_fetch_set_data_sink(fetch, NULL, NULL);
+            instance->data_expected = false;
+            detach_from_parent(instance);
+            break;
+        }
+        case DataEventTypeError: {
+            FURI_LOG_D(TAG, "\tdata error: %s", furi_string_get_cstr(event->error));
+            resolve_everything_with_done(
+                instance, jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(event->error)));
+
+            furi_string_free(event->error);
+            instance->data_expected = false;
+            detach_from_parent(instance);
+            break;
+        }
         }
         js_runner_run_jobs();
         return true;
@@ -164,8 +215,8 @@ static void async_iterator_free_cb(void* native_p, jerry_object_native_info_t* i
     JsReadableStream* instance = native_p;
     FURI_LOG_D(TAG, "async_iterator_free_cb");
 
-    js_fetch_set_data_sink(instance->parent, NULL, NULL);
-    resolve_everything_with_done(instance);
+    detach_from_parent(instance);
+    resolve_everything_with_done(instance, jerry_undefined());
     js_runner_run_jobs();
     instance->async_iterator_status = ChildStatusDone;
     free_if_can(instance);
@@ -179,24 +230,36 @@ static jerry_value_t async_iterator(
     UNUSED(args_count);
 
     FURI_LOG_D(TAG, "Get iterator");
-    JsReadableStream* readable_stream =
+    JsReadableStream* instance =
         jerry_object_get_native_ptr(call_info->this_value, &readable_stream_native_info);
-    bool set_data_sink_ok = false;
-    set_data_sink_ok =
-        js_fetch_set_data_sink(readable_stream->parent, readable_stream, data_sink_callback);
+
+    bool set_data_sink_ok = instance->parent &&
+                            js_fetch_set_data_sink(instance->parent, instance, data_sink_callback);
 
     if(!set_data_sink_ok) {
         return jerry_throw_sz(JERRY_ERROR_TYPE, "Data is already in use");
     }
 
     jerry_value_t iter = jerry_object();
-    jerry_object_set_native_ptr(iter, &async_iterator_native_info, readable_stream);
+    jerry_object_set_native_ptr(iter, &async_iterator_native_info, instance);
 
-    jerry_value_t next_fn = jerry_function_external(next);
+    jerry_value_t next_fn = jerry_function_external(iterator_next);
     js_runner_check_and_free(jerry_object_set_sz(iter, "next", next_fn));
     jerry_value_free(next_fn);
 
-    readable_stream->async_iterator_status = ChildStatusRunning;
+    jerry_value_t return_fn = jerry_function_external(iterator_return);
+    js_runner_check_and_free(jerry_object_set_sz(iter, "return", return_fn));
+    js_runner_check_and_free(jerry_object_set_sz(iter, "throw", return_fn));
+    jerry_value_free(return_fn);
+
+    instance->async_iterator_status = ChildStatusRunning;
 
     return iter;
+}
+
+static void detach_from_parent(JsReadableStream* instance) {
+    if(instance->parent) {
+        js_fetch_set_data_sink(instance->parent, NULL, NULL);
+    }
+    instance->parent = NULL;
 }

@@ -2,25 +2,34 @@
 #include "js_runner_i.h"
 #include <m-deque.h>
 
-typedef struct Chunk {
-    void* buffer;
-    size_t size;
-} Chunk;
+typedef enum DataEventType {
+    DataEventTypeData,
+    DataEventTypeDone,
+    DataEventTypeError,
+} DataEventType;
 
-M_DEQUE_DEF(ChunkQueue, Chunk, M_POD_OPLIST);
+typedef struct DataEvent {
+    DataEventType type;
+    union {
+        struct {
+            void* buffer;
+            size_t size;
+        } data;
+        FuriString* error;
+    };
+} DataEvent;
 
-typedef bool (*JsFetchDataSinkCallback)(
-    JsFetch* fetch_context,
-    void* buffer,
-    size_t size,
-    void* callback_context);
+M_DEQUE_DEF(DataEventQueue, DataEvent, M_POD_OPLIST);
+
+typedef bool (
+    *JsFetchDataSinkCallback)(JsFetch* instance, DataEvent* event, void* callback_context);
 
 typedef struct JsFetch {
     JsRunnerApp* app;
     FuriMessageQueue* event_queue;
     FetchRequest request;
 
-    ChunkQueue_t chunk_queue;
+    DataEventQueue_t chunk_queue;
 
     struct {
         ChildStatus status;
@@ -29,7 +38,7 @@ typedef struct JsFetch {
     } fetch;
     struct {
         ChildStatus status;
-        JsFetchDataSinkCallback on_data;
+        JsFetchDataSinkCallback on_event;
         void* context;
         bool feeding;
     } sink;

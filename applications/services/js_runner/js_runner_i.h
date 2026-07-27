@@ -48,7 +48,7 @@ typedef struct FetchEvent {
             size_t size;
         } data;
         struct {
-            char* msg;
+            FuriString* msg;
         } error;
     };
     jerry_value_t promise;
