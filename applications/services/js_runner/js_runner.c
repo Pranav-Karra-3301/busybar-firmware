@@ -138,10 +138,30 @@ static void arraybuffer_free_callback(
     void* user_p) {
     UNUSED(buffer_type);
     UNUSED(buffer_size);
-    UNUSED(arraybuffer_user_p);
     UNUSED(user_p);
-    FURI_LOG_D(TAG, "Free arraybuffer");
-    free(buffer_p);
+    if(arraybuffer_user_p) {
+        FURI_LOG_D(TAG, "Free arraybuffer: ByteArray");
+        ByteArray_t* array = arraybuffer_user_p;
+        ByteArray_clear(*array);
+        free(array);
+    } else {
+        FURI_LOG_D(TAG, "Free arraybuffer: heap");
+        free(buffer_p);
+    }
+}
+
+static void
+    external_string_free_callback(jerry_char_t* string_p, jerry_size_t string_size, void* user_p) {
+    UNUSED(string_size);
+    if(user_p) {
+        FURI_LOG_D(TAG, "Free external string: ByteArray");
+        ByteArray_t* array = user_p;
+        ByteArray_clear(*array);
+        free(array);
+    } else {
+        FURI_LOG_D(TAG, "Free external string: heap");
+        free(string_p);
+    }
 }
 
 JsRunnerError js_runner_run(
@@ -179,6 +199,7 @@ JsRunnerError js_runner_run(
 
         jerry_init(JERRY_INIT_EMPTY);
         jerry_arraybuffer_allocator(NULL, arraybuffer_free_callback, NULL);
+        jerry_string_external_on_free(external_string_free_callback);
 
         {
             jerry_value_t global_obj = jerry_current_realm();

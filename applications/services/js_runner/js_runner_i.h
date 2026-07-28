@@ -6,6 +6,7 @@
 #include <fetch/fetch.h>
 
 #include <m-dict.h>
+#include <m-array.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
@@ -55,6 +56,7 @@ typedef struct FetchEvent {
 } FetchEvent;
 
 M_DICT_DEF2(IntervalDict, uint32_t, M_DEFAULT_OPLIST, IntervalContext, M_POD_OPLIST);
+ARRAY_DEF(ByteArray, uint8_t);
 
 typedef struct JsRunnerApp {
     size_t heap_size;
