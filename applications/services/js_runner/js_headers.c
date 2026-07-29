@@ -72,9 +72,9 @@ jerry_value_t headers_entries(
     UNUSED(args);
     UNUSED(args_count);
 
-    Headers* headers = jerry_object_get_native_ptr(call_info->this_value, &headers_native_info);
+    Headers* parent = jerry_object_get_native_ptr(call_info->this_value, &headers_native_info);
     HeadersIter* instance = malloc(sizeof(HeadersIter));
-    instance->parent = headers;
+    instance->parent = parent;
     instance->index = 0;
     instance->parent->ref_count += 1;
     jerry_value_t iter = jerry_object();
@@ -93,6 +93,49 @@ jerry_value_t headers_entries(
     instance->self = iter;
 
     return iter;
+}
+
+jerry_value_t headers_foreach(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    Headers* instance = jerry_object_get_native_ptr(call_info->this_value, &headers_native_info);
+
+    if(args_count == 0) {
+        return jerry_throw_sz(JERRY_ERROR_TYPE, "Too few arguments for forEach");
+    }
+
+    jerry_value_t callback = args[0];
+    if(!jerry_value_is_function(callback)) {
+        return jerry_throw_sz(JERRY_ERROR_TYPE, "Argument is not a function");
+    }
+    jerry_value_t this_value = args_count == 1 ? jerry_undefined() : jerry_value_copy(args[1]);
+
+    jerry_value_t result = jerry_undefined();
+
+    for(size_t i = 0; i != HttpHeaderArray_size(instance->headers->headers); ++i) {
+        const HttpHeader* header = HttpHeaderArray_cget(instance->headers->headers, i);
+
+        jerry_value_t args[3] = {
+            [0] = jerry_string_sz(furi_string_get_cstr(header->key)),
+            [1] = jerry_string_sz(furi_string_get_cstr(header->value)),
+            [2] = call_info->this_value,
+        };
+        jerry_value_t call_result = jerry_call(callback, this_value, args, 3);
+        jerry_value_free(args[0]);
+        jerry_value_free(args[1]);
+        if(jerry_value_is_exception(call_result)) {
+            jerry_value_free(result);
+            result = call_result;
+            break;
+        } else {
+            jerry_value_free(call_result);
+        }
+    }
+
+    jerry_value_free(this_value);
+
+    return result;
 }
 
 jerry_value_t js_headers_alloc(jerry_value_t response, const char* data, size_t data_size) {
@@ -124,6 +167,7 @@ jerry_value_t js_headers_alloc(jerry_value_t response, const char* data, size_t 
     }
 
     js_set_method(obj, "entries", headers_entries);
+    js_set_method(obj, "forEach", headers_foreach);
 
     return obj;
 }
