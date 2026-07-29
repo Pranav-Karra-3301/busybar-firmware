@@ -13,10 +13,17 @@ typedef struct Headers {
     HttpHeaders* headers;
 } Headers;
 
+typedef enum IterMode {
+    IterModePairs,
+    IterModeKeys,
+    IterModeValues,
+} IterMode;
+
 typedef struct HeadersIter {
     Headers* parent;
     size_t index;
     jerry_value_t self;
+    IterMode mode;
 } HeadersIter;
 
 static void headers_free_cb(void* native_p, jerry_object_native_info_t* info_p);
@@ -38,17 +45,31 @@ jerry_value_t headers_iter_next(
     if(instance->index == HttpHeaderArray_size(instance->parent->headers->headers)) {
         return js_iterator_result(true, jerry_undefined());
     } else {
-        jerry_value_t tuple = jerry_array(2);
         const HttpHeader* header =
             HttpHeaderArray_cget(instance->parent->headers->headers, instance->index);
         instance->index += 1;
-        jerry_value_t key = jerry_string_sz(furi_string_get_cstr(header->key));
-        jerry_value_t value = jerry_string_sz(furi_string_get_cstr(header->value));
-        jerry_value_free(jerry_object_set_index(tuple, 0, key));
-        jerry_value_free(jerry_object_set_index(tuple, 1, value));
-        jerry_value_free(key);
-        jerry_value_free(value);
-        return js_iterator_result(false, tuple);
+        jerry_value_t result = 0; // Suppress "may be uninitialized" warning
+        switch(instance->mode) {
+        case IterModePairs: {
+            result = jerry_array(2);
+            jerry_value_t key = jerry_string_sz(furi_string_get_cstr(header->key));
+            jerry_value_t value = jerry_string_sz(furi_string_get_cstr(header->value));
+            jerry_value_free(jerry_object_set_index(result, 0, key));
+            jerry_value_free(jerry_object_set_index(result, 1, value));
+            jerry_value_free(key);
+            jerry_value_free(value);
+            break;
+        }
+        case IterModeKeys: {
+            result = jerry_string_sz(furi_string_get_cstr(header->key));
+            break;
+        }
+        case IterModeValues: {
+            result = jerry_string_sz(furi_string_get_cstr(header->value));
+            break;
+        }
+        }
+        return js_iterator_result(false, result);
     }
 }
 
@@ -65,10 +86,11 @@ jerry_value_t headers_iter_iterator(
     return jerry_value_copy(instance->self);
 }
 
-jerry_value_t headers_entries(
+jerry_value_t headers_iterator_method(
     const jerry_call_info_t* call_info,
     const jerry_value_t args[],
-    const jerry_length_t args_count) {
+    const jerry_length_t args_count,
+    IterMode mode) {
     UNUSED(args);
     UNUSED(args_count);
 
@@ -77,6 +99,7 @@ jerry_value_t headers_entries(
     instance->parent = parent;
     instance->index = 0;
     instance->parent->ref_count += 1;
+    instance->mode = mode;
     jerry_value_t iter = jerry_object();
     jerry_object_set_native_ptr(iter, &headers_iter_native_info, instance);
 
@@ -93,6 +116,58 @@ jerry_value_t headers_entries(
     instance->self = iter;
 
     return iter;
+}
+
+jerry_value_t headers_entries(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    return headers_iterator_method(call_info, args, args_count, IterModePairs);
+}
+
+jerry_value_t headers_keys(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    return headers_iterator_method(call_info, args, args_count, IterModeKeys);
+}
+
+jerry_value_t headers_values(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    return headers_iterator_method(call_info, args, args_count, IterModeValues);
+}
+
+jerry_value_t headers_has(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    Headers* instance = jerry_object_get_native_ptr(call_info->this_value, &headers_native_info);
+
+    if(args_count == 0) {
+        return jerry_throw_sz(JERRY_ERROR_TYPE, "Too few arguments for has");
+    }
+
+    jerry_value_t name = args[0];
+    if(!jerry_value_is_string(name)) {
+        return jerry_throw_sz(JERRY_ERROR_TYPE, "Not a string");
+    }
+    size_t name_len = jerry_string_size(name, JERRY_ENCODING_UTF8);
+    char* name_buf = malloc(name_len + 1);
+    jerry_string_to_buffer(name, JERRY_ENCODING_UTF8, (jerry_char_t*)name_buf, name_len);
+
+    bool found = false;
+    for(size_t i = 0; i != HttpHeaderArray_size(instance->headers->headers); ++i) {
+        const HttpHeader* header = HttpHeaderArray_cget(instance->headers->headers, i);
+        if(furi_string_cmp(header->key, name_buf) == 0) {
+            found = true;
+            break;
+        }
+    }
+
+    free(name_buf);
+    return jerry_boolean(found);
 }
 
 jerry_value_t headers_foreach(
@@ -167,7 +242,10 @@ jerry_value_t js_headers_alloc(jerry_value_t response, const char* data, size_t 
     }
 
     js_set_method(obj, "entries", headers_entries);
+    js_set_method(obj, "keys", headers_keys);
+    js_set_method(obj, "values", headers_values);
     js_set_method(obj, "forEach", headers_foreach);
+    js_set_method(obj, "has", headers_has);
 
     return obj;
 }
