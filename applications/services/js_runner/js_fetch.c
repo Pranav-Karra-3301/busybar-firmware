@@ -1,6 +1,7 @@
 #include "js_fetch.h"
 #include "js_readable_stream.h"
 #include "js_fetch_body_methods.h"
+#include "js_headers.h"
 #include <fetch/fetch.h>
 
 #define TAG                     "JsFetch"
@@ -238,19 +239,19 @@ static jerry_value_t fetch(
     return jerry_value_copy(instance->promise.promise);
 }
 
-static jerry_value_t create_response(JsFetch* instance) {
+static jerry_value_t
+    create_response(JsFetch* instance, const char* headers_data, size_t headers_size) {
     jerry_value_t response = jerry_object();
 
     jerry_object_set_native_ptr(response, &js_fetch_response_native_info, instance);
 
     instance->response.response = response;
     jerry_value_t readable_stream = js_readable_stream_alloc(instance);
+    jerry_value_t headers = js_headers_alloc(response, headers_data, headers_size);
 
+    js_set_property(response, "headers", headers);
     js_set_property(response, "body", readable_stream);
     js_set_property(response, "bodyUsed", jerry_boolean(false));
-    js_set_property(response, "ok", jerry_boolean(true)); // TODO
-    js_set_property(response, "status", jerry_number(200.0)); // TODO
-    js_set_property(response, "statusText", jerry_string_sz("OK")); // TODO
     js_set_property(response, "type", jerry_string_sz("basic"));
     js_set_property(response, "url", jerry_string_sz("TODO"));
 
@@ -275,7 +276,7 @@ static void process_headers(JsFetch* instance, const void* data, size_t size) {
         instance->promise.status = ChildStatusDone;
         instance->response.status = ChildStatusRunning;
 
-        jerry_value_t response = create_response(instance);
+        jerry_value_t response = create_response(instance, data, size);
         furi_check(!jerry_value_is_exception(response));
         furi_check(jerry_value_is_promise(promise));
         js_runner_check_and_free(jerry_promise_resolve(promise, response));

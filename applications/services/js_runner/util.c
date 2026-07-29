@@ -10,3 +10,14 @@ void js_set_method(jerry_value_t object, const char* name, jerry_external_handle
     js_runner_check_and_free(jerry_object_set_sz(object, name, fn));
     jerry_value_free(fn);
 }
+
+jerry_value_t js_iterator_result(bool done, jerry_value_t value) {
+    jerry_value_t obj = jerry_object();
+    js_runner_check_and_free(jerry_object_set_sz(obj, "value", value));
+    jerry_value_t done_val = jerry_boolean(done);
+    js_runner_check_and_free(jerry_object_set_sz(obj, "done", done_val));
+
+    jerry_value_free(value);
+    jerry_value_free(done_val);
+    return obj;
+}

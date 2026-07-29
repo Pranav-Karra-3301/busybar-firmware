@@ -19,8 +19,6 @@ typedef struct JsReadableStream {
     ChildStatus async_iterator_status;
 } JsReadableStream;
 
-static jerry_value_t iterator_result(bool done, jerry_value_t value);
-
 static void readable_stream_free_cb(void* native_p, jerry_object_native_info_t* info_p);
 static void async_iterator_free_cb(void* native_p, jerry_object_native_info_t* info_p);
 static const jerry_object_native_info_t readable_stream_native_info = {
@@ -88,23 +86,12 @@ static jerry_value_t chunk_to_uint8array(void* buffer, size_t size) {
     return uint8array;
 }
 
-static jerry_value_t iterator_result(bool done, jerry_value_t value) {
-    jerry_value_t obj = jerry_object();
-    js_runner_check_and_free(jerry_object_set_sz(obj, "value", value));
-    jerry_value_t done_val = jerry_boolean(done);
-    js_runner_check_and_free(jerry_object_set_sz(obj, "done", done_val));
-
-    jerry_value_free(value);
-    jerry_value_free(done_val);
-    return obj;
-}
-
 static void resolve_everything_with_done(JsReadableStream* instance, jerry_value_t value) {
     while(!PromiseQueue_empty_p(instance->promise_queue)) {
         jerry_value_t promise;
         PromiseQueue_pop_front(&promise, instance->promise_queue);
 
-        jerry_value_t result = iterator_result(true, jerry_value_copy(value));
+        jerry_value_t result = js_iterator_result(true, jerry_value_copy(value));
         js_runner_check_and_free(jerry_promise_resolve(promise, result));
         jerry_value_free(promise);
         jerry_value_free(result);
@@ -169,7 +156,7 @@ static jerry_value_t iterator_next(
 
         js_fetch_data_sink_ready(instance->parent);
     } else {
-        jerry_value_t result = iterator_result(true, jerry_undefined());
+        jerry_value_t result = js_iterator_result(true, jerry_undefined());
         js_runner_check_and_free(jerry_promise_resolve(promise, result));
         jerry_value_free(result);
         js_runner_run_jobs();
@@ -196,7 +183,7 @@ static jerry_value_t iterator_return(
 
     detach_sink(instance);
 
-    jerry_value_t result = iterator_result(true, value);
+    jerry_value_t result = js_iterator_result(true, value);
     js_runner_check_and_free(jerry_promise_resolve(promise, result));
     jerry_value_free(result);
     js_runner_run_jobs();
@@ -237,8 +224,8 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
             jerry_value_t promise;
             PromiseQueue_pop_front(&promise, instance->promise_queue);
 
-            jerry_value_t result =
-                iterator_result(false, chunk_to_uint8array(event->data.buffer, event->data.size));
+            jerry_value_t result = js_iterator_result(
+                false, chunk_to_uint8array(event->data.buffer, event->data.size));
             js_runner_check_and_free(jerry_promise_resolve(promise, result));
             jerry_value_free(promise);
             jerry_value_free(result);

@@ -68,7 +68,7 @@ static void log_exception(const char* msg, jerry_value_t exception);
 
 void js_runner_check_and_free(jerry_value_t val) {
     if(jerry_value_is_exception(val)) {
-        log_exception("check_and_free:", val);
+        log_exception("check_and_free", val);
     }
     furi_check(!jerry_value_is_exception(val));
     jerry_value_free(val);
