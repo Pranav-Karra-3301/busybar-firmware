@@ -9,12 +9,15 @@ env.Append(
     ],
     SDK_HEADERS=[
         File("api_lock.h"),
+        File("argparse.h"),
         File("color.h"),
         File("crc32_calc.h"),
         File("dsp.h"),
         File("float_tools.h"),
         File("hex.h"),
         File("md5_calc.h"),
+        File("path.h"),
+        File("profiler.h"),
         File("property.h"),
         File("rle_encode.h"),
         File("sha256_calc.h"),
@@ -28,12 +31,15 @@ libenv = env.Clone(FW_LIB_NAME="toolbox")
 libenv.ApplyLibFlags()
 
 sources = [
+    "argparse.c",
     "color.c",
     "crc32_calc.c",
     "dsp.c",
     "float_tools.c",
     "hex.c",
     "md5_calc.c",
+    "path.c",
+    "profiler.c",
     "property.c",
     "rle_encode.c",
     "sha256_calc.c",
