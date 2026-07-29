@@ -228,7 +228,7 @@ static jerry_value_t fetch(
 
     DataEventQueue_init(instance->chunk_queue);
 
-    WITH_APP(app, {
+    WITH_JS_RUNNER_APP(app, {
         app->num_fetch_threads += 1;
         instance->app = app;
         instance->event_queue = app->fetch_event_queue;

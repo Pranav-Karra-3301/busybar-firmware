@@ -1,3 +1,8 @@
+/**
+ * @file js_runner.h
+ *
+ * @brief Javascript app runner
+ */
 #pragma once
 #include <stddef.h>
 #include <furi/core/string.h>
@@ -18,16 +23,24 @@ typedef enum JsRunnerConsoleSeverity {
     JsRunnerConsoleSeverityError,
 } JsRunnerConsoleSeverity;
 
-typedef void (*JsRunnerConsoleWriteCallback)(
+typedef enum JsRunnerConsoleSeparator {
+    JsRunnerConsoleSeparatorNone,
+    JsRunnerConsoleSeparatorSpace,
+    JsRunnerConsoleSeparatorNewline,
+} JsRunnerConsoleSeparator;
+
+typedef void (*JsRunnerConsoleOutCallback)(
     JsRunnerConsoleSeverity severity,
     const char* buf,
     size_t size,
+    JsRunnerConsoleSeparator separator,
     void* context);
 
 /** @brief Run a JS application.
  *
  * This function blocks until the script terminates.
  *
+ * @param instance JsRunner instance. Can be obtained with furi_record_open().
  * @param path entry point script path.
  * @param heap_size JS heap size for the app in bytes.
  * @param console_write_cb callback function for JS console methods (console.log, console.error, console.info). Supply NULL to disable console.
@@ -39,18 +52,5 @@ JsRunnerError js_runner_run(
     JsRunner* instance,
     const char* path,
     size_t heap_size,
-    JsRunnerConsoleWriteCallback console_write_cb,
+    JsRunnerConsoleOutCallback console_write_cb,
     void* console_write_context);
-
-/** @brief Allocate Jerryscript context for current thread. This function is used by jerryscript glue. */
-size_t js_runner_context_alloc(size_t context_size);
-
-/** @brief Free Jerryscript context for current thread. This function is used by jerryscript glue. */
-void js_runner_context_free(void);
-
-/** @brief Get Jerryscript context for current thread. This function is used by jerryscript glue. */
-void* js_runner_context_get(void);
-
-/** @brief Get root path of the current JS app (folder containg entry point).
- * This function is used by jerryscript glue. */
-void js_runner_get_root_path(FuriString* path);
