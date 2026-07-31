@@ -11,7 +11,7 @@ static void interval_callback(void* context) {
             jerry_value_t result =
                 jerry_call(interval_context->callback, jerry_undefined(), NULL, 0);
             if(jerry_value_is_exception(result)) {
-                FuriString* exception_string = js_runner_get_exception_string(result);
+                FuriString* exception_string = js_get_exception_string(result);
 
                 if(exception_string) {
                     if(app->console_callback) {

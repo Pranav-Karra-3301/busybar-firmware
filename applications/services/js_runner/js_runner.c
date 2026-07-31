@@ -71,22 +71,8 @@ void js_runner_check_and_free(jerry_value_t val) {
     jerry_value_free(val);
 }
 
-FuriString* js_runner_get_exception_string(jerry_value_t exception) {
-    jerry_value_t val = jerry_exception_value(exception, false);
-    jerry_value_t str = jerry_value_to_string(val);
-    jerry_size_t string_size = jerry_string_size(str, JERRY_ENCODING_UTF8);
-    char* buf = malloc(string_size + 1);
-    jerry_string_to_buffer(str, JERRY_ENCODING_UTF8, (jerry_char_t*)buf, string_size);
-    FuriString* result = furi_string_alloc();
-    furi_string_set_strn(result, buf, string_size);
-    free(buf);
-    jerry_value_free(str);
-    jerry_value_free(val);
-    return result;
-}
-
 static void log_exception(const char* msg, jerry_value_t exception) {
-    FuriString* exception_string = js_runner_get_exception_string(exception);
+    FuriString* exception_string = js_get_exception_string(exception);
     FURI_LOG_E(TAG, "%s: %s", msg, furi_string_get_cstr(exception_string));
     furi_string_free(exception_string);
 }
@@ -243,6 +229,7 @@ JsRunnerError js_runner_run(
                     if(jerry_value_is_exception(result)) {
                         log_exception("Error running script", result);
                     } else {
+                        js_runner_run_jobs();
                         if(app_has_background_tasks(&app)) {
                             furi_event_loop_run(app.event_loop);
                         }

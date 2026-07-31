@@ -101,7 +101,6 @@ static void resolve_everything_with_done(JsReadableStream* instance, jerry_value
 
 static void resolve_closed_promise(JsReadableStream* instance, const char* error_msg) {
     if(instance->has_closed_promise) {
-        FURI_LOG_D(TAG, "resolve_closed_promise");
         if(error_msg) {
             jerry_value_t error = jerry_throw_sz(JERRY_ERROR_TYPE, error_msg);
             jerry_value_free(jerry_promise_reject(instance->closed_promise, error));
@@ -120,7 +119,6 @@ static void resolve_closed_promise(JsReadableStream* instance, const char* error
 static void free_if_can(JsReadableStream* instance) {
     if(instance->async_iterator_status != ChildStatusRunning &&
        instance->readable_stream_status != ChildStatusRunning) {
-        FURI_LOG_D(TAG, "freeing readable_stream");
         resolve_closed_promise(instance, NULL);
         furi_check(PromiseQueue_empty_p(instance->promise_queue));
         PromiseQueue_clear(instance->promise_queue);
@@ -132,7 +130,6 @@ static void free_if_can(JsReadableStream* instance) {
 static void readable_stream_free_cb(void* native_p, jerry_object_native_info_t* info_p) {
     UNUSED(info_p);
     JsReadableStream* instance = native_p;
-    FURI_LOG_D(TAG, "readable_stream_free_cb");
     instance->readable_stream_status = ChildStatusDone;
     free_if_can(instance);
 }
@@ -143,8 +140,6 @@ static jerry_value_t iterator_next(
     const jerry_length_t args_count) {
     UNUSED(args);
     UNUSED(args_count);
-
-    FURI_LOG_D(TAG, "Next");
 
     JsReadableStream* instance =
         jerry_object_get_native_ptr(call_info->this_value, &async_iterator_native_info);
@@ -171,8 +166,6 @@ static jerry_value_t iterator_return(
     const jerry_length_t args_count) {
     UNUSED(args);
     UNUSED(args_count);
-
-    FURI_LOG_D(TAG, "Return");
 
     JsReadableStream* instance =
         jerry_object_get_native_ptr(call_info->this_value, &async_iterator_native_info);
@@ -216,11 +209,9 @@ static jerry_value_t readable_stream_cancel(
 static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_context) {
     UNUSED(fetch);
     JsReadableStream* instance = callback_context;
-    FURI_LOG_D(TAG, "data_sink_callback");
     if(!PromiseQueue_empty_p(instance->promise_queue)) {
         switch(event->type) {
         case DataEventTypeData: {
-            FURI_LOG_D(TAG, "\tdata chunk consumed");
             jerry_value_t promise;
             PromiseQueue_pop_front(&promise, instance->promise_queue);
 
@@ -232,7 +223,6 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
             break;
         }
         case DataEventTypeDone: {
-            FURI_LOG_D(TAG, "\tdata stream end");
             instance->data_expected = false;
             resolve_closed_promise(instance, NULL);
             detach_sink(instance);
@@ -243,7 +233,6 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
             break;
         }
         case DataEventTypeError: {
-            FURI_LOG_D(TAG, "\tdata error: %s", furi_string_get_cstr(event->error));
             instance->data_expected = false;
 
             resolve_closed_promise(instance, "cancelled");
@@ -268,7 +257,6 @@ static void async_iterator_free_cb(void* native_p, jerry_object_native_info_t* i
     UNUSED(native_p);
     UNUSED(info_p);
     JsReadableStream* instance = native_p;
-    FURI_LOG_D(TAG, "async_iterator_free_cb");
 
     detach_sink(instance);
     resolve_everything_with_done(instance, jerry_undefined());
@@ -284,7 +272,6 @@ static jerry_value_t async_iterator(
     UNUSED(args);
     UNUSED(args_count);
 
-    FURI_LOG_D(TAG, "Get iterator");
     JsReadableStream* instance =
         jerry_object_get_native_ptr(call_info->this_value, &readable_stream_native_info);
 
@@ -319,7 +306,6 @@ static jerry_value_t get_reader(
     UNUSED(args);
     UNUSED(args_count);
 
-    FURI_LOG_D(TAG, "Get reader");
     JsReadableStream* instance =
         jerry_object_get_native_ptr(call_info->this_value, &readable_stream_native_info);
 

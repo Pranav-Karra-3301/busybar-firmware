@@ -2,6 +2,7 @@
 #include "js_readable_stream.h"
 #include "js_fetch_body_methods.h"
 #include "js_headers.h"
+#include "js_request.h"
 #include <fetch/fetch.h>
 
 #define TAG                     "JsFetch"
@@ -9,58 +10,150 @@
 
 #define IS_RUNNING(child) (instance->child.status == ChildStatusRunning)
 
-typedef enum ResourceParseResultTag {
-    ResourceParseResultOk,
-    ResourceParseResultError,
-} ResourceParseResultTag;
+typedef enum RequestParseResultTag {
+    RequestParseResultOk,
+    RequestParseResultError,
+} RequestParseResultTag;
 
-typedef struct ResourceParseResult {
-    ResourceParseResultTag tag;
+typedef struct RequestParseResult {
+    RequestParseResultTag tag;
     union {
         FetchRequest request;
         FuriString* error;
     };
-} ResourceParseResult;
+} RequestParseResult;
 
-static ResourceParseResult parse_resource(jerry_value_t resource) {
-    jerry_value_t str = jerry_value_to_string(resource);
-    jerry_size_t str_size = jerry_string_size(str, JERRY_ENCODING_UTF8);
-    if(str_size == 0) {
-        return (ResourceParseResult){
-            .tag = ResourceParseResultError, .error = furi_string_alloc_set("Not a string")};
+static RequestParseResult parse_request(jerry_value_t obj) {
+    furi_assert(js_is_instance_of(obj, "Request"));
+
+    FetchRequest request = {0};
+    RequestParseResult result;
+
+    do {
+        jerry_value_t url_val = jerry_object_get_sz(obj, "url");
+        if(jerry_value_is_exception(url_val)) {
+            result = (RequestParseResult){
+                .tag = RequestParseResultError,
+                .error = js_get_exception_string(url_val),
+            };
+            break;
+        }
+        request.url = js_string_to_c_string(url_val);
+        jerry_value_free(url_val);
+        if(!request.url) {
+            result = (RequestParseResult){
+                .tag = RequestParseResultError,
+                .error = furi_string_alloc_set("URL is not a string"),
+            };
+            break;
+        }
+        FURI_LOG_D(TAG, "Fetch %s", request.url);
+
+        if(js_object_has_property(obj, "method")) {
+            jerry_value_t method_val = jerry_object_get_sz(obj, "method");
+            request.method = js_string_to_c_string(method_val);
+            jerry_value_free(method_val);
+            if(!request.method) {
+                result = (RequestParseResult){
+                    .tag = RequestParseResultError,
+                    .error = furi_string_alloc_set("Method is not a string"),
+                };
+                break;
+            }
+        }
+
+        if(js_object_has_property(obj, "headers")) {
+            jerry_value_t headers_val = jerry_object_get_sz(obj, "headers");
+            // TODO instance of Headers
+            if(jerry_value_is_object(headers_val)) {
+                jerry_value_t keys = jerry_object_keys(headers_val);
+                size_t num_keys = jerry_array_length(keys);
+                size_t header_idx = 0;
+                for(size_t i = 0; i != num_keys && header_idx != FETCH_HEADERS_COUNT_MAX; ++i) {
+                    jerry_value_t key = jerry_object_get_index(keys, i);
+                    jerry_value_t value = jerry_object_get(headers_val, key);
+                    if(jerry_value_is_string(key)) {
+                        jerry_value_t value_string = jerry_value_to_string(value);
+
+                        request.headers.data[header_idx] = js_string_to_c_string(value_string);
+
+                        jerry_value_free(value_string);
+                        header_idx += 1;
+                    }
+                    jerry_value_free(key);
+                    jerry_value_free(value);
+                }
+                jerry_value_free(keys);
+                request.headers.count = header_idx;
+            } else {
+                result = (RequestParseResult){
+                    .tag = RequestParseResultError,
+                    .error = furi_string_alloc_set("Headers is not an object"),
+                };
+            }
+            jerry_value_free(headers_val);
+        }
+
+        if(js_object_has_property(obj, "body")) {
+            jerry_value_t body_val = jerry_object_get_sz(obj, "body");
+            // TODO handle many different cases
+            jerry_value_t body_str = jerry_value_to_string(body_val);
+            request.body.data = js_string_to_c_string(body_str);
+            request.body.length = strlen(request.body.data);
+            jerry_value_free(body_str);
+            jerry_value_free(body_val);
+            if(!request.body.data) {
+                result = (RequestParseResult){
+                    .tag = RequestParseResultError,
+                    .error = furi_string_alloc_set("Body is not a string"),
+                };
+                break;
+            }
+        }
+        result = (RequestParseResult){
+            .tag = RequestParseResultOk,
+            .request = request,
+        };
+    } while(false);
+
+    if(result.tag == RequestParseResultError) {
+        if(request.url) {
+            free((void*)request.url);
+        }
+        if(request.method) {
+            free((void*)request.method);
+        }
+        for(size_t i = 0; i != request.headers.count; ++i) {
+            free((void*)request.headers.data[i]);
+        }
+        if(request.body.data) {
+            free((void*)request.body.data);
+        }
     }
-
-    char* url = malloc(str_size + 1);
-    jerry_string_to_buffer(str, JERRY_ENCODING_UTF8, (jerry_char_t*)url, str_size + 1);
-    jerry_value_free(str);
-
-    FURI_LOG_D(TAG, "Fetch %s", url);
-
-    FetchRequest request = {
-        .url = url,
-        .method = "GET",
-        .body.length = 0,
-        .headers.count = 0,
-    };
-
-    return (ResourceParseResult){
-        .tag = ResourceParseResultOk,
-        .request = request,
-    };
+    return result;
 }
 
 static jerry_value_t rejected_promise(const char* msg) {
     jerry_value_t ret = jerry_promise();
     jerry_value_t msg_val = jerry_string_sz(msg);
+    // jerry_value_t msg_val = jerry_throw_sz(JERRY_ERROR_TYPE, msg);
     jerry_value_t is_ok = jerry_promise_reject(ret, msg_val);
     jerry_value_free(is_ok);
     jerry_value_free(msg_val);
     return ret;
 }
 
+static jerry_value_t rejected_promise_from_exception(jerry_value_t exception) {
+    jerry_value_t val = jerry_exception_value(exception, false);
+    jerry_value_t ret = jerry_promise();
+    jerry_value_free(jerry_promise_reject(ret, val));
+    jerry_value_free(val);
+    jerry_value_free(exception);
+    return ret;
+}
+
 static void fetch_headers_callback(const void* data, size_t data_size, void* ctx) {
     JsFetch* context = ctx;
-    FURI_LOG_D(TAG, "Headers");
     char* buf = malloc(data_size);
     memcpy(buf, data, data_size);
     FetchEvent msg = {
@@ -77,7 +170,6 @@ static void fetch_headers_callback(const void* data, size_t data_size, void* ctx
 
 static void fetch_error_callback(const char* error, void* ctx) {
     JsFetch* context = ctx;
-    FURI_LOG_D(TAG, "Error: %s", error);
     FetchEvent msg = {
         .type = FetchEventTypeError,
         .instance = context,
@@ -91,7 +183,6 @@ static void fetch_error_callback(const char* error, void* ctx) {
 
 static void fetch_rx_data_callback(const void* data, size_t data_size, void* ctx) {
     JsFetch* context = ctx;
-    FURI_LOG_D(TAG, "Rx data: %zu", data_size);
     char* buf = malloc(data_size);
     memcpy(buf, data, data_size);
     FetchEvent msg = {
@@ -106,14 +197,8 @@ static void fetch_rx_data_callback(const void* data, size_t data_size, void* ctx
     furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
 }
 
-// static void fetch_progress_callback(const FetchProgress* progress, void* context) {
-//     UNUSED(context);
-//     FURI_LOG_D(TAG, "progress: %zu/%zu", progress->received_download_size, progress->total_download_size);
-// }
-
 static int32_t fetch_thread_callback(void* ctx) {
     JsFetch* context = ctx;
-    FURI_LOG_D(TAG, "Fetch thread start");
     Fetch* fetch = fetch_alloc();
     context->fetch.fetch = fetch;
     fetch_set_callback_context(fetch, context);
@@ -122,7 +207,6 @@ static int32_t fetch_thread_callback(void* ctx) {
     fetch_set_rx_data_callback(fetch, fetch_rx_data_callback);
     FetchStatus status = fetch_run(fetch, &context->request);
     if(status == FetchStatusOk) {
-        FURI_LOG_D(TAG, "fetch succeeded");
         FetchEvent msg = {
             .type = FetchEventTypeDone,
             .instance = context,
@@ -130,11 +214,9 @@ static int32_t fetch_thread_callback(void* ctx) {
         furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
     } else {
         // aborted
-        FURI_LOG_D(TAG, "fetch aborted: %d", status);
     }
     fetch_free(fetch);
 
-    FURI_LOG_D(TAG, "fetch done");
     {
         FetchEvent msg = {
             .type = FetchEventTypeThreadExit,
@@ -165,7 +247,6 @@ static void empty_event_queue(JsFetch* instance) {
 static bool free_if_not_running(JsFetch* instance) {
     if(!IS_RUNNING(sink) && !IS_RUNNING(fetch) && !IS_RUNNING(response) && !IS_RUNNING(promise) &&
        !instance->sink.feeding) {
-        FURI_LOG_D(TAG, "Deleting");
         empty_event_queue(instance);
         DataEventQueue_clear(instance->chunk_queue);
         free(instance);
@@ -179,7 +260,6 @@ static void feed_data_sink(JsFetch* instance);
 
 static void promise_free_cb(void* native_p, jerry_object_native_info_t* info_p) {
     UNUSED(info_p);
-    FURI_LOG_D(TAG, "promise free");
     JsFetch* instance = native_p;
     instance->promise.status = ChildStatusDone;
     free_if_not_running(instance);
@@ -187,7 +267,6 @@ static void promise_free_cb(void* native_p, jerry_object_native_info_t* info_p) 
 
 static void response_free_cb(void* native_p, jerry_object_native_info_t* info_p) {
     UNUSED(info_p);
-    FURI_LOG_D(TAG, "response free");
     JsFetch* instance = native_p;
     instance->response.status = ChildStatusDone;
     free_if_not_running(instance);
@@ -206,15 +285,28 @@ static jerry_value_t fetch(
     if(args_count == 0) {
         return rejected_promise("At least 1 argument required, but only 0 passed");
     }
-    ResourceParseResult resource_res = parse_resource(args[0]);
-    if(resource_res.tag == ResourceParseResultError) {
-        jerry_value_t result = rejected_promise(furi_string_get_cstr(resource_res.error));
-        furi_string_free(resource_res.error);
-        return result;
+    jerry_value_t url = JS_ARG(0);
+    jerry_value_t init = JS_ARG(1);
+
+    jerry_value_t request = jerry_object();
+    jerry_value_t request_init_result = js_request_init(request, url, init);
+    if(jerry_value_is_exception(request_init_result)) {
+        jerry_value_free(request);
+        return rejected_promise_from_exception(request_init_result);
+    }
+    jerry_value_free(request_init_result);
+
+    RequestParseResult request_res = parse_request(request);
+    jerry_value_free(request);
+
+    if(request_res.tag == RequestParseResultError) {
+        jerry_value_t ret = rejected_promise(furi_string_get_cstr(request_res.error));
+        furi_string_free(request_res.error);
+        return ret;
     }
 
     JsFetch* instance = malloc(sizeof(JsFetch));
-    instance->request = resource_res.request;
+    instance->request = request_res.request;
 
     instance->promise.promise = jerry_promise();
     instance->promise.status = ChildStatusRunning;
@@ -340,7 +432,6 @@ static void feed_data_sink(JsFetch* instance) {
 static void process_rx_data(JsFetch* instance, void* data, size_t size) {
     if(instance->promise.status != ChildStatusDone ||
        instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
-        FURI_LOG_D(TAG, "push data %zu", size);
         DataEventQueue_push_back(
             instance->chunk_queue,
             (DataEvent){
@@ -384,14 +475,6 @@ static void process_thread_exit(JsFetch* instance) {
 
 void js_fetch_process_event(const FetchEvent* event) {
     JsFetch* instance = event->instance;
-    FURI_LOG_D(
-        TAG,
-        "process event: event=%d fetch.status=%d, sink.status=%d, promise.status=%d, response.status=%d",
-        event->type,
-        instance->fetch.status,
-        instance->sink.status,
-        instance->promise.status,
-        instance->response.status);
     switch(event->type) {
     case FetchEventTypeHeaders:
         process_headers(instance, event->data.buf, event->data.size);
@@ -416,7 +499,6 @@ bool js_fetch_set_data_sink(
     void* callback_context,
     JsFetchDataSinkCallback callback) {
     if(instance->sink.status == ChildStatusNotYet && callback) {
-        FURI_LOG_D(TAG, "data sink set");
         instance->sink.on_event = callback;
         instance->sink.context = callback_context;
         instance->sink.feeding = false;
@@ -426,7 +508,6 @@ bool js_fetch_set_data_sink(
         return true;
     } else if(instance->sink.status == ChildStatusRunning && !callback) {
         // Data sink expired and won't accept any more packets
-        FURI_LOG_D(TAG, "data sink expired");
         instance->sink.on_event = NULL;
         instance->sink.context = NULL;
         instance->sink.status = ChildStatusDone;
@@ -453,11 +534,9 @@ bool js_fetch_cancel(JsFetch* instance) {
 }
 
 void js_runner_setup_fetch(void) {
+    js_runner_setup_request();
+
     jerry_value_t global_obj = jerry_current_realm();
-    jerry_value_t fetch_fn = jerry_function_external(fetch);
-
-    js_runner_check_and_free(jerry_object_set_sz(global_obj, "fetch", fetch_fn));
-
-    jerry_value_free(fetch_fn);
+    js_set_method(global_obj, "fetch", fetch);
     jerry_value_free(global_obj);
 }

@@ -92,7 +92,7 @@ typedef struct JsRunner {
     AppDict_t apps;
 } JsRunner;
 
-#define WITH_JS_RUNNER_APP(APP, BLOCK)                                               \
+#define WITH_JS_RUNNER_APP(APP, BLOCK)                                     \
     do {                                                                   \
         JsRunner* __instance = furi_record_open(RECORD_JS_RUNNER);         \
         furi_mutex_acquire(__instance->apps_mutex, FuriWaitForever);       \
@@ -132,13 +132,20 @@ void js_runner_get_root_path(FuriString* path);
 
 void js_runner_setup_fetch(void);
 
+void js_runner_setup_request(void);
+
 void js_set_property(jerry_value_t object, const char* name, jerry_value_t property);
 void js_set_method(jerry_value_t object, const char* name, jerry_external_handler_t handler);
+bool js_object_has_property(jerry_value_t object, const char* key);
 jerry_value_t js_iterator_result(bool done, jerry_value_t value);
+char* js_string_to_c_string(jerry_value_t value);
+FuriString* js_string_to_furi_string(jerry_value_t value);
+void js_copy_property(jerry_value_t dst, jerry_value_t src, const char* key);
+bool js_is_instance_of(jerry_value_t obj, const char* constructor_name);
 
 /** @brief Create a string out of a JS exception.
  *
  * @param exception JS exception. This value is not freed.
  * @return exception string or NULL if conversion failed.
  */
-FuriString* js_runner_get_exception_string(jerry_value_t exception);
+FuriString* js_get_exception_string(jerry_value_t exception);

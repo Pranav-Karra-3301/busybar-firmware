@@ -190,7 +190,8 @@ static bool bytes_body_collected(BodyMethod* instance) {
 }
 
 static bool json_body_collected(BodyMethod* instance) {
-    jerry_value_t json = jerry_json_parse(ByteArray_cget(*instance->body, 0), ByteArray_size(*instance->body));
+    jerry_value_t json =
+        jerry_json_parse(ByteArray_cget(*instance->body, 0), ByteArray_size(*instance->body));
     if(jerry_value_is_exception(json)) {
         jerry_value_free(jerry_promise_reject(instance->promise, json));
     } else {
