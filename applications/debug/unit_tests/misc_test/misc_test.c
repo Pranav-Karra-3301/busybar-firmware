@@ -82,9 +82,9 @@ MU_TEST(misc_tests_http_headers) {
                           "Server: nginx/1.18.0\r\n"
                           "Date: Tue, 28 Jul 2026 13:17:26 GMT\r\n"
                           "Content-Type: text/html\r\n"
-                          "Content-Length: 4592\r\n"
-                          "Last-Modified: Tue, 09 Apr 2024 06:23:39 GMT\r\n"
-                          "Connection: close\r\n"
+                          "Content-Length: 4592  \r\n"
+                          "Last-Modified:    Tue, 09 Apr 2024 06:23:39 GMT\r\n"
+                          "Connection:  close \r\n"
                           "Accept-Ranges: bytes\r\n"
                           "\r\n";
 
