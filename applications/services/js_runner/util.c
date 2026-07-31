@@ -81,3 +81,22 @@ bool js_object_has_property(jerry_value_t object, const char* key) {
     jerry_value_free(has);
     return result;
 }
+
+jerry_value_t js_rejected_promise(const char* msg) {
+    jerry_value_t ret = jerry_promise();
+    jerry_value_t msg_val = jerry_string_sz(msg);
+    // jerry_value_t msg_val = jerry_throw_sz(JERRY_ERROR_TYPE, msg);
+    jerry_value_t is_ok = jerry_promise_reject(ret, msg_val);
+    jerry_value_free(is_ok);
+    jerry_value_free(msg_val);
+    return ret;
+}
+
+jerry_value_t js_rejected_promise_from_exception(jerry_value_t exception) {
+    jerry_value_t val = jerry_exception_value(exception, false);
+    jerry_value_t ret = jerry_promise();
+    jerry_value_free(jerry_promise_reject(ret, val));
+    jerry_value_free(val);
+    jerry_value_free(exception);
+    return ret;
+}

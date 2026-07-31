@@ -97,14 +97,10 @@ static jerry_value_t run_js_method(JsFetch* parent, BodyCollectedCallback on_bod
     ByteArray_init(*instance->body);
     instance->on_body_collected = on_body_collected;
     if(!js_fetch_set_data_sink(parent, instance, data_sink_callback)) {
-        jerry_value_t promise = instance->promise;
         ByteArray_clear(*instance->body);
         free(instance->body);
         free(instance);
-        jerry_value_t error = jerry_throw_sz(JERRY_ERROR_TYPE, "Body is already in use");
-        jerry_value_free(jerry_promise_reject(promise, error));
-        jerry_value_free(error);
-        return promise;
+        return js_rejected_promise("Body is already in use");
     } else {
         jerry_object_set_native_ptr(instance->promise, &promise_native_info, instance);
         js_fetch_data_sink_ready(parent);

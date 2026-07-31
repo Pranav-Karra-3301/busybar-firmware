@@ -142,6 +142,8 @@ char* js_string_to_c_string(jerry_value_t value);
 FuriString* js_string_to_furi_string(jerry_value_t value);
 void js_copy_property(jerry_value_t dst, jerry_value_t src, const char* key);
 bool js_is_instance_of(jerry_value_t obj, const char* constructor_name);
+jerry_value_t js_rejected_promise(const char* msg);
+jerry_value_t js_rejected_promise_from_exception(jerry_value_t exception);
 
 /** @brief Create a string out of a JS exception.
  *

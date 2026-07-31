@@ -133,25 +133,6 @@ static RequestParseResult parse_request(jerry_value_t obj) {
     return result;
 }
 
-static jerry_value_t rejected_promise(const char* msg) {
-    jerry_value_t ret = jerry_promise();
-    jerry_value_t msg_val = jerry_string_sz(msg);
-    // jerry_value_t msg_val = jerry_throw_sz(JERRY_ERROR_TYPE, msg);
-    jerry_value_t is_ok = jerry_promise_reject(ret, msg_val);
-    jerry_value_free(is_ok);
-    jerry_value_free(msg_val);
-    return ret;
-}
-
-static jerry_value_t rejected_promise_from_exception(jerry_value_t exception) {
-    jerry_value_t val = jerry_exception_value(exception, false);
-    jerry_value_t ret = jerry_promise();
-    jerry_value_free(jerry_promise_reject(ret, val));
-    jerry_value_free(val);
-    jerry_value_free(exception);
-    return ret;
-}
-
 static void fetch_headers_callback(const void* data, size_t data_size, void* ctx) {
     JsFetch* context = ctx;
     char* buf = malloc(data_size);
@@ -283,7 +264,7 @@ static jerry_value_t fetch(
     UNUSED(args);
 
     if(args_count == 0) {
-        return rejected_promise("At least 1 argument required, but only 0 passed");
+        return js_rejected_promise("At least 1 argument required, but only 0 passed");
     }
     jerry_value_t url = JS_ARG(0);
     jerry_value_t init = JS_ARG(1);
@@ -292,7 +273,7 @@ static jerry_value_t fetch(
     jerry_value_t request_init_result = js_request_init(request, url, init);
     if(jerry_value_is_exception(request_init_result)) {
         jerry_value_free(request);
-        return rejected_promise_from_exception(request_init_result);
+        return js_rejected_promise_from_exception(request_init_result);
     }
     jerry_value_free(request_init_result);
 
@@ -300,7 +281,7 @@ static jerry_value_t fetch(
     jerry_value_free(request);
 
     if(request_res.tag == RequestParseResultError) {
-        jerry_value_t ret = rejected_promise(furi_string_get_cstr(request_res.error));
+        jerry_value_t ret = js_rejected_promise(furi_string_get_cstr(request_res.error));
         furi_string_free(request_res.error);
         return ret;
     }
