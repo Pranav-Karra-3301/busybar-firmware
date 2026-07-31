@@ -135,7 +135,7 @@ static void process_error(BodyMethod* instance, FuriString* msg) {
     jerry_value_free(exception);
     furi_string_free(msg);
     free(instance);
-    js_runner_run_jobs();
+    js_run_jobs();
 }
 
 static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_context) {
@@ -158,10 +158,10 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
 static bool array_buffer_body_collected(BodyMethod* instance) {
     jerry_value_t array_buffer = jerry_arraybuffer_external(
         ByteArray_get(*instance->body, 0), ByteArray_size(*instance->body), instance->body);
-    js_runner_check_and_free(jerry_promise_resolve(instance->promise, array_buffer));
+    js_check_and_free(jerry_promise_resolve(instance->promise, array_buffer));
     jerry_value_free(instance->promise);
     jerry_value_free(array_buffer);
-    js_runner_run_jobs();
+    js_run_jobs();
     return true;
 }
 
@@ -169,7 +169,7 @@ static bool blob_body_collected(BodyMethod* instance) {
     jerry_value_t exception = jerry_throw_sz(JERRY_ERROR_TYPE, "unimplemented");
     jerry_value_free(jerry_promise_reject(instance->promise, exception));
     jerry_value_free(instance->promise);
-    js_runner_run_jobs();
+    js_run_jobs();
     return false;
 }
 
@@ -178,11 +178,11 @@ static bool bytes_body_collected(BodyMethod* instance) {
         ByteArray_get(*instance->body, 0), ByteArray_size(*instance->body), instance->body);
     jerry_value_t bytes = jerry_typedarray_with_buffer(JERRY_TYPEDARRAY_UINT8, array_buffer);
 
-    js_runner_check_and_free(jerry_promise_resolve(instance->promise, array_buffer));
+    js_check_and_free(jerry_promise_resolve(instance->promise, array_buffer));
     jerry_value_free(instance->promise);
     jerry_value_free(array_buffer);
     jerry_value_free(bytes);
-    js_runner_run_jobs();
+    js_run_jobs();
     return true;
 }
 
@@ -196,7 +196,7 @@ static bool json_body_collected(BodyMethod* instance) {
     }
     jerry_value_free(json);
     jerry_value_free(instance->promise);
-    js_runner_run_jobs();
+    js_run_jobs();
     return true;
 }
 
@@ -204,16 +204,16 @@ static bool form_data_body_collected(BodyMethod* instance) {
     jerry_value_t exception = jerry_throw_sz(JERRY_ERROR_TYPE, "unimplemented");
     jerry_value_free(jerry_promise_reject(instance->promise, exception));
     jerry_value_free(instance->promise);
-    js_runner_run_jobs();
+    js_run_jobs();
     return false;
 }
 
 static bool text_body_collected(BodyMethod* instance) {
     jerry_value_t string = jerry_string_external(
         ByteArray_get(*instance->body, 0), ByteArray_size(*instance->body), instance->body);
-    js_runner_check_and_free(jerry_promise_resolve(instance->promise, string));
+    js_check_and_free(jerry_promise_resolve(instance->promise, string));
     jerry_value_free(instance->promise);
     jerry_value_free(string);
-    js_runner_run_jobs();
+    js_run_jobs();
     return true;
 }

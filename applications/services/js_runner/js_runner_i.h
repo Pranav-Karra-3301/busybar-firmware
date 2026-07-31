@@ -110,12 +110,12 @@ typedef struct JsRunner {
 
 #define JS_ARG(n) (args_count > (n) ? args[(n)] : jerry_undefined())
 
-void js_runner_check_and_free(jerry_value_t val);
+void js_check_and_free(jerry_value_t val);
 void js_runner_check_event_loop(JsRunnerApp* app);
-void js_runner_run_jobs(void);
+void js_run_jobs(void);
 
-void js_runner_setup_interval_methods(void);
-void js_runner_setup_console(JsRunnerApp* app);
+void js_setup_interval_methods(void);
+void js_setup_console(JsRunnerApp* app);
 
 /** @brief Allocate Jerryscript context for current thread. This function is used by jerryscript glue. */
 size_t js_runner_context_alloc(size_t context_size);
@@ -130,9 +130,9 @@ void* js_runner_context_get(void);
  * This function is used by jerryscript glue. */
 void js_runner_get_root_path(FuriString* path);
 
-void js_runner_setup_fetch(void);
+void js_setup_fetch(void);
 
-void js_runner_setup_request(void);
+void js_setup_request(void);
 
 void js_set_property(jerry_value_t object, const char* name, jerry_value_t property);
 void js_set_method(jerry_value_t object, const char* name, jerry_external_handler_t handler);

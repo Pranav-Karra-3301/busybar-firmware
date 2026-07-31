@@ -48,7 +48,7 @@ void js_runner_check_event_loop(JsRunnerApp* app) {
     }
 }
 
-void js_runner_run_jobs(void) {
+void js_run_jobs(void) {
     bool run = true;
     while(run) {
         jerry_value_t jobs_result = jerry_run_jobs();
@@ -65,7 +65,7 @@ void js_runner_run_jobs(void) {
 
 static void log_exception(const char* msg, jerry_value_t exception);
 
-void js_runner_check_and_free(jerry_value_t val) {
+void js_check_and_free(jerry_value_t val) {
     furi_check(!jerry_value_is_exception(val));
     jerry_value_free(val);
 }
@@ -82,7 +82,7 @@ static void fetch_event_queue_callback(FuriEventLoopObject* object, void* contex
     FetchEvent event;
     furi_check(furi_message_queue_get(app->fetch_event_queue, &event, 0) == FuriStatusOk);
     js_fetch_process_event(&event);
-    js_runner_run_jobs();
+    js_run_jobs();
 }
 
 static void js_runner_app_init(
@@ -191,9 +191,9 @@ JsRunnerError js_runner_run(
             jerry_object_set_native_ptr(global_obj, &global_native_info, instance);
             jerry_value_free(global_obj);
         }
-        js_runner_setup_console(&app);
-        js_runner_setup_interval_methods();
-        js_runner_setup_fetch();
+        js_setup_console(&app);
+        js_setup_interval_methods();
+        js_setup_fetch();
 
         FuriString* path_furi = furi_string_alloc_set_str(path);
         FuriString* filename_furi = furi_string_alloc();
@@ -224,7 +224,7 @@ JsRunnerError js_runner_run(
                     if(jerry_value_is_exception(result)) {
                         log_exception("Error running script", result);
                     } else {
-                        js_runner_run_jobs();
+                        js_run_jobs();
                         if(app_has_background_tasks(&app)) {
                             furi_event_loop_run(app.event_loop);
                         }

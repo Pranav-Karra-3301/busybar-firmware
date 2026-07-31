@@ -53,7 +53,7 @@ static jerry_value_t request_constructor(
     return js_request_init(call_info->this_value, url, init);
 }
 
-void js_runner_setup_request(void) {
+void js_setup_request(void) {
     jerry_value_t global_obj = jerry_current_realm();
 
     jerry_value_t constructor = jerry_function_external(request_constructor);

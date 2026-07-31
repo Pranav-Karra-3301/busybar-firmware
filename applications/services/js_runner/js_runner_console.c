@@ -64,17 +64,17 @@ static void add_logging_method(
     jerry_value_t fn = jerry_function_external(console_log);
     jerry_object_set_native_ptr(fn, &console_native_info, fn_context);
 
-    js_runner_check_and_free(jerry_object_set_sz(console_obj, name, fn));
+    js_check_and_free(jerry_object_set_sz(console_obj, name, fn));
     jerry_value_free(fn);
 }
 
-void js_runner_setup_console(JsRunnerApp* app) {
+void js_setup_console(JsRunnerApp* app) {
     JsRunnerConsoleOutCallback console_callback = app->console_callback;
     void* console_write_context = app->console_callback_context;
     jerry_value_t global_obj = jerry_current_realm();
 
     jerry_value_t console_obj = jerry_object();
-    js_runner_check_and_free(jerry_object_set_sz(global_obj, "console", console_obj));
+    js_check_and_free(jerry_object_set_sz(global_obj, "console", console_obj));
 
     add_logging_method(
         console_obj, "log", JsRunnerConsoleSeverityLog, console_callback, console_write_context);

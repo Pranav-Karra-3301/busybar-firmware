@@ -57,20 +57,20 @@ jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
     {
         jerry_value_t async_iterator_fn = jerry_function_external(async_iterator);
         jerry_value_t async_iterator_sym = jerry_symbol(JERRY_SYMBOL_ASYNC_ITERATOR);
-        js_runner_check_and_free(jerry_object_set(rs, async_iterator_sym, async_iterator_fn));
+        js_check_and_free(jerry_object_set(rs, async_iterator_sym, async_iterator_fn));
         jerry_value_free(async_iterator_fn);
         jerry_value_free(async_iterator_sym);
     }
 
     {
         jerry_value_t cancel_fn = jerry_function_external(readable_stream_cancel);
-        js_runner_check_and_free(jerry_object_set_sz(rs, "cancel", cancel_fn));
+        js_check_and_free(jerry_object_set_sz(rs, "cancel", cancel_fn));
         jerry_value_free(cancel_fn);
     }
 
     {
         jerry_value_t get_reader_fn = jerry_function_external(get_reader);
-        js_runner_check_and_free(jerry_object_set_sz(rs, "getReader", get_reader_fn));
+        js_check_and_free(jerry_object_set_sz(rs, "getReader", get_reader_fn));
         jerry_value_free(get_reader_fn);
     }
 
@@ -92,7 +92,7 @@ static void resolve_everything_with_done(JsReadableStream* instance, jerry_value
         PromiseQueue_pop_front(&promise, instance->promise_queue);
 
         jerry_value_t result = js_iterator_result(true, jerry_value_copy(value));
-        js_runner_check_and_free(jerry_promise_resolve(promise, result));
+        js_check_and_free(jerry_promise_resolve(promise, result));
         jerry_value_free(promise);
         jerry_value_free(result);
     }
@@ -112,7 +112,7 @@ static void resolve_closed_promise(JsReadableStream* instance, const char* error
         }
         jerry_value_free(instance->closed_promise);
         instance->has_closed_promise = false;
-        js_runner_run_jobs();
+        js_run_jobs();
     }
 }
 
@@ -152,9 +152,9 @@ static jerry_value_t iterator_next(
         js_fetch_data_sink_ready(instance->parent);
     } else {
         jerry_value_t result = js_iterator_result(true, jerry_undefined());
-        js_runner_check_and_free(jerry_promise_resolve(promise, result));
+        js_check_and_free(jerry_promise_resolve(promise, result));
         jerry_value_free(result);
-        js_runner_run_jobs();
+        js_run_jobs();
     }
 
     return promise;
@@ -177,9 +177,9 @@ static jerry_value_t iterator_return(
     detach_sink(instance);
 
     jerry_value_t result = js_iterator_result(true, value);
-    js_runner_check_and_free(jerry_promise_resolve(promise, result));
+    js_check_and_free(jerry_promise_resolve(promise, result));
     jerry_value_free(result);
-    js_runner_run_jobs();
+    js_run_jobs();
 
     return promise;
 }
@@ -197,7 +197,7 @@ static jerry_value_t readable_stream_cancel(
     if(js_fetch_cancel(instance->parent)) {
         jerry_value_t promise = jerry_promise();
         jerry_value_t result = jerry_undefined();
-        js_runner_check_and_free(jerry_promise_resolve(promise, result));
+        js_check_and_free(jerry_promise_resolve(promise, result));
         jerry_value_free(result);
 
         return promise;
@@ -217,7 +217,7 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
 
             jerry_value_t result = js_iterator_result(
                 false, chunk_to_uint8array(event->data.buffer, event->data.size));
-            js_runner_check_and_free(jerry_promise_resolve(promise, result));
+            js_check_and_free(jerry_promise_resolve(promise, result));
             jerry_value_free(promise);
             jerry_value_free(result);
             break;
@@ -228,7 +228,7 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
             detach_sink(instance);
 
             resolve_everything_with_done(instance, jerry_undefined());
-            js_runner_run_jobs();
+            js_run_jobs();
 
             break;
         }
@@ -242,11 +242,11 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
                 instance, jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(event->error)));
 
             furi_string_free(event->error);
-            js_runner_run_jobs();
+            js_run_jobs();
             break;
         }
         }
-        js_runner_run_jobs();
+        js_run_jobs();
         return true;
     } else {
         return false;
@@ -260,7 +260,7 @@ static void async_iterator_free_cb(void* native_p, jerry_object_native_info_t* i
 
     detach_sink(instance);
     resolve_everything_with_done(instance, jerry_undefined());
-    js_runner_run_jobs();
+    js_run_jobs();
     instance->async_iterator_status = ChildStatusDone;
     free_if_can(instance);
 }
@@ -286,12 +286,12 @@ static jerry_value_t async_iterator(
     jerry_object_set_native_ptr(iter, &async_iterator_native_info, instance);
 
     jerry_value_t next_fn = jerry_function_external(iterator_next);
-    js_runner_check_and_free(jerry_object_set_sz(iter, "next", next_fn));
+    js_check_and_free(jerry_object_set_sz(iter, "next", next_fn));
     jerry_value_free(next_fn);
 
     jerry_value_t return_fn = jerry_function_external(iterator_return);
-    js_runner_check_and_free(jerry_object_set_sz(iter, "return", return_fn));
-    js_runner_check_and_free(jerry_object_set_sz(iter, "throw", return_fn));
+    js_check_and_free(jerry_object_set_sz(iter, "return", return_fn));
+    js_check_and_free(jerry_object_set_sz(iter, "throw", return_fn));
     jerry_value_free(return_fn);
 
     instance->async_iterator_status = ChildStatusRunning;
@@ -322,14 +322,14 @@ static jerry_value_t get_reader(
     {
         // .read() is the same as iterator's .next()
         jerry_value_t next_fn = jerry_function_external(iterator_next);
-        js_runner_check_and_free(jerry_object_set_sz(reader, "read", next_fn));
+        js_check_and_free(jerry_object_set_sz(reader, "read", next_fn));
         jerry_value_free(next_fn);
     }
 
     {
         // .cancel() is the same as iterator's .return()
         jerry_value_t return_fn = jerry_function_external(iterator_return);
-        js_runner_check_and_free(jerry_object_set_sz(reader, "cancel", return_fn));
+        js_check_and_free(jerry_object_set_sz(reader, "cancel", return_fn));
         jerry_value_free(return_fn);
     }
 
@@ -337,7 +337,7 @@ static jerry_value_t get_reader(
         // .closed promise
         instance->has_closed_promise = true;
         instance->closed_promise = jerry_promise();
-        js_runner_check_and_free(jerry_object_set_sz(reader, "closed", instance->closed_promise));
+        js_check_and_free(jerry_object_set_sz(reader, "closed", instance->closed_promise));
     }
 
     instance->async_iterator_status = ChildStatusRunning;

@@ -45,7 +45,7 @@ static void interval_callback(void* context) {
             FURI_LOG_E(TAG, "Dead interval timer with id = %lu", timer_id);
         }
 
-        js_runner_run_jobs();
+        js_run_jobs();
 
         interval_context = IntervalDict_cget(app->intervals, timer_id);
         if(interval_context && interval_context->once) {
@@ -137,17 +137,17 @@ static jerry_value_t clear_interval(
     return jerry_undefined();
 }
 
-void js_runner_setup_interval_methods(void) {
+void js_setup_interval_methods(void) {
     jerry_value_t global_obj = jerry_current_realm();
 
     jerry_value_t set_interval_fn = jerry_function_external(set_interval);
     jerry_value_t set_timeout_fn = jerry_function_external(set_timeout);
     jerry_value_t clear_interval_fn = jerry_function_external(clear_interval);
 
-    js_runner_check_and_free(jerry_object_set_sz(global_obj, "setInterval", set_interval_fn));
-    js_runner_check_and_free(jerry_object_set_sz(global_obj, "setTimeout", set_timeout_fn));
-    js_runner_check_and_free(jerry_object_set_sz(global_obj, "clearInterval", clear_interval_fn));
-    js_runner_check_and_free(jerry_object_set_sz(global_obj, "clearTimeout", clear_interval_fn));
+    js_check_and_free(jerry_object_set_sz(global_obj, "setInterval", set_interval_fn));
+    js_check_and_free(jerry_object_set_sz(global_obj, "setTimeout", set_timeout_fn));
+    js_check_and_free(jerry_object_set_sz(global_obj, "clearInterval", clear_interval_fn));
+    js_check_and_free(jerry_object_set_sz(global_obj, "clearTimeout", clear_interval_fn));
 
     jerry_value_free(set_interval_fn);
     jerry_value_free(set_timeout_fn);

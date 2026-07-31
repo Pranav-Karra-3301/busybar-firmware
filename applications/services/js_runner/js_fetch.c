@@ -364,7 +364,7 @@ static void process_headers(JsFetch* instance, const void* data, size_t size) {
         jerry_value_t response = create_response(instance, data, size);
         furi_check(!jerry_value_is_exception(response));
         furi_check(jerry_value_is_promise(promise));
-        js_runner_check_and_free(jerry_promise_resolve(promise, response));
+        js_check_and_free(jerry_promise_resolve(promise, response));
         jerry_value_free(response);
         jerry_value_free(promise);
     } else {
@@ -527,8 +527,8 @@ bool js_fetch_cancel(JsFetch* instance) {
     return true;
 }
 
-void js_runner_setup_fetch(void) {
-    js_runner_setup_request();
+void js_setup_fetch(void) {
+    js_setup_request();
 
     jerry_value_t global_obj = jerry_current_realm();
     js_set_method(global_obj, "fetch", fetch);

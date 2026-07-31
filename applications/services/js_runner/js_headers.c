@@ -108,7 +108,7 @@ jerry_value_t headers_iterator_method(
     {
         jerry_value_t iterator_fn = jerry_function_external(headers_iter_iterator);
         jerry_value_t iterator_sym = jerry_symbol(JERRY_SYMBOL_ITERATOR);
-        js_runner_check_and_free(jerry_object_set(iter, iterator_sym, iterator_fn));
+        js_check_and_free(jerry_object_set(iter, iterator_sym, iterator_fn));
         jerry_value_free(iterator_fn);
         jerry_value_free(iterator_sym);
     }
