@@ -49,7 +49,6 @@ void js_runner_check_event_loop(JsRunnerApp* app) {
 }
 
 void js_runner_run_jobs(void) {
-    FURI_LOG_D(TAG, "run jobs");
     bool run = true;
     while(run) {
         jerry_value_t jobs_result = jerry_run_jobs();
@@ -130,12 +129,10 @@ static void arraybuffer_free_callback(
     UNUSED(buffer_size);
     UNUSED(user_p);
     if(arraybuffer_user_p) {
-        FURI_LOG_D(TAG, "Free arraybuffer: ByteArray");
         ByteArray_t* array = arraybuffer_user_p;
         ByteArray_clear(*array);
         free(array);
     } else {
-        FURI_LOG_D(TAG, "Free arraybuffer: heap");
         free(buffer_p);
     }
 }
@@ -144,12 +141,10 @@ static void
     external_string_free_callback(jerry_char_t* string_p, jerry_size_t string_size, void* user_p) {
     UNUSED(string_size);
     if(user_p) {
-        FURI_LOG_D(TAG, "Free external string: ByteArray");
         ByteArray_t* array = user_p;
         ByteArray_clear(*array);
         free(array);
     } else {
-        FURI_LOG_D(TAG, "Free external string: heap");
         free(string_p);
     }
 }
