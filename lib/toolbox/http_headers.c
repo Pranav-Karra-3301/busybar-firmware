@@ -116,8 +116,8 @@ static ssize_t parse_status_line(HttpHeaders* headers, const char* data, size_t 
     status_code[3] = 0;
     headers->status = atoi(status_code);
     i += 4;
-    const char* cr = strchr(data + i, '\r');
-    if(!cr || cr[1] != '\n') {
+    const char* cr = memchr(data + i, '\r', size - i);
+    if(!cr || (size_t)(cr - data + 1) >= size || cr[1] != '\n') {
         return -1;
     }
     size_t reason_phrase_len = cr - data - i;

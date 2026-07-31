@@ -112,6 +112,7 @@ static void process_data(BodyMethod* instance, void* buffer, size_t size) {
     size_t old_size = ByteArray_size(*instance->body);
     ByteArray_resize(*instance->body, old_size + size);
     memcpy(ByteArray_get(*instance->body, old_size), buffer, size);
+    free(buffer);
 }
 
 static void process_done(BodyMethod* instance) {

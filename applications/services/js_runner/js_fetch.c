@@ -23,6 +23,21 @@ typedef struct RequestParseResult {
     };
 } RequestParseResult;
 
+static void fetch_request_free(FetchRequest* request) {
+    if(request->url) {
+        free((void*)request->url);
+    }
+    if(request->method) {
+        free((void*)request->method);
+    }
+    for(size_t i = 0; i != request->headers.count; ++i) {
+        free((void*)request->headers.data[i]);
+    }
+    if(request->body.data) {
+        free((void*)request->body.data);
+    }
+}
+
 static RequestParseResult parse_request(jerry_value_t obj) {
     furi_assert(js_is_instance_of(obj, "Request"));
 
@@ -36,6 +51,7 @@ static RequestParseResult parse_request(jerry_value_t obj) {
                 .tag = RequestParseResultError,
                 .error = js_get_exception_string(url_val),
             };
+            jerry_value_free(url_val);
             break;
         }
         request.url = js_string_to_c_string(url_val);
@@ -72,16 +88,24 @@ static RequestParseResult parse_request(jerry_value_t obj) {
                 for(size_t i = 0; i != num_keys && header_idx != FETCH_HEADERS_COUNT_MAX; ++i) {
                     jerry_value_t key = jerry_object_get_index(keys, i);
                     jerry_value_t value = jerry_object_get(headers_val, key);
-                    if(jerry_value_is_string(key)) {
-                        jerry_value_t value_string = jerry_value_to_string(value);
+                    jerry_value_t value_conv = jerry_value_to_string(value);
+                    if(jerry_value_is_string(key) && jerry_value_is_string(value_conv)) {
+                        char* key_string = js_string_to_c_string(key);
+                        char* value_string = js_string_to_c_string(value_conv);
 
-                        request.headers.data[header_idx] = js_string_to_c_string(value_string);
+                        char* header_string =
+                            malloc(strlen(key_string) + 2 + strlen(value_string) + 1);
+                        sprintf(header_string, "%s: %s", key_string, value_string);
+                        free(key_string);
+                        free(value_string);
 
-                        jerry_value_free(value_string);
+                        request.headers.data[header_idx] = header_string;
+
                         header_idx += 1;
                     }
                     jerry_value_free(key);
                     jerry_value_free(value);
+                    jerry_value_free(value_conv);
                 }
                 jerry_value_free(keys);
                 request.headers.count = header_idx;
@@ -99,6 +123,7 @@ static RequestParseResult parse_request(jerry_value_t obj) {
             // TODO handle many different cases
             jerry_value_t body_str = jerry_value_to_string(body_val);
             request.body.data = js_string_to_c_string(body_str);
+            furi_check(request.body.data); // okay to crash - body handling TODO
             request.body.length = strlen(request.body.data);
             jerry_value_free(body_str);
             jerry_value_free(body_val);
@@ -117,18 +142,7 @@ static RequestParseResult parse_request(jerry_value_t obj) {
     } while(false);
 
     if(result.tag == RequestParseResultError) {
-        if(request.url) {
-            free((void*)request.url);
-        }
-        if(request.method) {
-            free((void*)request.method);
-        }
-        for(size_t i = 0; i != request.headers.count; ++i) {
-            free((void*)request.headers.data[i]);
-        }
-        if(request.body.data) {
-            free((void*)request.body.data);
-        }
+        fetch_request_free(&request);
     }
     return result;
 }
@@ -187,6 +201,7 @@ static int32_t fetch_thread_callback(void* ctx) {
     fetch_set_error_callback(fetch, fetch_error_callback);
     fetch_set_rx_data_callback(fetch, fetch_rx_data_callback);
     FetchStatus status = fetch_run(fetch, &context->request);
+    fetch_request_free(&context->request);
     if(status == FetchStatusOk) {
         FetchEvent msg = {
             .type = FetchEventTypeDone,
@@ -339,9 +354,6 @@ static jerry_value_t
 }
 
 static void process_headers(JsFetch* instance, const void* data, size_t size) {
-    UNUSED(data);
-    UNUSED(size);
-
     if(instance->promise.status != ChildStatusDone) {
         jerry_value_t promise = instance->promise.promise;
 
@@ -358,6 +370,7 @@ static void process_headers(JsFetch* instance, const void* data, size_t size) {
     } else {
         FURI_LOG_E(TAG, "Unexpected headers");
     }
+    free((void*)data);
 }
 
 static void process_error(JsFetch* instance, FuriString* msg) {

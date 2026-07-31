@@ -4,14 +4,14 @@
 
 jerry_value_t js_request_init(jerry_value_t this_value, jerry_value_t url, jerry_value_t init) {
     if(!jerry_value_is_undefined(init) && !jerry_value_is_object(init) &&
-       !jerry_value_is_object(init)) {
+       !jerry_value_is_null(init)) {
         return jerry_throw_sz(JERRY_ERROR_TYPE, "Invalid parameter");
     }
 
     jerry_value_t result;
     do {
         if(jerry_value_is_string(url)) {
-            jerry_object_set_sz(this_value, "url", url);
+            jerry_value_free(jerry_object_set_sz(this_value, "url", url));
         } else if(js_is_instance_of(url, "Request")) {
             js_copy_property(this_value, url, "url");
             js_copy_property(this_value, url, "method");
