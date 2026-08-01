@@ -29,6 +29,8 @@ typedef enum ChildStatus {
     ChildStatusDone
 } ChildStatus;
 
+#define JS_RUNNER_MAX_SCRIPT_SIZE (250 * 1024)
+
 typedef struct IntervalContext {
     bool once;
     FuriEventLoopTimer* timer;
