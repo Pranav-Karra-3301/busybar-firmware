@@ -84,8 +84,18 @@ bool js_object_has_property(jerry_value_t object, const char* key) {
 
 jerry_value_t js_rejected_promise(const char* msg) {
     jerry_value_t ret = jerry_promise();
-    jerry_value_t msg_val = jerry_string_sz(msg);
+    // The following code will print "true" on nodejs and "false" on our implementation
+    //
+    // fetch().catch((e) => {
+    //     console.error(e instanceof TypeError);
+    // })
+    //
+    // Rejecting a promise with an exception is a special case in jerryscript (exception will propagate, the promise won't be rejected)
+    //
+    // TODO: solve this
+    //
     // jerry_value_t msg_val = jerry_throw_sz(JERRY_ERROR_TYPE, msg);
+    jerry_value_t msg_val = jerry_string_sz(msg);
     jerry_value_t is_ok = jerry_promise_reject(ret, msg_val);
     jerry_value_free(is_ok);
     jerry_value_free(msg_val);
@@ -93,6 +103,8 @@ jerry_value_t js_rejected_promise(const char* msg) {
 }
 
 jerry_value_t js_rejected_promise_from_exception(jerry_value_t exception) {
+    // TODO investigate and make things right
+    // See comment in js_rejected_promise
     jerry_value_t val = jerry_exception_value(exception, false);
     jerry_value_t ret = jerry_promise();
     jerry_value_free(jerry_promise_reject(ret, val));
