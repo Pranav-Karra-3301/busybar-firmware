@@ -1,6 +1,6 @@
-#include "js_runner_i.h"
+#include "js_console.h"
 
-#define TAG "JsRunnerInterval"
+#define TAG "JsInterval"
 
 static void interval_callback(void* context) {
     uint32_t timer_id = (uint32_t)context;

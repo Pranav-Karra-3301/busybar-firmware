@@ -1,6 +1,6 @@
-#include "js_runner_i.h"
+#include "js_console.h"
 
-#define TAG "JsRunnerConsole"
+#define TAG "JsConsole"
 
 typedef struct {
     JsRunnerConsoleOutCallback write;

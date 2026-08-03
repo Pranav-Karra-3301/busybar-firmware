@@ -1,5 +1,7 @@
 #include "js_runner_i.h"
 #include "js_fetch.h"
+#include "js_interval.h"
+#include "js_console.h"
 
 #define TAG "JsRunner"
 

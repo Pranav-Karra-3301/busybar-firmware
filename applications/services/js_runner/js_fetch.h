@@ -54,6 +54,8 @@ typedef struct JsFetch {
 
 extern const jerry_object_native_info_t js_fetch_response_native_info;
 
+void js_setup_fetch(void);
+
 void js_fetch_process_event(const FetchEvent* event);
 
 /**
