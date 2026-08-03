@@ -229,6 +229,9 @@ static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* ca
             js_run_jobs();
             break;
         }
+        case JsFetchDataEventTypeInvalid:
+            furi_check(false);
+            break;
         }
         js_run_jobs();
         return true;

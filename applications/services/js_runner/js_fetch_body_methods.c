@@ -151,6 +151,9 @@ static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* ca
     case JsFetchDataEventTypeError:
         process_error(instance, event->error);
         break;
+    case JsFetchDataEventTypeInvalid:
+        furi_check(false);
+        break;
     }
     return true;
 }

@@ -147,49 +147,56 @@ static RequestParseResult parse_request(jerry_value_t obj) {
     return result;
 }
 
-static void fetch_headers_callback(const void* data, size_t data_size, void* ctx) {
-    JsFetch* context = ctx;
+static void enqueue_fetch_event_data(
+    JsFetch* instance,
+    JsFetchEventType type,
+    const void* data,
+    size_t data_size) {
     char* buf = malloc(data_size);
     memcpy(buf, data, data_size);
     JsFetchEvent msg = {
-        .type = JsFetchEventTypeHeaders,
-        .instance = context,
+        .type = type,
+        .instance = instance,
         .data =
             {
                 .buf = buf,
                 .size = data_size,
             },
     };
-    furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
+    furi_message_queue_put(instance->event_queue, &msg, FuriWaitForever);
+}
+
+static void enqueue_fetch_event_error(JsFetch* instance, const char* error) {
+    JsFetchEvent msg = {
+        .type = JsFetchEventTypeError,
+        .instance = instance,
+        .error = {
+            .msg = furi_string_alloc_set(error),
+        }};
+    furi_message_queue_put(instance->event_queue, &msg, FuriWaitForever);
+}
+
+static void enqueue_fetch_event(JsFetch* instance, JsFetchEventType type) {
+    JsFetchEvent msg = {
+        .type = type,
+        .instance = instance,
+    };
+    furi_message_queue_put(instance->event_queue, &msg, FuriWaitForever);
+}
+
+static void fetch_headers_callback(const void* data, size_t data_size, void* ctx) {
+    JsFetch* context = ctx;
+    enqueue_fetch_event_data(context, JsFetchEventTypeHeaders, data, data_size);
 }
 
 static void fetch_error_callback(const char* error, void* ctx) {
     JsFetch* context = ctx;
-    JsFetchEvent msg = {
-        .type = JsFetchEventTypeError,
-        .instance = context,
-        .error =
-            {
-                .msg = furi_string_alloc_set(error),
-            },
-    };
-    furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
+    enqueue_fetch_event_error(context, error);
 }
 
 static void fetch_rx_data_callback(const void* data, size_t data_size, void* ctx) {
     JsFetch* context = ctx;
-    char* buf = malloc(data_size);
-    memcpy(buf, data, data_size);
-    JsFetchEvent msg = {
-        .type = JsFetchEventTypeRxData,
-        .instance = context,
-        .data =
-            {
-                .buf = buf,
-                .size = data_size,
-            },
-    };
-    furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
+    enqueue_fetch_event_data(context, JsFetchEventTypeRxData, data, data_size);
 }
 
 static int32_t fetch_thread_callback(void* ctx) {
@@ -203,23 +210,13 @@ static int32_t fetch_thread_callback(void* ctx) {
     FetchStatus status = fetch_run(fetch, &context->request);
     fetch_request_free(&context->request);
     if(status == FetchStatusOk) {
-        JsFetchEvent msg = {
-            .type = JsFetchEventTypeDone,
-            .instance = context,
-        };
-        furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
+        enqueue_fetch_event(context, JsFetchEventTypeDone);
     } else {
         // aborted
     }
     fetch_free(fetch);
+    enqueue_fetch_event(context, JsFetchEventTypeThreadExit);
 
-    {
-        JsFetchEvent msg = {
-            .type = JsFetchEventTypeThreadExit,
-            .instance = context,
-        };
-        furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
-    }
     return 0;
 }
 
@@ -235,6 +232,9 @@ static void empty_event_queue(JsFetch* instance) {
             furi_string_free(event.error);
             break;
         case JsFetchDataEventTypeDone:
+            break;
+        case JsFetchDataEventTypeInvalid:
+            furi_check(false);
             break;
         }
     }
@@ -484,6 +484,9 @@ void js_fetch_process_event(const JsFetchEvent* event) {
         break;
     case JsFetchEventTypeThreadExit:
         process_thread_exit(instance);
+        break;
+    case JsFetchEventTypeInvalid:
+        furi_check(false);
         break;
     }
 }

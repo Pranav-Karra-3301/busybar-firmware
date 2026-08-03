@@ -10,6 +10,7 @@
 typedef struct JsFetch JsFetch;
 
 typedef enum JsFetchEventType {
+    JsFetchEventTypeInvalid,
     JsFetchEventTypeHeaders,
     JsFetchEventTypeRxData,
     JsFetchEventTypeError,
@@ -32,6 +33,7 @@ typedef struct JsFetchEvent {
 } JsFetchEvent;
 
 typedef enum JsFetchDataEventType {
+    JsFetchDataEventTypeInvalid,
     JsFetchDataEventTypeData,
     JsFetchDataEventTypeDone,
     JsFetchDataEventTypeError,

@@ -112,7 +112,7 @@ static void js_runner_app_init(
         app);
 }
 
-static void js_runner_app_destroy(JsRunnerApp* app) {
+static void js_runner_app_deinit(JsRunnerApp* app) {
     furi_event_loop_unsubscribe(app->event_loop, app->fetch_event_queue);
     furi_message_queue_free(app->fetch_event_queue);
     furi_event_loop_free(app->event_loop);
@@ -250,7 +250,7 @@ JsRunnerError js_runner_run(
             furi_mutex_release(instance->apps_mutex);
         }
 
-        js_runner_app_destroy(&app);
+        js_runner_app_deinit(&app);
     } while(false);
     storage_file_free(f);
     furi_record_close(RECORD_STORAGE);
