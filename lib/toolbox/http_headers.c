@@ -1,5 +1,9 @@
 #include "http_headers.h"
 
+#define HTTP_MIN_HEADERS_LENGTH strlen("HTTP/1.0 XXX \r\n")
+#define HTTP_NAME               "HTTP/"
+#define HTTP_NAME_LEN           5
+
 void http_header_free(HttpHeader header);
 
 M_ARRAY_DEF(HttpHeaderArray, HttpHeader, M_OPEXTEND(M_POD_OPLIST, CLEAR(http_header_free)));
@@ -101,39 +105,52 @@ static bool parse_headers_list(HttpHeaders* headers, const char* data, size_t da
 }
 
 static ssize_t parse_status_line(HttpHeaders* headers, const char* data, size_t size) {
-    ssize_t i = 0;
-    if(size < strlen("HTTP/1.0 XXX \r\n")) {
-        return -1;
-    }
-    if(strncmp(data, "HTTP/", 5) != 0) {
-        return -1;
-    }
-    i += 5;
-    if(!isdigit((int)data[i + 0]) || data[i + 1] != '.' || !isdigit((int)data[i + 2]) ||
-       data[i + 3] != ' ') {
-        return -1;
-    }
-    i += 4;
-    char status_code[4];
-    for(ssize_t j = 0; j != 3; ++j) {
-        if(!isdigit((int)data[i + j])) {
-            return -1;
+    ssize_t result = -1;
+    do {
+        ssize_t i = 0;
+        // Guarantees the following index increments won't go out of bounds
+        if(size < HTTP_MIN_HEADERS_LENGTH) {
+            break;
         }
-        status_code[j] = data[i + j];
-    }
-    if(data[i + 3] != ' ') {
-        return -1;
-    }
-    status_code[3] = 0;
-    headers->status = atoi(status_code);
-    i += 4;
-    const char* cr = memchr(data + i, '\r', size - i);
-    if(!cr || (size_t)(cr - data + 1) >= size || cr[1] != '\n') {
-        return -1;
-    }
-    size_t reason_phrase_len = cr - data - i;
-    headers->status_text = furi_string_alloc_printf("%.*s", reason_phrase_len, data + i);
-    return cr - data + 2;
+
+        // "HTTP" "/"
+        if(memcmp(data, HTTP_NAME, HTTP_NAME_LEN) != 0) {
+            break;
+        }
+        i += HTTP_NAME_LEN;
+
+        // HTTP version: DIGIT "." DIGIT
+        if(!isdigit((int)data[i + 0]) || data[i + 1] != '.' || !isdigit((int)data[i + 2]) ||
+           data[i + 3] != ' ') {
+            break;
+        }
+        i += 4;
+
+        // status-code: 3DIGIT SP
+        char status_code[4];
+        for(ssize_t j = 0; j != 3; ++j) {
+            if(!isdigit((int)data[i + j])) {
+                break;
+            }
+            status_code[j] = data[i + j];
+        }
+        if(data[i + 3] != ' ') {
+            break;
+        }
+        status_code[3] = 0;
+        headers->status = atoi(status_code);
+        i += 4;
+
+        // reason-phrase
+        const char* cr = memchr(data + i, '\r', size - i);
+        if(!cr || (size_t)(cr - data + 1) >= size || cr[1] != '\n') {
+            break;
+        }
+        size_t reason_phrase_len = cr - data - i;
+        headers->status_text = furi_string_alloc_printf("%.*s", reason_phrase_len, data + i);
+        result = cr - data + 2;
+    } while(false);
+    return result;
 }
 
 HttpHeaders* http_headers_alloc(void) {
