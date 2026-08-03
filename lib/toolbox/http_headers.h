@@ -1,4 +1,6 @@
-/// @file http_headers.h Utility functions for dealing with HTTP headers
+/** @file http_headers.h
+ * @brief Utility functions for dealing with HTTP headers
+ */
 #pragma once
 
 #include <furi/core/string.h>
@@ -9,17 +11,18 @@ typedef struct HttpHeader {
     FuriString* value;
 } HttpHeader;
 
-void http_header_free(HttpHeader header);
+typedef struct HttpHeaders HttpHeaders;
 
-M_ARRAY_DEF(HttpHeaderArray, HttpHeader, M_OPEXTEND(M_POD_OPLIST, CLEAR(http_header_free)));
+HttpHeaders* http_headers_alloc(void);
 
-typedef struct HttpHeaders {
-    uint32_t status;
-    FuriString* status_text;
+bool http_headers_parse(HttpHeaders* instance, const char* data, size_t size);
 
-    HttpHeaderArray_t headers;
-} HttpHeaders;
+uint32_t http_headers_get_status(const HttpHeaders* instance);
 
-HttpHeaders* http_headers_parse(const char* data, size_t size);
+const char* http_headers_get_status_text(const HttpHeaders* instance);
+
+size_t http_headers_get_header_count(const HttpHeaders* instance);
+
+const HttpHeader* http_headers_get_header(const HttpHeaders* instance, size_t index);
 
 void http_headers_free(HttpHeaders* headers);

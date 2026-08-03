@@ -42,11 +42,11 @@ jerry_value_t headers_iter_next(
 
     HeadersIter* instance =
         jerry_object_get_native_ptr(call_info->this_value, &headers_iter_native_info);
-    if(instance->index == HttpHeaderArray_size(instance->parent->headers->headers)) {
+    if(instance->index == http_headers_get_header_count(instance->parent->headers)) {
         return js_iterator_result(true, jerry_undefined());
     } else {
         const HttpHeader* header =
-            HttpHeaderArray_cget(instance->parent->headers->headers, instance->index);
+            http_headers_get_header(instance->parent->headers, instance->index);
         instance->index += 1;
         jerry_value_t result = 0; // Suppress "may be uninitialized" warning
         switch(instance->mode) {
@@ -158,8 +158,8 @@ jerry_value_t headers_has(
     jerry_string_to_buffer(name, JERRY_ENCODING_UTF8, (jerry_char_t*)name_buf, name_len);
 
     bool found = false;
-    for(size_t i = 0; i != HttpHeaderArray_size(instance->headers->headers); ++i) {
-        const HttpHeader* header = HttpHeaderArray_cget(instance->headers->headers, i);
+    for(size_t i = 0; i != http_headers_get_header_count(instance->headers); ++i) {
+        const HttpHeader* header = http_headers_get_header(instance->headers, i);
         if(furi_string_cmp(header->key, name_buf) == 0) {
             found = true;
             break;
@@ -188,8 +188,8 @@ jerry_value_t headers_foreach(
 
     jerry_value_t result = jerry_undefined();
 
-    for(size_t i = 0; i != HttpHeaderArray_size(instance->headers->headers); ++i) {
-        const HttpHeader* header = HttpHeaderArray_cget(instance->headers->headers, i);
+    for(size_t i = 0; i != http_headers_get_header_count(instance->headers); ++i) {
+        const HttpHeader* header = http_headers_get_header(instance->headers, i);
 
         jerry_value_t args[3] = {
             [0] = jerry_string_sz(furi_string_get_cstr(header->key)),
@@ -216,24 +216,24 @@ jerry_value_t headers_foreach(
 jerry_value_t js_headers_alloc(jerry_value_t response, const char* data, size_t data_size) {
     Headers* instance = malloc(sizeof(Headers));
     instance->ref_count = 1;
-    instance->headers = http_headers_parse(data, data_size);
-    if(!instance->headers) {
+    instance->headers = http_headers_alloc();
+    if(!http_headers_parse(instance->headers, data, data_size)) {
+        http_headers_free(instance->headers);
         free(instance);
         return jerry_throw_sz(JERRY_ERROR_COMMON, "Error parsing headers");
     }
 
-    js_set_property(response, "status", jerry_number((double)instance->headers->status));
+    uint32_t status = http_headers_get_status(instance->headers);
+    js_set_property(response, "status", jerry_number((double)status));
     js_set_property(
-        response,
-        "statusText",
-        jerry_string_sz(furi_string_get_cstr(instance->headers->status_text)));
-    js_set_property(response, "ok", jerry_boolean(instance->headers->status / 100 == 2));
+        response, "statusText", jerry_string_sz(http_headers_get_status_text(instance->headers)));
+    js_set_property(response, "ok", jerry_boolean(status / 100 == 2));
 
     jerry_value_t obj = jerry_object();
     jerry_object_set_native_ptr(obj, &headers_native_info, instance);
 
-    for(size_t i = 0; i != HttpHeaderArray_size(instance->headers->headers); ++i) {
-        const HttpHeader* header = HttpHeaderArray_cget(instance->headers->headers, i);
+    for(size_t i = 0; i != http_headers_get_header_count(instance->headers); ++i) {
+        const HttpHeader* header = http_headers_get_header(instance->headers, i);
         jerry_value_t key = jerry_string_sz(furi_string_get_cstr(header->key));
         jerry_value_t value = jerry_string_sz(furi_string_get_cstr(header->value));
         jerry_value_free(jerry_object_set(obj, key, value));

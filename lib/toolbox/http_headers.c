@@ -1,5 +1,16 @@
 #include "http_headers.h"
 
+void http_header_free(HttpHeader header);
+
+M_ARRAY_DEF(HttpHeaderArray, HttpHeader, M_OPEXTEND(M_POD_OPLIST, CLEAR(http_header_free)));
+
+typedef struct HttpHeaders {
+    uint32_t status;
+    FuriString* status_text;
+
+    HttpHeaderArray_t headers;
+} HttpHeaders;
+
 void http_header_free(HttpHeader header) {
     furi_string_free(header.key);
     furi_string_free(header.value);
@@ -125,26 +136,26 @@ static ssize_t parse_status_line(HttpHeaders* headers, const char* data, size_t 
     return cr - data + 2;
 }
 
-HttpHeaders* http_headers_parse(const char* data, size_t size) {
-    HttpHeaders* headers = malloc(sizeof(HttpHeaders));
-    HttpHeaderArray_init(headers->headers);
+HttpHeaders* http_headers_alloc(void) {
+    HttpHeaders* instance = malloc(sizeof(HttpHeaders));
+    HttpHeaderArray_init(instance->headers);
 
+    return instance;
+}
+
+bool http_headers_parse(HttpHeaders* instance, const char* data, size_t size) {
     bool success = false;
 
     do {
-        ssize_t headers_offset = parse_status_line(headers, data, size);
+        ssize_t headers_offset = parse_status_line(instance, data, size);
         if(headers_offset < 0) {
             break;
         }
 
-        success = parse_headers_list(headers, data + headers_offset, size - headers_offset);
+        success = parse_headers_list(instance, data + headers_offset, size - headers_offset);
     } while(false);
 
-    if(!success) {
-        http_headers_free(headers);
-        headers = NULL;
-    }
-    return headers;
+    return success;
 }
 
 void http_headers_free(HttpHeaders* headers) {
@@ -153,4 +164,20 @@ void http_headers_free(HttpHeaders* headers) {
         furi_string_free(headers->status_text);
     }
     free(headers);
+}
+
+uint32_t http_headers_get_status(const HttpHeaders* instance) {
+    return instance->status;
+}
+
+const char* http_headers_get_status_text(const HttpHeaders* instance) {
+    return furi_string_get_cstr(instance->status_text);
+}
+
+size_t http_headers_get_header_count(const HttpHeaders* instance) {
+    return HttpHeaderArray_size(instance->headers);
+}
+
+const HttpHeader* http_headers_get_header(const HttpHeaders* instance, size_t index) {
+    return HttpHeaderArray_cget(instance->headers, index);
 }

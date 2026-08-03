@@ -70,11 +70,11 @@ MU_TEST(misc_tests_path_normalize) {
     check_path_normalize("a/../../../", "../..", true);
 }
 
-#define CHECK_HEADER(index, k, v)                                                   \
-    do {                                                                            \
-        const HttpHeader* __header = HttpHeaderArray_cget(headers->headers, index); \
-        mu_assert_string_eq(k, furi_string_get_cstr(__header->key));                \
-        mu_assert_string_eq(v, furi_string_get_cstr(__header->value));              \
+#define CHECK_HEADER(index, k, v)                                             \
+    do {                                                                      \
+        const HttpHeader* __header = http_headers_get_header(headers, index); \
+        mu_assert_string_eq(k, furi_string_get_cstr(__header->key));          \
+        mu_assert_string_eq(v, furi_string_get_cstr(__header->value));        \
     } while(false)
 
 MU_TEST(misc_tests_http_headers) {
@@ -88,11 +88,12 @@ MU_TEST(misc_tests_http_headers) {
                           "Accept-Ranges: bytes\r\n"
                           "\r\n";
 
-    HttpHeaders* headers = http_headers_parse(request, strlen(request));
+    HttpHeaders* headers = http_headers_alloc();
     mu_check(headers);
-    mu_assert_int_eq(200, headers->status);
-    mu_assert_string_eq("OK", furi_string_get_cstr(headers->status_text));
-    mu_assert_int_eq(7, HttpHeaderArray_size(headers->headers));
+    mu_check(http_headers_parse(headers, request, strlen(request)));
+    mu_assert_int_eq(200, http_headers_get_status(headers));
+    mu_assert_string_eq("OK", http_headers_get_status_text(headers));
+    mu_assert_int_eq(7, http_headers_get_header_count(headers));
 
     CHECK_HEADER(0, "Server", "nginx/1.18.0");
     CHECK_HEADER(1, "Date", "Tue, 28 Jul 2026 13:17:26 GMT");
@@ -109,11 +110,12 @@ MU_TEST(misc_tests_http_headers_min) {
     const char* request = "HTTP/7.2 239 \r\n"
                           "\r\n";
 
-    HttpHeaders* headers = http_headers_parse(request, strlen(request));
+    HttpHeaders* headers = http_headers_alloc();
     mu_check(headers);
-    mu_assert_int_eq(239, headers->status);
-    mu_assert_string_eq("", furi_string_get_cstr(headers->status_text));
-    mu_assert_int_eq(0, HttpHeaderArray_size(headers->headers));
+    mu_check(http_headers_parse(headers, request, strlen(request)));
+    mu_assert_int_eq(239, http_headers_get_status(headers));
+    mu_assert_string_eq("", http_headers_get_status_text(headers));
+    mu_assert_int_eq(0, http_headers_get_header_count(headers));
 
     http_headers_free(headers);
 }
