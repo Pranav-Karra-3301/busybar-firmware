@@ -4,11 +4,14 @@ Plain helpers and constants live in utils/cli_helpers.py.
 """
 
 import re
+import threading
 
 import pytest
 
 from clients.cli import SimpleCLIConnection
 from utils.cli_helpers import resync
+from utils.fetch_http_server import FetchHTTPServer, FetchRequestHandler
+from utils.js_test_runner import run_js_case
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -59,7 +62,9 @@ def storage_dir(persistent_cli_connection):
         listing = cli.execute_command(f"storage list {target}")
         for kind, name in re.findall(r"\[([DF])\]\s+(\S+)", listing):
             child = f"{target}/{name}"
-            rm_rf(child) if kind == "D" else cli.execute_command(f"storage remove {child}")
+            rm_rf(child) if kind == "D" else cli.execute_command(
+                f"storage remove {child}"
+            )
         cli.execute_command(f"storage remove {target}")
 
     rm_rf(path)  # a previous run may have died before its own cleanup
@@ -69,3 +74,36 @@ def storage_dir(persistent_cli_connection):
     finally:
         resync(cli)
         rm_rf(path)
+
+
+@pytest.fixture
+def http_server(persistent_cli_connection):
+    """HTTP server on the pytest host, reachable from the device under test."""
+    host_ip = persistent_cli_connection.tn.sock.getsockname()[0]
+    server = FetchHTTPServer((host_ip, 0), FetchRequestHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    try:
+        yield server
+    finally:
+        server.release_stall.set()
+        server.shutdown()
+        server_thread.join(timeout=2)
+        server.server_close()
+
+
+@pytest.fixture
+def js_case_runner(persistent_cli_connection, storage_api, storage_dir):
+    """Upload and run an isolated JavaScript assertion case on the device."""
+
+    def runner(case_name, body, timeout=25):
+        return run_js_case(
+            persistent_cli_connection,
+            storage_api,
+            storage_dir,
+            case_name,
+            body,
+            timeout,
+        )
+
+    return runner
