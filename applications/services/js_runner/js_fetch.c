@@ -10,13 +10,13 @@
 
 #define IS_RUNNING(child) (instance->child.status == ChildStatusRunning)
 
-typedef enum RequestParseResultTag {
-    RequestParseResultOk,
-    RequestParseResultError,
-} RequestParseResultTag;
+typedef enum RequestParseResultType {
+    RequestParseResultTypeOk,
+    RequestParseResultTypeError,
+} RequestParseResultType;
 
 typedef struct RequestParseResult {
-    RequestParseResultTag tag;
+    RequestParseResultType tag;
     union {
         FetchRequest request;
         FuriString* error;
@@ -48,7 +48,7 @@ static RequestParseResult parse_request(jerry_value_t obj) {
         jerry_value_t url_val = jerry_object_get_sz(obj, "url");
         if(jerry_value_is_exception(url_val)) {
             result = (RequestParseResult){
-                .tag = RequestParseResultError,
+                .tag = RequestParseResultTypeError,
                 .error = js_get_exception_string(url_val),
             };
             jerry_value_free(url_val);
@@ -58,7 +58,7 @@ static RequestParseResult parse_request(jerry_value_t obj) {
         jerry_value_free(url_val);
         if(!request.url) {
             result = (RequestParseResult){
-                .tag = RequestParseResultError,
+                .tag = RequestParseResultTypeError,
                 .error = furi_string_alloc_set("URL is not a string"),
             };
             break;
@@ -71,7 +71,7 @@ static RequestParseResult parse_request(jerry_value_t obj) {
             jerry_value_free(method_val);
             if(!request.method) {
                 result = (RequestParseResult){
-                    .tag = RequestParseResultError,
+                    .tag = RequestParseResultTypeError,
                     .error = furi_string_alloc_set("Method is not a string"),
                 };
                 break;
@@ -111,7 +111,7 @@ static RequestParseResult parse_request(jerry_value_t obj) {
                 request.headers.count = header_idx;
             } else {
                 result = (RequestParseResult){
-                    .tag = RequestParseResultError,
+                    .tag = RequestParseResultTypeError,
                     .error = furi_string_alloc_set("Headers is not an object"),
                 };
             }
@@ -129,19 +129,19 @@ static RequestParseResult parse_request(jerry_value_t obj) {
             jerry_value_free(body_val);
             if(!request.body.data) {
                 result = (RequestParseResult){
-                    .tag = RequestParseResultError,
+                    .tag = RequestParseResultTypeError,
                     .error = furi_string_alloc_set("Body is not a string"),
                 };
                 break;
             }
         }
         result = (RequestParseResult){
-            .tag = RequestParseResultOk,
+            .tag = RequestParseResultTypeOk,
             .request = request,
         };
     } while(false);
 
-    if(result.tag == RequestParseResultError) {
+    if(result.tag == RequestParseResultTypeError) {
         fetch_request_free(&request);
     }
     return result;
@@ -295,7 +295,7 @@ static jerry_value_t fetch(
     RequestParseResult request_res = parse_request(request);
     jerry_value_free(request);
 
-    if(request_res.tag == RequestParseResultError) {
+    if(request_res.tag == RequestParseResultTypeError) {
         jerry_value_t ret = js_rejected_promise(furi_string_get_cstr(request_res.error));
         furi_string_free(request_res.error);
         return ret;
