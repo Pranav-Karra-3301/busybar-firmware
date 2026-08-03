@@ -7,10 +7,31 @@ void js_set_property(jerry_value_t object, const char* name, jerry_value_t prope
     jerry_value_free(property);
 }
 
+void js_set_property_sym(
+    jerry_value_t object,
+    jerry_well_known_symbol_t key,
+    jerry_value_t property) {
+    jerry_value_t sym = jerry_symbol(key);
+    js_check_and_free(jerry_object_set(object, sym, property));
+    jerry_value_free(sym);
+    jerry_value_free(property);
+}
+
 void js_set_method(jerry_value_t object, const char* name, jerry_external_handler_t handler) {
     jerry_value_t fn = jerry_function_external(handler);
     js_check_and_free(jerry_object_set_sz(object, name, fn));
     jerry_value_free(fn);
+}
+
+void js_set_method_sym(
+    jerry_value_t object,
+    jerry_well_known_symbol_t key,
+    jerry_external_handler_t handler) {
+    jerry_value_t fn = jerry_function_external(handler);
+    jerry_value_t sym = jerry_symbol(key);
+    js_check_and_free(jerry_object_set(object, sym, fn));
+    jerry_value_free(fn);
+    jerry_value_free(sym);
 }
 
 jerry_value_t js_iterator_result(bool done, jerry_value_t value) {

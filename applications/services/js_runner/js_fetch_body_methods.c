@@ -96,7 +96,7 @@ static jerry_value_t run_js_method(JsFetch* parent, BodyCollectedCallback on_bod
     instance->body = malloc(sizeof(*instance->body));
     ByteArray_init(*instance->body);
     instance->on_body_collected = on_body_collected;
-    if(!js_fetch_set_data_sink(parent, instance, data_sink_callback)) {
+    if(!js_fetch_set_data_sink(parent, data_sink_callback, instance)) {
         ByteArray_clear(*instance->body);
         free(instance->body);
         free(instance);

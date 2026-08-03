@@ -20,10 +20,32 @@ void js_set_property(jerry_value_t object, const char* name, jerry_value_t prope
 /** @brief Set a method in a JS object
  *
  * @param object Object (not freed)
- * @param name Property name
+ * @param name Method name
  * @param handler handler Method handler
  */
 void js_set_method(jerry_value_t object, const char* name, jerry_external_handler_t handler);
+
+/** @brief Set a method in a JS object using a well-known symbol as a key
+ *
+ * @param object Object (not freed)
+ * @param key Method name
+ * @param handler handler Method handler
+ */
+void js_set_method_sym(
+    jerry_value_t object,
+    jerry_well_known_symbol_t key,
+    jerry_external_handler_t handler);
+
+/** @brief Set a property in a JS object using a well-known symbol as a key
+ *
+ * @param object Object (not freed)
+ * @param key Property name
+ * @param property Property value to set (freed)
+ */
+void js_set_property_sym(
+    jerry_value_t object,
+    jerry_well_known_symbol_t key,
+    jerry_value_t property);
 
 /** @brief Test if an object has a property with given name */
 bool js_object_has_property(jerry_value_t object, const char* key);

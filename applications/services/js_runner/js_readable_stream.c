@@ -54,25 +54,9 @@ jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
     jerry_value_t rs = jerry_object();
     jerry_object_set_native_ptr(rs, &readable_stream_native_info, instance);
 
-    {
-        jerry_value_t async_iterator_fn = jerry_function_external(async_iterator);
-        jerry_value_t async_iterator_sym = jerry_symbol(JERRY_SYMBOL_ASYNC_ITERATOR);
-        js_check_and_free(jerry_object_set(rs, async_iterator_sym, async_iterator_fn));
-        jerry_value_free(async_iterator_fn);
-        jerry_value_free(async_iterator_sym);
-    }
-
-    {
-        jerry_value_t cancel_fn = jerry_function_external(readable_stream_cancel);
-        js_check_and_free(jerry_object_set_sz(rs, "cancel", cancel_fn));
-        jerry_value_free(cancel_fn);
-    }
-
-    {
-        jerry_value_t get_reader_fn = jerry_function_external(get_reader);
-        js_check_and_free(jerry_object_set_sz(rs, "getReader", get_reader_fn));
-        jerry_value_free(get_reader_fn);
-    }
+    js_set_method_sym(rs, JERRY_SYMBOL_ASYNC_ITERATOR, async_iterator);
+    js_set_method(rs, "cancel", readable_stream_cancel);
+    js_set_method(rs, "getReader", get_reader);
 
     return rs;
 }
@@ -276,7 +260,7 @@ static jerry_value_t async_iterator(
         jerry_object_get_native_ptr(call_info->this_value, &readable_stream_native_info);
 
     bool set_data_sink_ok = instance->parent &&
-                            js_fetch_set_data_sink(instance->parent, instance, data_sink_callback);
+                            js_fetch_set_data_sink(instance->parent, data_sink_callback, instance);
 
     if(!set_data_sink_ok) {
         return jerry_throw_sz(JERRY_ERROR_TYPE, "Data is already in use");
@@ -285,14 +269,9 @@ static jerry_value_t async_iterator(
     jerry_value_t iter = jerry_object();
     jerry_object_set_native_ptr(iter, &async_iterator_native_info, instance);
 
-    jerry_value_t next_fn = jerry_function_external(iterator_next);
-    js_check_and_free(jerry_object_set_sz(iter, "next", next_fn));
-    jerry_value_free(next_fn);
-
-    jerry_value_t return_fn = jerry_function_external(iterator_return);
-    js_check_and_free(jerry_object_set_sz(iter, "return", return_fn));
-    js_check_and_free(jerry_object_set_sz(iter, "throw", return_fn));
-    jerry_value_free(return_fn);
+    js_set_method(iter, "next", iterator_next);
+    js_set_method(iter, "return", iterator_return);
+    js_set_method(iter, "throw", iterator_return);
 
     instance->async_iterator_status = ChildStatusRunning;
 
@@ -310,7 +289,7 @@ static jerry_value_t get_reader(
         jerry_object_get_native_ptr(call_info->this_value, &readable_stream_native_info);
 
     bool set_data_sink_ok = instance->parent &&
-                            js_fetch_set_data_sink(instance->parent, instance, data_sink_callback);
+                            js_fetch_set_data_sink(instance->parent, data_sink_callback, instance);
 
     if(!set_data_sink_ok) {
         return jerry_throw_sz(JERRY_ERROR_TYPE, "Data is already in use");
@@ -319,19 +298,11 @@ static jerry_value_t get_reader(
     jerry_value_t reader = jerry_object();
     jerry_object_set_native_ptr(reader, &async_iterator_native_info, instance);
 
-    {
-        // .read() is the same as iterator's .next()
-        jerry_value_t next_fn = jerry_function_external(iterator_next);
-        js_check_and_free(jerry_object_set_sz(reader, "read", next_fn));
-        jerry_value_free(next_fn);
-    }
+    // .read() is the same as iterator's .next()
+    js_set_method(reader, "read", iterator_next);
 
-    {
-        // .cancel() is the same as iterator's .return()
-        jerry_value_t return_fn = jerry_function_external(iterator_return);
-        js_check_and_free(jerry_object_set_sz(reader, "cancel", return_fn));
-        jerry_value_free(return_fn);
-    }
+    // .cancel() is the same as iterator's .return()
+    js_set_method(reader, "cancel", iterator_return);
 
     {
         // .closed promise

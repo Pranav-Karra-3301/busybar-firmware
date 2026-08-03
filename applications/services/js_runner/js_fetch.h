@@ -1,3 +1,8 @@
+/**
+ * @file js_fetch.h
+ *
+ * @brief fetch() JS API implementation
+ */
 #pragma once
 #include "js_runner_i.h"
 #include <m-deque.h>
@@ -83,14 +88,32 @@ void js_setup_fetch(void);
 void js_fetch_process_event(const JsFetchEvent* event);
 
 /**
+ * @brief Set a data sink which receives incoming data chunks.
+ *
+ * Data sink, when set, has an exclusive access to data chunks through its callback.
+ * It is not possible to set another data sink.
+ *
+ * @param instance JsFetch instance
+ * @param callback_context user pointer to be passed to the callback
  * @param callback if NULL, data sink is no more
+ * @return true if data sink has been set, false if another data sink is or has already been active.
  */
 bool js_fetch_set_data_sink(
     JsFetch* instance,
-    void* callback_context,
-    JsFetchDataSinkCallback callback);
+    JsFetchDataSinkCallback callback,
+    void* callback_context);
+
+/**
+ * @brief Indicate that a data sink is ready to receive new data.
+ * @param instance JsFetch instance
+ */
 void js_fetch_data_sink_ready(JsFetch* instance);
 
+/**
+ * Cancel ongoing fetch activity
+ *
+ * @param instance JsFetch instance
+ */
 bool js_fetch_cancel(JsFetch* instance);
 
 /**

@@ -490,8 +490,8 @@ void js_fetch_process_event(const JsFetchEvent* event) {
 
 bool js_fetch_set_data_sink(
     JsFetch* instance,
-    void* callback_context,
-    JsFetchDataSinkCallback callback) {
+    JsFetchDataSinkCallback callback,
+    void* callback_context) {
     if(instance->sink.status == ChildStatusNotYet && callback) {
         instance->sink.on_event = callback;
         instance->sink.context = callback_context;

@@ -104,14 +104,7 @@ jerry_value_t headers_iterator_method(
     jerry_object_set_native_ptr(iter, &headers_iter_native_info, instance);
 
     js_set_method(iter, "next", headers_iter_next);
-
-    {
-        jerry_value_t iterator_fn = jerry_function_external(headers_iter_iterator);
-        jerry_value_t iterator_sym = jerry_symbol(JERRY_SYMBOL_ITERATOR);
-        js_check_and_free(jerry_object_set(iter, iterator_sym, iterator_fn));
-        jerry_value_free(iterator_fn);
-        jerry_value_free(iterator_sym);
-    }
+    js_set_method_sym(iter, JERRY_SYMBOL_ITERATOR, headers_iter_iterator);
 
     instance->self = iter;
 
