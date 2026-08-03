@@ -2,14 +2,38 @@
 #include "js_runner_i.h"
 #include <m-deque.h>
 
-typedef enum DataEventType {
-    DataEventTypeData,
-    DataEventTypeDone,
-    DataEventTypeError,
-} DataEventType;
+typedef struct JsFetch JsFetch;
 
-typedef struct DataEvent {
-    DataEventType type;
+typedef enum JsFetchEventType {
+    JsFetchEventTypeHeaders,
+    JsFetchEventTypeRxData,
+    JsFetchEventTypeError,
+    JsFetchEventTypeDone,
+    JsFetchEventTypeThreadExit,
+} JsFetchEventType;
+
+typedef struct JsFetchEvent {
+    JsFetchEventType type;
+    JsFetch* instance;
+    union {
+        struct {
+            void* buf;
+            size_t size;
+        } data;
+        struct {
+            FuriString* msg;
+        } error;
+    };
+} JsFetchEvent;
+
+typedef enum JsFetchDataEventType {
+    JsFetchDataEventTypeData,
+    JsFetchDataEventTypeDone,
+    JsFetchDataEventTypeError,
+} JsFetchDataEventType;
+
+typedef struct JsFetchDataEvent {
+    JsFetchDataEventType type;
     union {
         struct {
             void* buffer;
@@ -17,12 +41,12 @@ typedef struct DataEvent {
         } data;
         FuriString* error;
     };
-} DataEvent;
+} JsFetchDataEvent;
 
-M_DEQUE_DEF(DataEventQueue, DataEvent, M_POD_OPLIST);
+M_DEQUE_DEF(DataEventQueue, JsFetchDataEvent, M_POD_OPLIST);
 
 typedef bool (
-    *JsFetchDataSinkCallback)(JsFetch* instance, DataEvent* event, void* callback_context);
+    *JsFetchDataSinkCallback)(JsFetch* instance, JsFetchDataEvent* event, void* callback_context);
 
 typedef struct JsFetch {
     JsRunnerApp* app;
@@ -56,7 +80,7 @@ extern const jerry_object_native_info_t js_fetch_response_native_info;
 
 void js_setup_fetch(void);
 
-void js_fetch_process_event(const FetchEvent* event);
+void js_fetch_process_event(const JsFetchEvent* event);
 
 /**
  * @param callback if NULL, data sink is no more

@@ -81,7 +81,7 @@ static void log_exception(const char* msg, jerry_value_t exception) {
 static void fetch_event_queue_callback(FuriEventLoopObject* object, void* context) {
     UNUSED(object);
     JsRunnerApp* app = context;
-    FetchEvent event;
+    JsFetchEvent event;
     furi_check(furi_message_queue_get(app->fetch_event_queue, &event, 0) == FuriStatusOk);
     js_fetch_process_event(&event);
     js_run_jobs();
@@ -103,7 +103,7 @@ static void js_runner_app_init(
     IntervalDict_init(app->intervals);
     app->num_fetch_threads = 0;
     path_extract_dirname(script_path, app->root_path);
-    app->fetch_event_queue = furi_message_queue_alloc(MAX_FETCH_MESSAGES, sizeof(FetchEvent));
+    app->fetch_event_queue = furi_message_queue_alloc(MAX_FETCH_MESSAGES, sizeof(JsFetchEvent));
     furi_event_loop_subscribe_message_queue(
         app->event_loop,
         app->fetch_event_queue,

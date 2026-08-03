@@ -151,8 +151,8 @@ static void fetch_headers_callback(const void* data, size_t data_size, void* ctx
     JsFetch* context = ctx;
     char* buf = malloc(data_size);
     memcpy(buf, data, data_size);
-    FetchEvent msg = {
-        .type = FetchEventTypeHeaders,
+    JsFetchEvent msg = {
+        .type = JsFetchEventTypeHeaders,
         .instance = context,
         .data =
             {
@@ -165,8 +165,8 @@ static void fetch_headers_callback(const void* data, size_t data_size, void* ctx
 
 static void fetch_error_callback(const char* error, void* ctx) {
     JsFetch* context = ctx;
-    FetchEvent msg = {
-        .type = FetchEventTypeError,
+    JsFetchEvent msg = {
+        .type = JsFetchEventTypeError,
         .instance = context,
         .error =
             {
@@ -180,8 +180,8 @@ static void fetch_rx_data_callback(const void* data, size_t data_size, void* ctx
     JsFetch* context = ctx;
     char* buf = malloc(data_size);
     memcpy(buf, data, data_size);
-    FetchEvent msg = {
-        .type = FetchEventTypeRxData,
+    JsFetchEvent msg = {
+        .type = JsFetchEventTypeRxData,
         .instance = context,
         .data =
             {
@@ -203,8 +203,8 @@ static int32_t fetch_thread_callback(void* ctx) {
     FetchStatus status = fetch_run(fetch, &context->request);
     fetch_request_free(&context->request);
     if(status == FetchStatusOk) {
-        FetchEvent msg = {
-            .type = FetchEventTypeDone,
+        JsFetchEvent msg = {
+            .type = JsFetchEventTypeDone,
             .instance = context,
         };
         furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
@@ -214,8 +214,8 @@ static int32_t fetch_thread_callback(void* ctx) {
     fetch_free(fetch);
 
     {
-        FetchEvent msg = {
-            .type = FetchEventTypeThreadExit,
+        JsFetchEvent msg = {
+            .type = JsFetchEventTypeThreadExit,
             .instance = context,
         };
         furi_message_queue_put(context->event_queue, &msg, FuriWaitForever);
@@ -225,16 +225,16 @@ static int32_t fetch_thread_callback(void* ctx) {
 
 static void empty_event_queue(JsFetch* instance) {
     while(!DataEventQueue_empty_p(instance->chunk_queue)) {
-        DataEvent event;
+        JsFetchDataEvent event;
         DataEventQueue_pop_front(&event, instance->chunk_queue);
         switch(event.type) {
-        case DataEventTypeData:
+        case JsFetchDataEventTypeData:
             free(event.data.buffer);
             break;
-        case DataEventTypeError:
+        case JsFetchDataEventTypeError:
             furi_string_free(event.error);
             break;
-        case DataEventTypeDone:
+        case JsFetchDataEventTypeDone:
             break;
         }
     }
@@ -392,8 +392,8 @@ static void process_error(JsFetch* instance, FuriString* msg) {
     if(instance->sink.status == ChildStatusRunning) {
         DataEventQueue_push_back(
             instance->chunk_queue,
-            (DataEvent){
-                .type = DataEventTypeError,
+            (JsFetchDataEvent){
+                .type = JsFetchDataEventTypeError,
                 .error = msg,
             });
         free_msg = false;
@@ -409,7 +409,7 @@ static void feed_data_sink(JsFetch* instance) {
         instance->sink.feeding = true;
         while(!DataEventQueue_empty_p(instance->chunk_queue) &&
               instance->sink.status == ChildStatusRunning) {
-            DataEvent event;
+            JsFetchDataEvent event;
             DataEventQueue_pop_front(&event, instance->chunk_queue);
             // During this call sink can be deregistered, js objects can be destroyed, but no events can come from the queue
             bool consumed = instance->sink.on_event(instance, &event, instance->sink.context);
@@ -428,8 +428,8 @@ static void process_rx_data(JsFetch* instance, void* data, size_t size) {
        instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         DataEventQueue_push_back(
             instance->chunk_queue,
-            (DataEvent){
-                .type = DataEventTypeData,
+            (JsFetchDataEvent){
+                .type = JsFetchDataEventTypeData,
                 .data = {
                     .buffer = data,
                     .size = size,
@@ -447,8 +447,8 @@ static void process_done(JsFetch* instance) {
        instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         DataEventQueue_push_back(
             instance->chunk_queue,
-            (DataEvent){
-                .type = DataEventTypeDone,
+            (JsFetchDataEvent){
+                .type = JsFetchDataEventTypeDone,
             });
     }
     if(instance->sink.status == ChildStatusRunning) {
@@ -467,22 +467,22 @@ static void process_thread_exit(JsFetch* instance) {
     js_runner_check_event_loop(app);
 }
 
-void js_fetch_process_event(const FetchEvent* event) {
+void js_fetch_process_event(const JsFetchEvent* event) {
     JsFetch* instance = event->instance;
     switch(event->type) {
-    case FetchEventTypeHeaders:
+    case JsFetchEventTypeHeaders:
         process_headers(instance, event->data.buf, event->data.size);
         break;
-    case FetchEventTypeRxData:
+    case JsFetchEventTypeRxData:
         process_rx_data(instance, event->data.buf, event->data.size);
         break;
-    case FetchEventTypeError:
+    case JsFetchEventTypeError:
         process_error(instance, event->error.msg);
         break;
-    case FetchEventTypeDone:
+    case JsFetchEventTypeDone:
         process_done(instance);
         break;
-    case FetchEventTypeThreadExit:
+    case JsFetchEventTypeThreadExit:
         process_thread_exit(instance);
         break;
     }

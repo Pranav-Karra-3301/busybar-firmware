@@ -11,7 +11,7 @@ typedef struct BodyMethod {
     BodyCollectedCallback on_body_collected;
 } BodyMethod;
 
-static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_context);
+static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* callback_context);
 static jerry_value_t run_js_method(JsFetch* parent, BodyCollectedCallback on_body_collected);
 
 static bool array_buffer_body_collected(BodyMethod* instance);
@@ -138,17 +138,17 @@ static void process_error(BodyMethod* instance, FuriString* msg) {
     js_run_jobs();
 }
 
-static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_context) {
+static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* callback_context) {
     UNUSED(fetch);
     BodyMethod* instance = callback_context;
     switch(event->type) {
-    case DataEventTypeData:
+    case JsFetchDataEventTypeData:
         process_data(instance, event->data.buffer, event->data.size);
         break;
-    case DataEventTypeDone:
+    case JsFetchDataEventTypeDone:
         process_done(instance);
         break;
-    case DataEventTypeError:
+    case JsFetchDataEventTypeError:
         process_error(instance, event->error);
         break;
     }

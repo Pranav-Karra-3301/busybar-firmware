@@ -206,12 +206,12 @@ static jerry_value_t readable_stream_cancel(
     }
 }
 
-static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_context) {
+static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* callback_context) {
     UNUSED(fetch);
     JsReadableStream* instance = callback_context;
     if(!PromiseQueue_empty_p(instance->promise_queue)) {
         switch(event->type) {
-        case DataEventTypeData: {
+        case JsFetchDataEventTypeData: {
             jerry_value_t promise;
             PromiseQueue_pop_front(&promise, instance->promise_queue);
 
@@ -222,7 +222,7 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
             jerry_value_free(result);
             break;
         }
-        case DataEventTypeDone: {
+        case JsFetchDataEventTypeDone: {
             instance->data_expected = false;
             resolve_closed_promise(instance, NULL);
             detach_sink(instance);
@@ -232,7 +232,7 @@ static bool data_sink_callback(JsFetch* fetch, DataEvent* event, void* callback_
 
             break;
         }
-        case DataEventTypeError: {
+        case JsFetchDataEventTypeError: {
             instance->data_expected = false;
 
             resolve_closed_promise(instance, "cancelled");

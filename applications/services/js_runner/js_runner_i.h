@@ -38,31 +38,6 @@ typedef struct IntervalContext {
     jerry_value_t callback;
 } IntervalContext;
 
-typedef struct JsFetch JsFetch;
-
-typedef enum FetchEventType {
-    FetchEventTypeHeaders,
-    FetchEventTypeRxData,
-    FetchEventTypeError,
-    FetchEventTypeDone,
-    FetchEventTypeThreadExit,
-} FetchEventType;
-
-typedef struct FetchEvent {
-    FetchEventType type;
-    JsFetch* instance;
-    union {
-        struct {
-            void* buf;
-            size_t size;
-        } data;
-        struct {
-            FuriString* msg;
-        } error;
-    };
-    jerry_value_t promise;
-} FetchEvent;
-
 M_DICT_DEF2(IntervalDict, uint32_t, M_DEFAULT_OPLIST, IntervalContext, M_POD_OPLIST);
 ARRAY_DEF(ByteArray, uint8_t);
 
@@ -73,6 +48,7 @@ typedef struct JsRunnerApp {
     JsRunnerConsoleOutCallback console_callback;
     void* console_callback_context;
     FuriString* root_path;
+
     IntervalDict_t intervals;
     uint32_t last_interval_id;
 
