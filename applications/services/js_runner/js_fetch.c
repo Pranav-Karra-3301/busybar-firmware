@@ -159,7 +159,7 @@ static void enqueue_fetch_event_data(
         .instance = instance,
         .data =
             {
-                .buf = buf,
+                .buffer = buf,
                 .size = data_size,
             },
     };
@@ -170,9 +170,7 @@ static void enqueue_fetch_event_error(JsFetch* instance, const char* error) {
     JsFetchEvent msg = {
         .type = JsFetchEventTypeError,
         .instance = instance,
-        .error = {
-            .msg = furi_string_alloc_set(error),
-        }};
+        .error = furi_string_alloc_set(error)};
     furi_message_queue_put(instance->event_queue, &msg, FuriWaitForever);
 }
 
@@ -327,21 +325,20 @@ static jerry_value_t fetch(
     return jerry_value_copy(instance->promise.promise);
 }
 
-static jerry_value_t
-    create_response(JsFetch* instance, const char* headers_data, size_t headers_size) {
+static jerry_value_t create_response(JsFetch* instance, SizedBuffer headers) {
     jerry_value_t response = jerry_object();
 
     jerry_object_set_native_ptr(response, &js_fetch_response_native_info, instance);
 
     instance->response.response = response;
     jerry_value_t readable_stream = js_readable_stream_alloc(instance);
-    jerry_value_t headers = js_headers_alloc(response, headers_data, headers_size);
+    jerry_value_t headers_val = js_headers_alloc(response, headers.buffer, headers.size);
 
-    js_set_property(response, "headers", headers);
+    js_set_property(response, "headers", headers_val);
     js_set_property(response, "body", readable_stream);
     js_set_property(response, "bodyUsed", jerry_boolean(false));
     js_set_property(response, "type", jerry_string_sz("basic"));
-    js_set_property(response, "url", jerry_string_sz("TODO"));
+    js_set_property(response, "url", jerry_string_sz(instance->request.url));
 
     js_set_method(response, "arrayBuffer", js_fetch_array_buffer);
     js_set_method(response, "blob", js_fetch_blob);
@@ -353,7 +350,7 @@ static jerry_value_t
     return response;
 }
 
-static void process_headers(JsFetch* instance, const void* data, size_t size) {
+static void process_headers(JsFetch* instance, SizedBuffer data) {
     if(instance->promise.status != ChildStatusDone) {
         jerry_value_t promise = instance->promise.promise;
 
@@ -361,7 +358,7 @@ static void process_headers(JsFetch* instance, const void* data, size_t size) {
         instance->promise.status = ChildStatusDone;
         instance->response.status = ChildStatusRunning;
 
-        jerry_value_t response = create_response(instance, data, size);
+        jerry_value_t response = create_response(instance, data);
         furi_check(!jerry_value_is_exception(response));
         furi_check(jerry_value_is_promise(promise));
         js_check_and_free(jerry_promise_resolve(promise, response));
@@ -370,7 +367,7 @@ static void process_headers(JsFetch* instance, const void* data, size_t size) {
     } else {
         FURI_LOG_E(TAG, "Unexpected headers");
     }
-    free((void*)data);
+    free(data.buffer);
 }
 
 static void process_error(JsFetch* instance, FuriString* msg) {
@@ -423,19 +420,14 @@ static void feed_data_sink(JsFetch* instance) {
     }
 }
 
-static void process_rx_data(JsFetch* instance, void* data, size_t size) {
+static void process_rx_data(JsFetch* instance, SizedBuffer data) {
     if(instance->promise.status != ChildStatusDone ||
        instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         DataEventQueue_push_back(
             instance->chunk_queue,
-            (JsFetchDataEvent){
-                .type = JsFetchDataEventTypeData,
-                .data = {
-                    .buffer = data,
-                    .size = size,
-                }});
+            (JsFetchDataEvent){.type = JsFetchDataEventTypeData, .data = data});
     } else {
-        free(data);
+        free(data.buffer);
     }
     if(instance->sink.status == ChildStatusRunning) {
         feed_data_sink(instance);
@@ -471,13 +463,13 @@ void js_fetch_process_event(const JsFetchEvent* event) {
     JsFetch* instance = event->instance;
     switch(event->type) {
     case JsFetchEventTypeHeaders:
-        process_headers(instance, event->data.buf, event->data.size);
+        process_headers(instance, event->data);
         break;
     case JsFetchEventTypeRxData:
-        process_rx_data(instance, event->data.buf, event->data.size);
+        process_rx_data(instance, event->data);
         break;
     case JsFetchEventTypeError:
-        process_error(instance, event->error.msg);
+        process_error(instance, event->error);
         break;
     case JsFetchEventTypeDone:
         process_done(instance);

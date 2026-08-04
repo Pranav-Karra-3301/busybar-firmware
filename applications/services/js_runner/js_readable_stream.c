@@ -61,9 +61,9 @@ jerry_value_t js_readable_stream_alloc(JsFetch* parent) {
     return rs;
 }
 
-static jerry_value_t chunk_to_uint8array(void* buffer, size_t size) {
+static jerry_value_t chunk_to_uint8array(SizedBuffer data) {
     // buffer will be released by arraybuffer_free_callback
-    jerry_value_t arraybuffer = jerry_arraybuffer_external(buffer, size, NULL);
+    jerry_value_t arraybuffer = jerry_arraybuffer_external(data.buffer, data.size, NULL);
 
     jerry_value_t uint8array = jerry_typedarray_with_buffer(JERRY_TYPEDARRAY_UINT8, arraybuffer);
     jerry_value_free(arraybuffer);
@@ -199,8 +199,7 @@ static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* ca
             jerry_value_t promise;
             PromiseQueue_pop_front(&promise, instance->promise_queue);
 
-            jerry_value_t result = js_iterator_result(
-                false, chunk_to_uint8array(event->data.buffer, event->data.size));
+            jerry_value_t result = js_iterator_result(false, chunk_to_uint8array(event->data));
             js_check_and_free(jerry_promise_resolve(promise, result));
             jerry_value_free(promise);
             jerry_value_free(result);

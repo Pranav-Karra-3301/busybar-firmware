@@ -108,11 +108,11 @@ static jerry_value_t run_js_method(JsFetch* parent, BodyCollectedCallback on_bod
     }
 }
 
-static void process_data(BodyMethod* instance, void* buffer, size_t size) {
+static void process_data(BodyMethod* instance, SizedBuffer data) {
     size_t old_size = ByteArray_size(*instance->body);
-    ByteArray_resize(*instance->body, old_size + size);
-    memcpy(ByteArray_get(*instance->body, old_size), buffer, size);
-    free(buffer);
+    ByteArray_resize(*instance->body, old_size + data.size);
+    memcpy(ByteArray_get(*instance->body, old_size), data.buffer, data.size);
+    free(data.buffer);
 }
 
 static void process_done(BodyMethod* instance) {
@@ -143,7 +143,7 @@ static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* ca
     BodyMethod* instance = callback_context;
     switch(event->type) {
     case JsFetchDataEventTypeData:
-        process_data(instance, event->data.buffer, event->data.size);
+        process_data(instance, event->data);
         break;
     case JsFetchDataEventTypeDone:
         process_done(instance);

@@ -6,6 +6,7 @@
 #pragma once
 #include "js_runner_i.h"
 #include <m-deque.h>
+#include <sized_buffer.h>
 
 typedef struct JsFetch JsFetch;
 
@@ -22,13 +23,8 @@ typedef struct JsFetchEvent {
     JsFetchEventType type;
     JsFetch* instance;
     union {
-        struct {
-            void* buf;
-            size_t size;
-        } data;
-        struct {
-            FuriString* msg;
-        } error;
+        SizedBuffer data;
+        FuriString* error;
     };
 } JsFetchEvent;
 
@@ -42,10 +38,7 @@ typedef enum JsFetchDataEventType {
 typedef struct JsFetchDataEvent {
     JsFetchDataEventType type;
     union {
-        struct {
-            void* buffer;
-            size_t size;
-        } data;
+        SizedBuffer data;
         FuriString* error;
     };
 } JsFetchDataEvent;
