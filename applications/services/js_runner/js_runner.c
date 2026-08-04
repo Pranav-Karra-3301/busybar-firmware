@@ -41,7 +41,7 @@ static const jerry_object_native_info_t global_native_info = {
 };
 
 static bool app_has_background_tasks(JsRunnerApp* app) {
-    return !IntervalDict_empty_p(app->intervals) || app->fetch.num_threads > 0;
+    return !IntervalDict_empty_p(app->interval.intervals) || app->fetch.num_threads > 0;
 }
 
 void js_runner_check_event_loop(JsRunnerApp* app) {
@@ -87,6 +87,15 @@ static void fetch_event_queue_callback(FuriEventLoopObject* object, void* contex
     js_run_jobs();
 }
 
+static void js_runner_app_interval_init(JsRunnerAppInterval* interval) {
+    interval->last_id = 0;
+    IntervalDict_init(interval->intervals);
+}
+
+static void js_runner_app_interval_deinit(JsRunnerAppInterval* interval) {
+    IntervalDict_clear(interval->intervals);
+}
+
 static void js_runner_app_fetch_init(JsRunnerAppFetch* fetch) {
     fetch->num_threads = 0;
     fetch->event_queue = furi_message_queue_alloc(MAX_FETCH_MESSAGES, sizeof(JsFetchEvent));
@@ -109,9 +118,8 @@ static void js_runner_app_init(
     app->console_callback = console_out_cb;
     app->console_callback_context = console_cb_context;
     app->root_path = furi_string_alloc();
-    app->last_interval_id = 0;
-    IntervalDict_init(app->intervals);
     path_extract_dirname(script_path, app->root_path);
+    js_runner_app_interval_init(&app->interval);
     js_runner_app_fetch_init(&app->fetch);
     furi_event_loop_subscribe_message_queue(
         app->event_loop,
@@ -124,8 +132,8 @@ static void js_runner_app_init(
 static void js_runner_app_deinit(JsRunnerApp* app) {
     furi_event_loop_unsubscribe(app->event_loop, app->fetch.event_queue);
     furi_event_loop_free(app->event_loop);
-    IntervalDict_clear(app->intervals);
     furi_string_free(app->root_path);
+    js_runner_app_interval_deinit(&app->interval);
     js_runner_app_fetch_deinit(&app->fetch);
 }
 

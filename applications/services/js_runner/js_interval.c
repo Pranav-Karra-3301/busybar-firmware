@@ -6,7 +6,8 @@ static void interval_callback(void* context) {
     uint32_t timer_id = (uint32_t)context;
 
     WITH_JS_RUNNER_APP(app, {
-        const IntervalContext* interval_context = IntervalDict_cget(app->intervals, timer_id);
+        const IntervalContext* interval_context =
+            IntervalDict_cget(app->interval.intervals, timer_id);
         if(interval_context) {
             jerry_value_t result =
                 jerry_call(interval_context->callback, jerry_undefined(), NULL, 0);
@@ -47,11 +48,11 @@ static void interval_callback(void* context) {
 
         js_run_jobs();
 
-        interval_context = IntervalDict_cget(app->intervals, timer_id);
+        interval_context = IntervalDict_cget(app->interval.intervals, timer_id);
         if(interval_context && interval_context->once) {
             jerry_value_free(interval_context->callback);
             furi_event_loop_timer_free(interval_context->timer);
-            IntervalDict_erase(app->intervals, timer_id);
+            IntervalDict_erase(app->interval.intervals, timer_id);
             js_runner_check_event_loop(app);
         }
     });
@@ -73,8 +74,8 @@ static jerry_value_t set_interval_or_timeout(
 
     uint32_t timer_id = 0;
     WITH_JS_RUNNER_APP(app, {
-        timer_id = app->last_interval_id;
-        app->last_interval_id += 1;
+        timer_id = app->interval.last_id;
+        app->interval.last_id += 1;
     });
 
     IntervalContext interval_context = {
@@ -87,7 +88,7 @@ static jerry_value_t set_interval_or_timeout(
             interval_callback,
             once ? FuriEventLoopTimerTypeOnce : FuriEventLoopTimerTypePeriodic,
             (void*)timer_id);
-        IntervalDict_set_at(app->intervals, timer_id, interval_context);
+        IntervalDict_set_at(app->interval.intervals, timer_id, interval_context);
         furi_event_loop_timer_start(
             interval_context.timer, furi_ms_to_ticks((uint32_t)timeout_ms));
     });
@@ -124,11 +125,12 @@ static jerry_value_t clear_interval(
     uint32_t timer_id = (uint32_t)jerry_value_as_number(args[0]);
 
     WITH_JS_RUNNER_APP(app, {
-        const IntervalContext* interval_context = IntervalDict_cget(app->intervals, timer_id);
+        const IntervalContext* interval_context =
+            IntervalDict_cget(app->interval.intervals, timer_id);
         if(interval_context) {
             jerry_value_free(interval_context->callback);
             furi_event_loop_timer_free(interval_context->timer);
-            IntervalDict_erase(app->intervals, timer_id);
+            IntervalDict_erase(app->interval.intervals, timer_id);
         } else {
             FURI_LOG_E(TAG, "Interval with ID %lu is not found", timer_id);
         }

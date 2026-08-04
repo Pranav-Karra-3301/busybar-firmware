@@ -41,6 +41,11 @@ typedef struct IntervalContext {
 M_DICT_DEF2(IntervalDict, uint32_t, M_DEFAULT_OPLIST, IntervalContext, M_POD_OPLIST);
 ARRAY_DEF(ByteArray, uint8_t);
 
+typedef struct JsRunnerAppInterval {
+    IntervalDict_t intervals;
+    uint32_t last_id;
+} JsRunnerAppInterval;
+
 typedef struct JsRunnerAppFetch {
     uint32_t num_threads;
     FuriMessageQueue* event_queue;
@@ -54,9 +59,7 @@ typedef struct JsRunnerApp {
     void* console_callback_context;
     FuriString* root_path;
 
-    IntervalDict_t intervals;
-    uint32_t last_interval_id;
-
+    JsRunnerAppInterval interval;
     JsRunnerAppFetch fetch;
 } JsRunnerApp;
 
