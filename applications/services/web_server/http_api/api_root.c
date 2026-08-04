@@ -396,6 +396,29 @@ static bool http_api_is_version_allowed(
     return true;
 }
 
+static cJSON* api_access_tokens_entry_to_json(const TokensEntry* entry) {
+    furi_assert(entry);
+
+    cJSON* json_token = cJSON_CreateObject();
+    cJSON_AddStringToObject(json_token, "short_id", entry->short_id);
+    cJSON_AddStringToObject(json_token, "display_id", entry->display_id);
+    cJSON_AddStringToObject(json_token, "name", entry->owner);
+
+    char buffer[64];
+
+    snprintf(buffer, sizeof(buffer), "%lld", entry->created_at);
+    cJSON_AddStringToObject(json_token, "created_at", buffer);
+
+    snprintf(buffer, sizeof(buffer), "%lld", entry->last_used_at);
+    cJSON_AddStringToObject(json_token, "last_used_at", buffer);
+
+    if(entry->type == TokensEntryTypeFull) {
+        cJSON_AddStringToObject(json_token, "token", entry->full_token);
+    }
+
+    return json_token;
+}
+
 bool api_access_tokens_list_callback(
     FuriString* path,
     HttpMethod method,
@@ -412,21 +435,7 @@ bool api_access_tokens_list_callback(
 
     void add_token_entry_to_json(const TokensEntry* entry, void* context) {
         UNUSED(context);
-
-        cJSON* json_token = cJSON_CreateObject();
-        cJSON_AddStringToObject(json_token, "short_id", entry->short_id);
-        cJSON_AddStringToObject(json_token, "display_id", entry->display_id);
-        cJSON_AddStringToObject(json_token, "name", entry->owner);
-
-        char buffer[64];
-
-        snprintf(buffer, sizeof(buffer), "%lld", entry->created_at);
-        cJSON_AddStringToObject(json_token, "created_at", buffer);
-
-        snprintf(buffer, sizeof(buffer), "%lld", entry->last_used_at);
-        cJSON_AddStringToObject(json_token, "last_used_at", buffer);
-
-        cJSON_AddItemToArray(json_tokens, json_token);
+        cJSON_AddItemToArray(json_tokens, api_access_tokens_entry_to_json(entry));
     }
 
     tokens_list(context->tokens, add_token_entry_to_json, NULL);
@@ -456,12 +465,16 @@ bool api_access_tokens_mint_callback(
         return true;
     }
 
-    FuriString* full_token = furi_string_alloc();
-    tokens_mint(context->tokens, name, full_token);
+    void token_generated(const TokensEntry* entry, void* context) {
+        UNUSED(context);
+        cJSON* json_token = api_access_tokens_entry_to_json(entry);
+        char* token_serialized = cJSON_Print(json_token);
+        MG_REPLY_OK_BODY(conn, "%s", token_serialized);
+        free(token_serialized);
+        cJSON_Delete(json_token);
+    }
 
-    MG_REPLY_OK_BODY(conn, "{\"token\":\"%s\"}", furi_string_get_cstr(full_token));
-
-    furi_string_free(full_token);
+    tokens_mint(context->tokens, name, token_generated, NULL);
     return true;
 }
 

@@ -39,9 +39,51 @@ struct Tokens {
     bool is_dirty;
 };
 
-// ==================
-// Internal functions
-// ==================
+// ============================
+// Stateless internal functions
+// ============================
+
+static void tokens_generate(char* out) {
+    furi_assert(out);
+
+    uint8_t randomness[(int)ceilf(NEW_TOKEN_LENGTH * BASE64_ENCODING_EFFICIENCY)];
+    furi_hal_random_fill_buf(randomness, sizeof(randomness));
+
+    size_t token_length;
+    uint8_t token[NEW_TOKEN_LENGTH + 8];
+    mbedtls_base64_encode(token, sizeof(token), &token_length, randomness, sizeof(randomness));
+    furi_assert(token_length >= NEW_TOKEN_LENGTH);
+    token[NEW_TOKEN_LENGTH] = '\0';
+
+    const char* blacklisted_chars = "+/";
+    for(size_t i = 0; i < NEW_TOKEN_LENGTH; i++) {
+        const char* blacklisted_char = strchr(blacklisted_chars, token[i]);
+        if(blacklisted_char) {
+            size_t blacklist_idx = blacklisted_char - blacklisted_chars;
+            token[i] = 'A' + blacklist_idx;
+        }
+    }
+
+    strcpy(out, (const char*)token);
+}
+
+static void tokens_infer_ids(const char* token, char* short_id, char* display_id) {
+    furi_assert(token);
+    furi_assert(short_id);
+    furi_assert(display_id);
+
+    memcpy(short_id, token, TOKENS_SHORT_ID_LENGTH);
+    memcpy(display_id, short_id, TOKENS_SHORT_ID_LENGTH);
+    strcat(display_id, TOKEN_DISPLAY_ID_JOINER);
+    memcpy(
+        display_id + strlen(display_id),
+        token + NEW_TOKEN_LENGTH - TOKEN_DISPLAY_ID_RIGHT_PORTION,
+        TOKEN_DISPLAY_ID_RIGHT_PORTION);
+}
+
+// ===========================
+// Stateful internal functions
+// ===========================
 
 static void tokens_lock(Tokens* tokens) {
     furi_assert(tokens);
@@ -117,7 +159,7 @@ static bool tokens_load(Tokens* tokens, const char* path) {
                 success = false;
                 break;
             }
-            c_entry->full_token_hash = strdup(string);
+            c_entry->token_hash = strdup(string);
 
             string = cJSON_GetStringValue(cJSON_GetObjectItem(json_entry, "created_at"));
             if(!string) {
@@ -140,6 +182,8 @@ static bool tokens_load(Tokens* tokens, const char* path) {
                 break;
             }
             c_entry->last_used_at = atoll(string);
+
+            c_entry->type = TokensEntryTypeHashed;
 
             c_entry++;
         }
@@ -168,7 +212,7 @@ static bool tokens_dump(Tokens* tokens, const char* path) {
         cJSON_AddStringToObject(json_entry, "short_id", c_entry->short_id);
         cJSON_AddStringToObject(json_entry, "display_id", c_entry->display_id);
         cJSON_AddStringToObject(json_entry, "owner", c_entry->owner);
-        cJSON_AddStringToObject(json_entry, "token_hash", c_entry->full_token_hash);
+        cJSON_AddStringToObject(json_entry, "token_hash", c_entry->token_hash);
 
         char buffer[64];
         snprintf(buffer, sizeof(buffer) - 1, "%lld", c_entry->created_at);
@@ -234,28 +278,13 @@ void tokens_start(void) {
 // Public API
 // ==========
 
-void tokens_mint(Tokens* tokens, const char* owner, FuriString* full_token_out) {
+void tokens_mint(Tokens* tokens, const char* owner, TokenInfoCallback callback, void* context) {
     furi_assert(tokens);
     furi_assert(owner);
-    furi_assert(full_token_out);
+    furi_assert(callback);
 
-    uint8_t randomness[(int)ceilf(NEW_TOKEN_LENGTH * BASE64_ENCODING_EFFICIENCY)];
-    furi_hal_random_fill_buf(randomness, sizeof(randomness));
-
-    size_t token_length;
-    uint8_t token[NEW_TOKEN_LENGTH + 8];
-    mbedtls_base64_encode(token, sizeof(token), &token_length, randomness, sizeof(randomness));
-    furi_assert(token_length >= NEW_TOKEN_LENGTH);
-    token[NEW_TOKEN_LENGTH] = '\0';
-
-    const char* blacklisted_chars = "+/";
-    for(size_t i = 0; i < NEW_TOKEN_LENGTH; i++) {
-        if(strchr(blacklisted_chars, token[i])) {
-            token[i] = 'A';
-        }
-    }
-
-    furi_string_set_str(full_token_out, (const char*)token);
+    char token[NEW_TOKEN_LENGTH];
+    tokens_generate(token);
 
     tokens_lock(tokens);
 
@@ -264,32 +293,28 @@ void tokens_mint(Tokens* tokens, const char* owner, FuriString* full_token_out) 
     tokens->entries = realloc(tokens->entries, sizeof(TokensEntry) * tokens->entry_count);
     TokensEntry* entry = &tokens->entries[tokens->entry_count - 1];
 
+    entry->type = TokensEntryTypeFull;
     entry->short_id = malloc(TOKENS_SHORT_ID_LENGTH + 1);
-    memcpy(entry->short_id, token, TOKENS_SHORT_ID_LENGTH);
-
     entry->display_id = malloc(TOKEN_DISPLAY_ID_LENGTH + 1);
-    memcpy(entry->display_id, entry->short_id, TOKENS_SHORT_ID_LENGTH);
-    strcat(entry->display_id, TOKEN_DISPLAY_ID_JOINER);
-    memcpy(
-        entry->display_id + strlen(entry->display_id),
-        token + NEW_TOKEN_LENGTH - TOKEN_DISPLAY_ID_RIGHT_PORTION,
-        TOKEN_DISPLAY_ID_RIGHT_PORTION);
-
-    FuriString* token_hash = furi_string_alloc();
-    sha256_string_calc_buffer(token, strlen((const char*)token), token_hash);
-    const char* token_hash_cstr = furi_string_get_cstr(token_hash);
-    entry->full_token_hash = strdup(token_hash_cstr);
-    furi_string_free(token_hash);
-
-    entry->owner = strdup(owner);
-
+    tokens_infer_ids(token, entry->short_id, entry->display_id);
     entry->created_at = furi_hal_rtc_get_timestamp_ms();
     entry->last_used_at = 0;
+    entry->owner = strdup(owner);
+    entry->full_token = token;
+
+    callback(entry, context);
+
+    FuriString* token_hash = furi_string_alloc();
+    sha256_string_calc_buffer((const uint8_t*)token, strlen(token), token_hash);
+    const char* token_hash_cstr = furi_string_get_cstr(token_hash);
+    entry->token_hash = strdup(token_hash_cstr);
+    furi_string_free(token_hash);
+    entry->type = TokensEntryTypeHashed;
 
     tokens_unlock(tokens);
 }
 
-void tokens_list(Tokens* tokens, TokensListCallback callback, void* context) {
+void tokens_list(Tokens* tokens, TokenInfoCallback callback, void* context) {
     furi_assert(tokens);
     furi_assert(callback);
 
@@ -359,7 +384,7 @@ bool tokens_validate_and_record_usage(Tokens* tokens, const char* full_token) {
 
     for(size_t i = 0; i < tokens->entry_count; i++) {
         TokensEntry* entry = &tokens->entries[i];
-        if(strcmp(entry->full_token_hash, token_hash_cstr) != 0) continue;
+        if(strcmp(entry->token_hash, token_hash_cstr) != 0) continue;
 
         success = true;
         entry->last_used_at = furi_hal_rtc_get_timestamp_ms();

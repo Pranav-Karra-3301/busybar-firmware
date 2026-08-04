@@ -15,42 +15,48 @@
 
 typedef struct Tokens Tokens;
 
-/**
- * @brief Generates a new HTTP API access token.
- * 
- * @param[inout] tokens Tokens service
- * @param[in] owner Human-readable name for the token
- * @param[inout] full_token_out Newly created token in full
- */
-void tokens_mint(Tokens* tokens, const char* owner, FuriString* full_token_out);
+typedef enum {
+    TokensEntryTypeHashed,
+    TokensEntryTypeFull,
+    TokensEntryTypeMax,
+} TokensEntryType;
 
 /**
  * @brief Information about an HTTP API access token
  */
 typedef struct {
+    TokensEntryType type;
     char* short_id;
     char* display_id;
     char* owner;
-    char* full_token_hash;
+    union {
+        char* full_token; // <! `TypeFull`
+        char* token_hash; // <! `TypeHashed`
+    };
     time_t created_at;
     time_t last_used_at;
 } TokensEntry;
 
+typedef void (*TokenInfoCallback)(const TokensEntry* entry, void* context);
+
 /**
- * @brief Callback for token entry in `tokens_list`.
+ * @brief Generates a new HTTP API access token.
  * 
- * User code should call `tokens_entry_free` to free the provided entry.
+ * @param[inout] tokens Tokens service
+ * @param[in] owner Human-readable name for the token
+ * @param[in] callback Callback with info about the generated token
+ * @param[in] context Custom context to pass to callback verbatim
  */
-typedef void (*TokensListCallback)(const TokensEntry* entry, void* context);
+void tokens_mint(Tokens* tokens, const char* owner, TokenInfoCallback callback, void* context);
 
 /**
  * @brief List all HTTP API access tokens
  * 
  * @param[in] tokens Tokens service
- * @param[in] callback Callback with info about one token
+ * @param[in] callback Callback, called for each listed token
  * @param[in] context Custom context to pass to callback verbatim
  */
-void tokens_list(Tokens* tokens, TokensListCallback callback, void* context);
+void tokens_list(Tokens* tokens, TokenInfoCallback callback, void* context);
 
 /**
  * @brief Revoke one HTTP API access token
