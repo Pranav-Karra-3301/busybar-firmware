@@ -48,6 +48,29 @@ M_DEQUE_DEF(DataEventQueue, JsFetchDataEvent, M_POD_OPLIST);
 typedef bool (
     *JsFetchDataSinkCallback)(JsFetch* instance, JsFetchDataEvent* event, void* callback_context);
 
+typedef struct JsFetchFetch {
+    ChildStatus status;
+    FuriThread* thread;
+    Fetch* fetch;
+} JsFetchFetch;
+
+typedef struct JsFetchSink {
+    ChildStatus status;
+    JsFetchDataSinkCallback on_event;
+    void* context;
+    bool feeding;
+} JsFetchSink;
+
+typedef struct JsFetchPromise {
+    ChildStatus status;
+    jerry_value_t promise;
+} JsFetchPromise;
+
+typedef struct JsFetchResponse {
+    ChildStatus status;
+    jerry_value_t response;
+} JsFetchResponse;
+
 typedef struct JsFetch {
     JsRunnerApp* app;
     FuriMessageQueue* event_queue;
@@ -55,25 +78,10 @@ typedef struct JsFetch {
 
     DataEventQueue_t chunk_queue;
 
-    struct {
-        ChildStatus status;
-        FuriThread* thread;
-        Fetch* fetch;
-    } fetch;
-    struct {
-        ChildStatus status;
-        JsFetchDataSinkCallback on_event;
-        void* context;
-        bool feeding;
-    } sink;
-    struct {
-        ChildStatus status;
-        jerry_value_t promise;
-    } promise;
-    struct {
-        ChildStatus status;
-        jerry_value_t response;
-    } response;
+    JsFetchFetch fetch;
+    JsFetchSink sink;
+    JsFetchPromise promise;
+    JsFetchResponse response;
 } JsFetch;
 
 extern const jerry_object_native_info_t js_fetch_response_native_info;
