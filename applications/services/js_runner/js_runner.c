@@ -41,7 +41,7 @@ static const jerry_object_native_info_t global_native_info = {
 };
 
 static bool app_has_background_tasks(JsRunnerApp* app) {
-    return !IntervalDict_empty_p(app->intervals) || app->num_fetch_threads > 0;
+    return !IntervalDict_empty_p(app->intervals) || app->fetch.num_threads > 0;
 }
 
 void js_runner_check_event_loop(JsRunnerApp* app) {
@@ -82,9 +82,19 @@ static void fetch_event_queue_callback(FuriEventLoopObject* object, void* contex
     UNUSED(object);
     JsRunnerApp* app = context;
     JsFetchEvent event;
-    furi_check(furi_message_queue_get(app->fetch_event_queue, &event, 0) == FuriStatusOk);
+    furi_check(furi_message_queue_get(app->fetch.event_queue, &event, 0) == FuriStatusOk);
     js_fetch_process_event(&event);
     js_run_jobs();
+}
+
+static void js_runner_app_fetch_init(JsRunnerAppFetch* fetch) {
+    fetch->num_threads = 0;
+    fetch->event_queue = furi_message_queue_alloc(MAX_FETCH_MESSAGES, sizeof(JsFetchEvent));
+}
+
+static void js_runner_app_fetch_deinit(JsRunnerAppFetch* fetch) {
+    furi_check(fetch->num_threads == 0);
+    furi_message_queue_free(fetch->event_queue);
 }
 
 static void js_runner_app_init(
@@ -101,24 +111,22 @@ static void js_runner_app_init(
     app->root_path = furi_string_alloc();
     app->last_interval_id = 0;
     IntervalDict_init(app->intervals);
-    app->num_fetch_threads = 0;
     path_extract_dirname(script_path, app->root_path);
-    app->fetch_event_queue = furi_message_queue_alloc(MAX_FETCH_MESSAGES, sizeof(JsFetchEvent));
+    js_runner_app_fetch_init(&app->fetch);
     furi_event_loop_subscribe_message_queue(
         app->event_loop,
-        app->fetch_event_queue,
+        app->fetch.event_queue,
         FuriEventLoopEventIn,
         fetch_event_queue_callback,
         app);
 }
 
 static void js_runner_app_deinit(JsRunnerApp* app) {
-    furi_event_loop_unsubscribe(app->event_loop, app->fetch_event_queue);
-    furi_message_queue_free(app->fetch_event_queue);
+    furi_event_loop_unsubscribe(app->event_loop, app->fetch.event_queue);
     furi_event_loop_free(app->event_loop);
     IntervalDict_clear(app->intervals);
-    furi_check(app->num_fetch_threads == 0);
     furi_string_free(app->root_path);
+    js_runner_app_fetch_deinit(&app->fetch);
 }
 
 static void arraybuffer_free_callback(
@@ -149,6 +157,15 @@ static void
     } else {
         free(string_p);
     }
+}
+
+void js_runner_add_fetch_thread(JsRunnerApp* app) {
+    app->fetch.num_threads += 1;
+}
+
+void js_runner_del_fetch_thread(JsRunnerApp* app) {
+    app->fetch.num_threads -= 1;
+    js_runner_check_event_loop(app);
 }
 
 JsRunnerError js_runner_run(

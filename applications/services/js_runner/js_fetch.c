@@ -315,9 +315,10 @@ static jerry_value_t fetch(
     DataEventQueue_init(instance->chunk_queue);
 
     WITH_JS_RUNNER_APP(app, {
-        app->num_fetch_threads += 1;
+        js_runner_add_fetch_thread(app);
+
         instance->app = app;
-        instance->event_queue = app->fetch_event_queue;
+        instance->event_queue = app->fetch.event_queue;
     });
 
     furi_thread_start(thread);
@@ -451,12 +452,11 @@ static void process_done(JsFetch* instance) {
 static void process_thread_exit(JsFetch* instance) {
     furi_thread_join(instance->fetch.thread);
     furi_thread_free(instance->fetch.thread);
-    instance->app->num_fetch_threads -= 1;
     instance->fetch.thread = NULL;
     instance->fetch.status = ChildStatusDone;
     JsRunnerApp* app = instance->app;
     free_if_not_running(instance);
-    js_runner_check_event_loop(app);
+    js_runner_del_fetch_thread(app);
 }
 
 void js_fetch_process_event(const JsFetchEvent* event) {

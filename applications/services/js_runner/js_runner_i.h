@@ -41,6 +41,11 @@ typedef struct IntervalContext {
 M_DICT_DEF2(IntervalDict, uint32_t, M_DEFAULT_OPLIST, IntervalContext, M_POD_OPLIST);
 ARRAY_DEF(ByteArray, uint8_t);
 
+typedef struct JsRunnerAppFetch {
+    uint32_t num_threads;
+    FuriMessageQueue* event_queue;
+} JsRunnerAppFetch;
+
 typedef struct JsRunnerApp {
     size_t heap_size;
     void* jrs_context;
@@ -52,8 +57,7 @@ typedef struct JsRunnerApp {
     IntervalDict_t intervals;
     uint32_t last_interval_id;
 
-    uint32_t num_fetch_threads;
-    FuriMessageQueue* fetch_event_queue;
+    JsRunnerAppFetch fetch;
 } JsRunnerApp;
 
 M_DICT_DEF2(
@@ -105,3 +109,6 @@ void* js_runner_context_get(void);
 /** @brief Get root path of the current JS app (folder containg entry point).
  * This function is used by jerryscript glue. */
 void js_runner_get_root_path(FuriString* path);
+
+void js_runner_add_fetch_thread(JsRunnerApp* app);
+void js_runner_del_fetch_thread(JsRunnerApp* app);
