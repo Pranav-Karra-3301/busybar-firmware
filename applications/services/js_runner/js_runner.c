@@ -87,6 +87,14 @@ static void fetch_event_queue_callback(FuriEventLoopObject* object, void* contex
     js_run_jobs();
 }
 
+static void js_runner_app_console_init(
+    JsRunnerAppConsole* console,
+    JsRunnerConsoleOutCallback console_out_cb,
+    void* console_cb_context) {
+    console->callback = console_out_cb;
+    console->callback_context = console_cb_context;
+}
+
 static void js_runner_app_interval_init(JsRunnerAppInterval* interval) {
     interval->last_id = 0;
     IntervalDict_init(interval->intervals);
@@ -115,10 +123,10 @@ static void js_runner_app_init(
     app->heap_size = heap_size;
     app->jrs_context = NULL;
     app->event_loop = furi_event_loop_alloc();
-    app->console_callback = console_out_cb;
-    app->console_callback_context = console_cb_context;
+
     app->root_path = furi_string_alloc();
     path_extract_dirname(script_path, app->root_path);
+    js_runner_app_console_init(&app->console, console_out_cb, console_cb_context);
     js_runner_app_interval_init(&app->interval);
     js_runner_app_fetch_init(&app->fetch);
     furi_event_loop_subscribe_message_queue(
@@ -222,7 +230,7 @@ JsRunnerError js_runner_run(
             jerry_object_set_native_ptr(global_obj, &global_native_info, instance);
             jerry_value_free(global_obj);
         }
-        js_setup_console(&app);
+        js_setup_console(&app.console);
         js_setup_interval_methods();
         js_setup_fetch();
 

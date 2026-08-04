@@ -15,29 +15,29 @@ static void interval_callback(void* context) {
                 FuriString* exception_string = js_get_exception_string(result);
 
                 if(exception_string) {
-                    if(app->console_callback) {
-                        app->console_callback(
+                    if(app->console.callback) {
+                        app->console.callback(
                             JsRunnerConsoleSeverityError,
                             "Uncaught:",
                             9,
                             JsRunnerConsoleSeparatorSpace,
-                            app->console_callback_context);
-                        app->console_callback(
+                            app->console.callback_context);
+                        app->console.callback(
                             JsRunnerConsoleSeverityError,
                             furi_string_get_cstr(exception_string),
                             furi_string_size(exception_string),
                             JsRunnerConsoleSeparatorNewline,
-                            app->console_callback_context);
+                            app->console.callback_context);
                     }
                     furi_string_free(exception_string);
                 } else {
-                    if(app->console_callback) {
-                        app->console_callback(
+                    if(app->console.callback) {
+                        app->console.callback(
                             JsRunnerConsoleSeverityError,
                             "Uncaught exception",
                             18,
                             JsRunnerConsoleSeparatorNewline,
-                            app->console_callback_context);
+                            app->console.callback_context);
                     }
                 }
             }

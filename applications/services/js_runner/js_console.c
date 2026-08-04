@@ -74,9 +74,9 @@ static void add_logging_method(
     jerry_value_free(fn);
 }
 
-void js_setup_console(JsRunnerApp* app) {
-    JsRunnerConsoleOutCallback console_callback = app->console_callback;
-    void* console_write_context = app->console_callback_context;
+void js_setup_console(JsRunnerAppConsole* console) {
+    JsRunnerConsoleOutCallback console_callback = console->callback;
+    void* console_write_context = console->callback_context;
     jerry_value_t global_obj = jerry_current_realm();
 
     jerry_value_t console_obj = jerry_object();
