@@ -10,6 +10,9 @@ _HTTP_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH"}
 API_ENDPOINTS = [
     ("/api/access", "GET"),
     ("/api/access", "POST"),
+    ("/api/access/tokens", "GET"),
+    ("/api/access/tokens", "POST"),
+    ("/api/access/tokens", "DELETE"),
     ("/api/account", "DELETE"),
     ("/api/account/backend", "GET"),
     ("/api/account/backend", "PUT"),
