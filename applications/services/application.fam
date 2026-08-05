@@ -62,6 +62,7 @@ App(
         "discovery",
         "low_power",
         "tokens",
+        "js_runner",
     ],
     targets=["f20", "f21", "f22"],
 )
