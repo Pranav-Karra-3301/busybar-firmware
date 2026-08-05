@@ -1,4 +1,7 @@
 #include "js_fetch_body_methods.h"
+#include "js_runner_i.h"
+
+#define TAG "JsFetchBodyMethods"
 
 typedef struct BodyMethod BodyMethod;
 typedef bool (*BodyCollectedCallback)(BodyMethod* instance);
@@ -109,6 +112,7 @@ static jerry_value_t run_js_method(JsFetch* parent, BodyCollectedCallback on_bod
 }
 
 static void process_data(BodyMethod* instance, SizedBuffer data) {
+    JS_TRACE("process_data");
     size_t old_size = ByteArray_size(*instance->body);
     ByteArray_resize(*instance->body, old_size + data.size);
     memcpy(ByteArray_get(*instance->body, old_size), data.buffer, data.size);
@@ -116,6 +120,7 @@ static void process_data(BodyMethod* instance, SizedBuffer data) {
 }
 
 static void process_done(BodyMethod* instance) {
+    JS_TRACE("process_done");
     js_fetch_set_data_sink(instance->parent, NULL, NULL);
     bool success = instance->on_body_collected(instance);
     if(!success) {
@@ -129,7 +134,8 @@ static void process_done(BodyMethod* instance) {
 static void process_error(BodyMethod* instance, FuriString* msg) {
     js_fetch_set_data_sink(instance->parent, NULL, NULL);
     ByteArray_clear(*instance->body);
-    jerry_value_t exception = jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(msg));
+    // jerry_value_t exception = jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(msg));
+    jerry_value_t exception = jerry_string_sz(furi_string_get_cstr(msg));
     jerry_value_free(jerry_promise_reject(instance->promise, exception));
     jerry_value_free(instance->promise);
     jerry_value_free(exception);
@@ -190,6 +196,7 @@ static bool bytes_body_collected(BodyMethod* instance) {
 }
 
 static bool json_body_collected(BodyMethod* instance) {
+    JS_TRACE("json_body_collected");
     jerry_value_t json =
         jerry_json_parse(ByteArray_cget(*instance->body, 0), ByteArray_size(*instance->body));
     if(jerry_value_is_exception(json)) {

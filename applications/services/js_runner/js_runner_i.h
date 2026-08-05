@@ -19,6 +19,14 @@
 #include <jerryscript.h>
 #pragma GCC diagnostic pop
 
+#define JS_DEBUG
+
+#if defined(JS_DEBUG)
+#define JS_TRACE(...) FURI_LOG_D(TAG, __VA_ARGS__)
+#else
+#define JS_TRACE(...)
+#endif
+
 #define MIN_INTERVAL_DELAY_MS 10.0f
 #define MAX_FETCH_MESSAGES    32
 

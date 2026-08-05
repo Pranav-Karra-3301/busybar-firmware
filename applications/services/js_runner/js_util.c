@@ -34,6 +34,28 @@ void js_set_method_sym(
     jerry_value_free(sym);
 }
 
+void js_set_property_getset(
+    jerry_value_t object,
+    const char* name,
+    jerry_external_handler_t getter,
+    jerry_external_handler_t setter) {
+    furi_check(getter || setter);
+
+    jerry_value_t name_val = jerry_string_sz(name);
+    jerry_property_descriptor_t desc = jerry_property_descriptor();
+
+    if(getter) {
+        desc.flags |= JERRY_PROP_IS_GET_DEFINED;
+        desc.getter = jerry_function_external(getter);
+    }
+    if(setter) {
+        desc.flags |= JERRY_PROP_IS_SET_DEFINED;
+        desc.setter = jerry_function_external(setter);
+    }
+    js_check_and_free(jerry_object_define_own_prop(object, name_val, &desc));
+    jerry_value_free(name_val);
+}
+
 jerry_value_t js_iterator_result(bool done, jerry_value_t value) {
     jerry_value_t obj = jerry_object();
     js_check_and_free(jerry_object_set_sz(obj, "value", value));

@@ -241,6 +241,7 @@ static void empty_event_queue(JsFetch* instance) {
 static bool free_if_not_running(JsFetch* instance) {
     if(!IS_RUNNING(sink) && !IS_RUNNING(fetch) && !IS_RUNNING(response) && !IS_RUNNING(promise) &&
        !instance->sink.feeding) {
+        JS_TRACE("free");
         empty_event_queue(instance);
         DataEventQueue_clear(instance->chunk_queue);
         free(instance);
@@ -254,6 +255,7 @@ static void feed_data_sink(JsFetch* instance);
 
 static void promise_free_cb(void* native_p, jerry_object_native_info_t* info_p) {
     UNUSED(info_p);
+    JS_TRACE("promise free");
     JsFetch* instance = native_p;
     instance->promise.status = ChildStatusDone;
     free_if_not_running(instance);
@@ -261,6 +263,7 @@ static void promise_free_cb(void* native_p, jerry_object_native_info_t* info_p) 
 
 static void response_free_cb(void* native_p, jerry_object_native_info_t* info_p) {
     UNUSED(info_p);
+    JS_TRACE("response free");
     JsFetch* instance = native_p;
     instance->response.status = ChildStatusDone;
     free_if_not_running(instance);
@@ -326,18 +329,33 @@ static jerry_value_t fetch(
     return jerry_value_copy(instance->promise.promise);
 }
 
+static jerry_value_t body_used_getter(
+    const jerry_call_info_t* call_info,
+    const jerry_value_t args[],
+    const jerry_length_t args_count) {
+    UNUSED(args);
+    UNUSED(args_count);
+
+    JS_TRACE("get bodyUsed");
+
+    JsFetch* instance =
+        jerry_object_get_native_ptr(call_info->this_value, &js_fetch_response_native_info);
+
+    bool used = instance->sink.status != ChildStatusNotYet;
+    return jerry_boolean(used);
+}
+
 static jerry_value_t create_response(JsFetch* instance, SizedBuffer headers) {
     jerry_value_t response = jerry_object();
 
     jerry_object_set_native_ptr(response, &js_fetch_response_native_info, instance);
 
-    instance->response.response = response;
     jerry_value_t readable_stream = js_readable_stream_alloc(instance);
     jerry_value_t headers_val = js_headers_alloc(response, headers.buffer, headers.size);
 
     js_set_property(response, "headers", headers_val);
     js_set_property(response, "body", readable_stream);
-    js_set_property(response, "bodyUsed", jerry_boolean(false));
+    js_set_property_getset(response, "bodyUsed", body_used_getter, NULL);
     js_set_property(response, "type", jerry_string_sz("basic"));
     js_set_property(response, "url", jerry_string_sz(instance->request.url));
 
@@ -352,6 +370,7 @@ static jerry_value_t create_response(JsFetch* instance, SizedBuffer headers) {
 }
 
 static void process_headers(JsFetch* instance, SizedBuffer data) {
+    JS_TRACE("headers");
     if(instance->promise.status != ChildStatusDone) {
         jerry_value_t promise = instance->promise.promise;
 
@@ -363,8 +382,8 @@ static void process_headers(JsFetch* instance, SizedBuffer data) {
         furi_check(!jerry_value_is_exception(response));
         furi_check(jerry_value_is_promise(promise));
         js_check_and_free(jerry_promise_resolve(promise, response));
-        jerry_value_free(response);
         jerry_value_free(promise);
+        jerry_value_free(response);
     } else {
         FURI_LOG_E(TAG, "Unexpected headers");
     }
@@ -373,6 +392,7 @@ static void process_headers(JsFetch* instance, SizedBuffer data) {
 
 static void process_error(JsFetch* instance, FuriString* msg) {
     bool free_msg = true;
+    JS_TRACE("error");
     if(instance->promise.status == ChildStatusRunning) {
         jerry_value_t promise = instance->promise.promise;
         furi_check(jerry_object_delete_native_ptr(promise, &promise_native_info));
@@ -384,10 +404,13 @@ static void process_error(JsFetch* instance, FuriString* msg) {
         instance->promise.status = ChildStatusDone;
         instance->response.status = ChildStatusDone;
     }
-    if(instance->response.status == ChildStatusRunning) {
-        furi_check(false);
-    }
-    if(instance->sink.status == ChildStatusRunning) {
+    if(instance->response.status == ChildStatusRunning ||
+       instance->sink.status == ChildStatusRunning) {
+        JS_TRACE(
+            "Error while R:%d S:%d: %s",
+            instance->response.status,
+            instance->sink.status,
+            furi_string_get_cstr(msg));
         DataEventQueue_push_back(
             instance->chunk_queue,
             (JsFetchDataEvent){
@@ -395,6 +418,9 @@ static void process_error(JsFetch* instance, FuriString* msg) {
                 .error = msg,
             });
         free_msg = false;
+        if(instance->sink.status == ChildStatusRunning) {
+            feed_data_sink(instance);
+        }
     }
     if(free_msg) {
         furi_string_free(msg);
@@ -422,6 +448,7 @@ static void feed_data_sink(JsFetch* instance) {
 }
 
 static void process_rx_data(JsFetch* instance, SizedBuffer data) {
+    JS_TRACE("rx_data");
     if(instance->promise.status != ChildStatusDone ||
        instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         DataEventQueue_push_back(
@@ -436,6 +463,7 @@ static void process_rx_data(JsFetch* instance, SizedBuffer data) {
 }
 
 static void process_done(JsFetch* instance) {
+    JS_TRACE("done");
     if(instance->promise.status != ChildStatusDone ||
        instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         DataEventQueue_push_back(
@@ -450,6 +478,7 @@ static void process_done(JsFetch* instance) {
 }
 
 static void process_thread_exit(JsFetch* instance) {
+    JS_TRACE("thread exit");
     furi_thread_join(instance->fetch.thread);
     furi_thread_free(instance->fetch.thread);
     instance->fetch.thread = NULL;
@@ -488,15 +517,16 @@ bool js_fetch_set_data_sink(
     JsFetchDataSinkCallback callback,
     void* callback_context) {
     if(instance->sink.status == ChildStatusNotYet && callback) {
+        JS_TRACE("new data sink");
         instance->sink.on_event = callback;
         instance->sink.context = callback_context;
         instance->sink.feeding = false;
         instance->sink.status = ChildStatusRunning;
-        js_set_property(instance->response.response, "bodyUsed", jerry_boolean(true));
         feed_data_sink(instance);
         return true;
     } else if(instance->sink.status == ChildStatusRunning && !callback) {
         // Data sink expired and won't accept any more packets
+        JS_TRACE("data sink expired");
         instance->sink.on_event = NULL;
         instance->sink.context = NULL;
         instance->sink.status = ChildStatusDone;
@@ -516,7 +546,6 @@ bool js_fetch_cancel(JsFetch* instance) {
     if(instance->sink.status == ChildStatusRunning) {
         return false;
     }
-    js_set_property(instance->response.response, "bodyUsed", jerry_boolean(true));
     instance->sink.status = ChildStatusDone;
     free_if_not_running(instance);
     return true;

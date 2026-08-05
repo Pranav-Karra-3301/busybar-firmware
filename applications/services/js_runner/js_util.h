@@ -47,6 +47,19 @@ void js_set_property_sym(
     jerry_well_known_symbol_t key,
     jerry_value_t property);
 
+/** @brief Set a property defined by its getter and setter in a JS object
+ *
+ * @param object Object (not freed)
+ * @param name Property name
+ * @param getter getter callback (can be NULL)
+ * @param setter getter callback (can be NULL)
+ */
+void js_set_property_getset(
+    jerry_value_t object,
+    const char* name,
+    jerry_external_handler_t getter,
+    jerry_external_handler_t setter);
+
 /** @brief Test if an object has a property with given name */
 bool js_object_has_property(jerry_value_t object, const char* key);
 

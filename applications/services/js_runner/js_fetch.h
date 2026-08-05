@@ -68,7 +68,6 @@ typedef struct JsFetchPromise {
 
 typedef struct JsFetchResponse {
     ChildStatus status;
-    jerry_value_t response;
 } JsFetchResponse;
 
 typedef struct JsFetch {
