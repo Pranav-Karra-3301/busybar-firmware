@@ -305,42 +305,54 @@ static HttpApiAccessStatusEx http_api_access_status(
         }
         if(status_ex.status != HttpApiAccessStatusMax) break;
 
-        bool is_usb = is_connection_on_netif(conn, NetworkNetifUsb);
-
         uint8_t* ip = conn->rem.addr.ip;
         bool is_localhost = !conn->rem.is_ip6;
         is_localhost &= (ip[0] == 127) && (ip[1] == 0) && (ip[2] == 0) && (ip[3] == 1);
 
-        if(is_usb || is_localhost) {
+        if(is_localhost) {
             status_ex.status = HttpApiAccessStatusGrantedViaNetifWhitelist;
             break;
         }
 
-        if(context->access_mode == ApiAccessDisabled) {
-            status_ex.status = HttpApiAccessStatusDenied;
-            break;
-        }
-        if(context->access_mode == ApiAccessEnabled) {
-            status_ex.status = HttpApiAccessStatusGrantedToAll;
-            break;
-        }
+        bool is_usb = is_connection_on_netif(conn, NetworkNetifUsb);
 
-        furi_assert(context->access_key);
+        if(!is_usb) {
+            if(context->access_mode == ApiAccessDisabled) {
+                status_ex.status = HttpApiAccessStatusDenied;
+                break;
+            }
+            if(context->access_mode == ApiAccessEnabled) {
+                status_ex.status = HttpApiAccessStatusGrantedToAll;
+                break;
+            }
+        }
 
         if(method == HttpMethodWebSocket) {
             mg_http_get_var(&msg->query, "x-api-token", status_ex.token, sizeof(status_ex.token));
         } else {
             struct mg_str* request_key = mg_http_get_header(msg, "X-API-Token");
-            if(request_key) memcpy(status_ex.token, request_key->buf, request_key->len);
+            if(request_key)
+                memcpy(
+                    status_ex.token,
+                    request_key->buf,
+                    MIN(request_key->len, sizeof(status_ex.token) - 1));
         }
 
-        if(furi_string_cmp_str(context->access_key, status_ex.token) == 0) {
-            status_ex.status = HttpApiAccessStatusGrantedViaUserPassword;
-            break;
-        }
+        bool token_provided = strlen(status_ex.token);
 
-        if(tokens_validate_and_record_usage(context->tokens, status_ex.token)) {
-            status_ex.status = HttpApiAccessStatusGrantedViaToken;
+        if(token_provided) {
+            if(context->access_key &&
+               (furi_string_cmp_str(context->access_key, status_ex.token) == 0)) {
+                status_ex.status = HttpApiAccessStatusGrantedViaUserPassword;
+                break;
+            }
+
+            if(tokens_validate_and_record_usage(context->tokens, status_ex.token)) {
+                status_ex.status = HttpApiAccessStatusGrantedViaToken;
+                break;
+            }
+        } else if(is_usb) {
+            status_ex.status = HttpApiAccessStatusGrantedViaNetifWhitelist;
             break;
         }
 
