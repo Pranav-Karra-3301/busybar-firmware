@@ -1,17 +1,25 @@
 #include "log_storage.h"
 
+#include <furi_hal_serial.h>
+#include <furi_hal_serial_control.h>
+
 #include <storage/storage.h>
 #include <string.h>
+
+#define TAG "LogStorage"
 
 #define LOG_STORAGE_LOG_BUFFER_SIZE (8u * 1024u)
 #define LOG_STORAGE_LOCK_TIMEOUT_MS 1500u
 
 struct LogStorage {
+    FuriEventLoop* event_loop;
+    FuriStreamBuffer* serial_buf;
     FuriMutex* lock;
 
     uint8_t log_buffer[LOG_STORAGE_LOG_BUFFER_SIZE];
     size_t head_idx;
     size_t bytes_count;
+    _Atomic uint32_t overrun_count;
 };
 
 static void log_storage_on_log(const uint8_t* data, size_t size, void* context) {
@@ -33,6 +41,50 @@ static void log_storage_on_log(const uint8_t* data, size_t size, void* context) 
     instance->bytes_count = MIN(instance->bytes_count + size, LOG_STORAGE_LOG_BUFFER_SIZE);
 
     furi_check(furi_mutex_release(instance->lock) == FuriStatusOk);
+}
+
+static void log_storage_stream_buffer_callback(FuriEventLoopObject* obj, void* context) {
+    furi_assert(context);
+    LogStorage* instance = context;
+
+    furi_assert(obj == instance->serial_buf);
+
+    uint8_t tmp[512];
+
+    for(;;) {
+        if(instance->overrun_count != 0) {
+            FURI_LOG_W(TAG, "Si917 log overrun %lu times", instance->overrun_count);
+            instance->overrun_count = 0;
+        }
+
+        const size_t rx_size =
+            furi_stream_buffer_receive(instance->serial_buf, &tmp, sizeof(tmp), 0);
+
+        if(rx_size == 0) {
+            break;
+        }
+
+        furi_log_tx(tmp, rx_size);
+    }
+}
+
+static void log_storage_serial_rx_callback(
+    FuriHalSerialHandle* handle,
+    FuriHalSerialRxEvent event,
+    void* context) {
+    furi_assert(handle);
+    furi_assert(context);
+
+    LogStorage* instance = context;
+
+    if(event == FuriHalSerialRxEventData) {
+        while(furi_hal_serial_rx_available(handle)) {
+            const uint8_t c = furi_hal_serial_rx(handle);
+            if(furi_stream_buffer_send(instance->serial_buf, &c, 1, 0) != 1) {
+                ++instance->overrun_count;
+            }
+        }
+    }
 }
 
 bool log_storage_dump(LogStorage* instance, const char* path) {
@@ -84,9 +136,13 @@ bool log_storage_dump(LogStorage* instance, const char* path) {
     return is_successful;
 }
 
-void log_storage_on_system_start(void) {
+int32_t log_storage_srv(void* arg) {
+    UNUSED(arg);
+
     LogStorage* instance = malloc(sizeof(*instance));
 
+    instance->event_loop = furi_event_loop_alloc();
+    instance->serial_buf = furi_stream_buffer_alloc(512, 1);
     instance->lock = furi_mutex_alloc(FuriMutexTypeNormal);
     instance->head_idx = 0;
     instance->bytes_count = 0;
@@ -97,4 +153,20 @@ void log_storage_on_system_start(void) {
         .callback = log_storage_on_log,
         .context = instance,
     }));
+
+    furi_event_loop_subscribe_stream_buffer(
+        instance->event_loop,
+        instance->serial_buf,
+        FuriEventLoopEventIn,
+        log_storage_stream_buffer_callback,
+        instance);
+
+    FuriHalSerialHandle* serial = furi_hal_serial_control_acquire(FuriHalSerialIdUsart2);
+    furi_hal_serial_init(serial, 230400);
+    furi_hal_serial_set_rx_callback(serial, log_storage_serial_rx_callback, instance);
+    furi_hal_serial_async_rx_start(serial, false);
+
+    furi_event_loop_run(instance->event_loop);
+
+    return 0;
 }

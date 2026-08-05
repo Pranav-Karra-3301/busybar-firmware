@@ -1,7 +1,7 @@
 App(
     appid="log_storage",
-    apptype=FlipperAppType.STARTUP,
-    entry_point="log_storage_on_system_start",
+    apptype=FlipperAppType.SERVICE,
+    entry_point="log_storage_srv",
     stack_size=2 * 1024,
     order=125,
     provides=["log_storage_cli"],
