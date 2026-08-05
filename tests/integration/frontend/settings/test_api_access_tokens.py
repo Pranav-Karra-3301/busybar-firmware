@@ -274,9 +274,9 @@ class TestAccessTokensAPI:
             assert (
                 response.status_code == 404
             ), f"Expected HTTP 404, got {response.status_code}: {response.text!r}"
-            assert after_ids == before_ids, (
-                "Invalid nested path minted a token: "
-                f"before={before_ids!r}, after={after_ids!r}"
+            assert not unexpected_ids, (
+                "POST /api/access/tokens/not-a-resource returned 404 but created "
+                f"tokens: {unexpected_ids!r}"
             )
 
     @allure.title("Delete-all revokes all tokens when the device starts clean")
