@@ -87,11 +87,15 @@ from .ble import (
 # Settings API
 from .settings import (
     AccessResponse,
+    AccessTokensResponse,
     BrightnessResponse,
+    CreateAccessTokenRequest,
+    MintedAccessToken,
     NameResponse,
     SetNameRequest,
     SettingsAPI,
     SettingsResultResponse,
+    StoredAccessToken,
     VolumeResponse,
 )
 
@@ -180,10 +184,14 @@ __all__ = [
     "SettingsAPI",
     "NameResponse",
     "AccessResponse",
+    "StoredAccessToken",
+    "MintedAccessToken",
+    "AccessTokensResponse",
     "BrightnessResponse",
     "VolumeResponse",
     "SettingsResultResponse",
     "SetNameRequest",
+    "CreateAccessTokenRequest",
     "InputAPI",
     "InputKeyRequest",
     "InputErrorResponse",
