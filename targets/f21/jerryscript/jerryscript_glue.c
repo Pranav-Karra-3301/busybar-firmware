@@ -14,17 +14,17 @@
 #define TAG "JSGlue"
 
 size_t jerry_port_context_alloc(size_t context_size) {
-    size_t result = js_runner_context_alloc(context_size);
+    size_t result = js_runner_thread_context_alloc(context_size);
     return result;
 }
 
 struct jerry_context_t* jerry_port_context_get(void) {
-    void* result = js_runner_context_get();
+    void* result = js_runner_thread_context_get();
     return result;
 }
 
 void jerry_port_context_free(void) {
-    js_runner_context_free();
+    js_runner_thread_context_free();
 }
 
 void jerry_port_init(void) {

@@ -111,14 +111,23 @@ typedef struct JsRunner {
 void js_runner_check_event_loop(JsRunnerApp* app);
 void js_run_jobs(void);
 
-/** @brief Allocate Jerryscript context for current thread. This function is used by jerryscript glue. */
-size_t js_runner_context_alloc(size_t context_size);
+/** @brief Allocate Jerryscript context for current thread. This function is used by jerryscript glue.
+ *
+ * Jerryscript uses global context. JsRunner keeps track of jerryscript context, allocating a separate context instance for each thread.
+ */
+size_t js_runner_thread_context_alloc(size_t context_size);
 
-/** @brief Free Jerryscript context for current thread. This function is used by jerryscript glue. */
-void js_runner_context_free(void);
+/** @brief Free Jerryscript context for current thread. This function is used by jerryscript glue.
+ *
+ * Jerryscript uses global context. JsRunner keeps track of jerryscript context, allocating a separate context instance for each thread.
+ * */
+void js_runner_thread_context_free(void);
 
-/** @brief Get Jerryscript context for current thread. This function is used by jerryscript glue. */
-void* js_runner_context_get(void);
+/** @brief Get Jerryscript context for current thread. This function is used by jerryscript glue.
+ *
+ * Jerryscript uses global context. JsRunner keeps track of jerryscript context, allocating a separate context instance for each thread.
+ * */
+void* js_runner_thread_context_get(void);
 
 /** @brief Get root path of the current JS app (folder containg entry point).
  * This function is used by jerryscript glue. */

@@ -111,4 +111,7 @@ jerry_value_t js_rejected_promise_from_exception(jerry_value_t exception);
  */
 FuriString* js_get_exception_string(jerry_value_t exception);
 
+/**
+ * @brief Log exception message with ERROR severity
+ */
 void js_log_exception(const char* tag, const char* msg, jerry_value_t exception);

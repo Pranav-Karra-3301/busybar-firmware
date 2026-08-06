@@ -5,7 +5,7 @@
 
 #define TAG "JsRunner"
 
-size_t js_runner_context_alloc(size_t context_size) {
+size_t js_runner_thread_context_alloc(size_t context_size) {
     size_t alloc_size = 0;
     WITH_JS_RUNNER_APP(app, {
         furi_check(!app->jrs_context);
@@ -15,7 +15,7 @@ size_t js_runner_context_alloc(size_t context_size) {
     return alloc_size;
 }
 
-void js_runner_context_free(void) {
+void js_runner_thread_context_free(void) {
     WITH_JS_RUNNER_APP(app, {
         furi_check(app->jrs_context);
         free(app->jrs_context);
@@ -23,7 +23,7 @@ void js_runner_context_free(void) {
     });
 }
 
-void* js_runner_context_get(void) {
+void* js_runner_thread_context_get(void) {
     void* result = NULL;
     WITH_JS_RUNNER_APP(app, {
         furi_check(app->jrs_context);
