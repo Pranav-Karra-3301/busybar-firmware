@@ -383,6 +383,7 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch supports multiple concurrent requests.")
+    @allure.issue("https://flipper.atlassian.net/browse/FW-1102")
     @pytest.mark.skip(reason="concurrent fetch returns socket error/inactivity timeout")
     def test_concurrent_requests(self, js_case_runner, http_server):
         case_name = "concurrent_requests"
