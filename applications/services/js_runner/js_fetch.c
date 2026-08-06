@@ -114,6 +114,8 @@ static RequestParseResult parse_request(jerry_value_t obj) {
                     .tag = RequestParseResultTypeError,
                     .error = furi_string_alloc_set("Headers is not an object"),
                 };
+                jerry_value_free(headers_val);
+                break;
             }
             jerry_value_free(headers_val);
         }
@@ -194,7 +196,9 @@ static void fetch_error_callback(const char* error, void* ctx) {
 
 static void fetch_rx_data_callback(const void* data, size_t data_size, void* ctx) {
     JsFetch* context = ctx;
-    enqueue_fetch_event_data(context, JsFetchEventTypeRxData, data, data_size);
+    if(data_size > 0) {
+        enqueue_fetch_event_data(context, JsFetchEventTypeRxData, data, data_size);
+    }
 }
 
 static int32_t fetch_thread_callback(void* ctx) {
@@ -206,7 +210,6 @@ static int32_t fetch_thread_callback(void* ctx) {
     fetch_set_error_callback(fetch, fetch_error_callback);
     fetch_set_rx_data_callback(fetch, fetch_rx_data_callback);
     FetchStatus status = fetch_run(fetch, &context->request);
-    fetch_request_free(&context->request);
     if(status == FetchStatusOk) {
         enqueue_fetch_event(context, JsFetchEventTypeDone);
     } else {
@@ -244,6 +247,7 @@ static bool free_if_not_running(JsFetch* instance) {
         JS_TRACE("free");
         empty_event_queue(instance);
         DataEventQueue_clear(instance->chunk_queue);
+        fetch_request_free(&instance->request);
         free(instance);
 
         return true;
