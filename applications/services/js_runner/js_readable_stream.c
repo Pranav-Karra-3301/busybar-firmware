@@ -86,7 +86,8 @@ static void resolve_everything_with_done(JsReadableStream* instance, jerry_value
 static void resolve_closed_promise(JsReadableStream* instance, const char* error_msg) {
     if(instance->has_closed_promise) {
         if(error_msg) {
-            jerry_value_t error = jerry_throw_sz(JERRY_ERROR_TYPE, error_msg);
+            // jerry_value_t error = jerry_throw_sz(JERRY_ERROR_TYPE, error_msg);
+            jerry_value_t error = jerry_string_sz(error_msg);
             jerry_value_free(jerry_promise_reject(instance->closed_promise, error));
             jerry_value_free(error);
         } else {

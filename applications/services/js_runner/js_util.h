@@ -104,6 +104,13 @@ jerry_value_t js_rejected_promise(const char* msg);
  */
 jerry_value_t js_rejected_promise_from_exception(jerry_value_t exception);
 
+/** @brief Reject a Promise with a message extracted from an exception
+ *
+ *  @param promise promise (freed)
+ *  @param exception exception (freed)
+ */
+void js_reject_promise_with_exception(jerry_value_t promise, jerry_value_t exception);
+
 /** @brief Create a string out of a JS exception.
  *
  * @param exception JS exception. This value is not freed.

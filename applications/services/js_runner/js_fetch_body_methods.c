@@ -182,7 +182,7 @@ static bool array_buffer_body_collected(BodyMethod* instance) {
 }
 
 static bool blob_body_collected(BodyMethod* instance) {
-    jerry_value_t exception = jerry_throw_sz(JERRY_ERROR_TYPE, "unimplemented");
+    jerry_value_t exception = jerry_string_sz("unimplemented");
     jerry_value_free(jerry_promise_reject(instance->promise, exception));
     jerry_value_free(instance->promise);
     js_run_jobs();
@@ -214,21 +214,21 @@ static bool json_body_collected(BodyMethod* instance) {
     if(body_size > 0) {
         json = jerry_json_parse(ByteArray_cget(*instance->body, 0), body_size);
     } else {
-        json = jerry_object();
+        json = jerry_undefined();
     }
     if(jerry_value_is_exception(json)) {
-        jerry_value_free(jerry_promise_reject(instance->promise, json));
+        js_reject_promise_with_exception(instance->promise, json);
     } else {
         jerry_value_free(jerry_promise_resolve(instance->promise, json));
+        jerry_value_free(instance->promise);
+        jerry_value_free(json);
     }
-    jerry_value_free(json);
-    jerry_value_free(instance->promise);
     js_run_jobs();
     return true;
 }
 
 static bool form_data_body_collected(BodyMethod* instance) {
-    jerry_value_t exception = jerry_throw_sz(JERRY_ERROR_TYPE, "unimplemented");
+    jerry_value_t exception = jerry_string_sz("unimplemented");
     jerry_value_free(jerry_promise_reject(instance->promise, exception));
     jerry_value_free(instance->promise);
     js_run_jobs();

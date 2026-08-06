@@ -396,7 +396,7 @@ static void process_headers(JsFetch* instance, SizedBuffer data) {
 
 static void process_error(JsFetch* instance, FuriString* msg) {
     bool free_msg = true;
-    JS_TRACE("error");
+    JS_TRACE("error %s", furi_string_get_cstr(msg));
     if(instance->promise.status == ChildStatusRunning) {
         jerry_value_t promise = instance->promise.promise;
         furi_check(jerry_object_delete_native_ptr(promise, &promise_native_info));

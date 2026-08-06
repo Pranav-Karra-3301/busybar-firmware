@@ -160,6 +160,16 @@ jerry_value_t js_rejected_promise(const char* msg) {
     return ret;
 }
 
+void js_reject_promise_with_exception(jerry_value_t promise, jerry_value_t exception) {
+    // TODO investigate and make things right
+    // See comment in js_rejected_promise
+    jerry_value_t val = jerry_exception_value(exception, false);
+    jerry_value_free(jerry_promise_reject(promise, val));
+    jerry_value_free(promise);
+    jerry_value_free(exception);
+    jerry_value_free(val);
+}
+
 jerry_value_t js_rejected_promise_from_exception(jerry_value_t exception) {
     // TODO investigate and make things right
     // See comment in js_rejected_promise
