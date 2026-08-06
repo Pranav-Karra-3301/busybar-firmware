@@ -13,7 +13,10 @@ from clients.api import SettingsAPI
 from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
 
-_SERVICE_TYPE = "_busybar._tcp.local."
+_BUSYBAR_SERVICE_TYPE = "_busybar._tcp.local."
+_BUSYBAR_DISCOVERY_PORT = 0
+_HTTP_SERVICE_TYPE = "_http._tcp.local."
+_HTTP_INSTANCE = "httpd"
 _LOCAL_API_PORT = 80
 
 
@@ -55,16 +58,17 @@ class _ExpectedServiceListener(ServiceListener):
 
 def _discover(
     mdns_interface_ip: str,
+    service_type: str,
     instance: str,
     timeout: float = 5,
 ) -> ServiceInfo:
-    expected_instance = f"{instance}.{_SERVICE_TYPE}"
+    expected_instance = f"{instance}.{service_type}"
     listener = _ExpectedServiceListener(expected_instance)
     zeroconf = Zeroconf(
         interfaces=[mdns_interface_ip],
         ip_version=IPVersion.V4Only,
     )
-    browser = ServiceBrowser(zeroconf, _SERVICE_TYPE, listener)
+    browser = ServiceBrowser(zeroconf, service_type, listener)
     deadline = time.monotonic() + timeout
 
     try:
@@ -78,7 +82,7 @@ def _discover(
         actual_instance = listener.discovered[expected_instance.casefold()]
         remaining_ms = max(1, int((deadline - time.monotonic()) * 1000))
         service = zeroconf.get_service_info(
-            _SERVICE_TYPE,
+            service_type,
             actual_instance,
             timeout=remaining_ms,
         )
@@ -105,11 +109,15 @@ class TestMdnsDiscovery:
         mdns_device_ip: str,
         discovery_instance: str,
     ):
-        with allure.step(f"Browse for {_SERVICE_TYPE}"):
-            service = _discover(mdns_interface_ip, discovery_instance)
+        with allure.step(f"Browse for {_BUSYBAR_SERVICE_TYPE}"):
+            service = _discover(
+                mdns_interface_ip,
+                _BUSYBAR_SERVICE_TYPE,
+                discovery_instance,
+            )
 
         with allure.step("Verify the discovered identity and local API address"):
-            expected_name = f"{discovery_instance}.{_SERVICE_TYPE}"
+            expected_name = f"{discovery_instance}.{_BUSYBAR_SERVICE_TYPE}"
             addresses = service.parsed_addresses(IPVersion.V4Only)
             assert (
                 service.name == expected_name
@@ -118,19 +126,84 @@ class TestMdnsDiscovery:
                 f"Expected discovery address {mdns_device_ip!r}, " f"got {addresses!r}"
             )
 
-    @allure.title("Discovery advertises the local API port")
-    def test_service_advertises_local_api_port(
+    @allure.title("BusyBar identity service uses the discovery-only port")
+    def test_busybar_service_uses_discovery_only_port(
         self,
         mdns_interface_ip: str,
         discovery_instance: str,
     ):
         with allure.step("Resolve the BusyBar DNS-SD service"):
-            service = _discover(mdns_interface_ip, discovery_instance)
+            service = _discover(
+                mdns_interface_ip,
+                _BUSYBAR_SERVICE_TYPE,
+                discovery_instance,
+            )
 
-        with allure.step("Verify the SRV record points to HTTP port 80"):
-            assert service.port == _LOCAL_API_PORT, (
-                f"Expected {_SERVICE_TYPE} port {_LOCAL_API_PORT}, "
-                f"got {service.port}"
+        with allure.step("Verify the identity record uses marker port 0"):
+            assert service.port == _BUSYBAR_DISCOVERY_PORT, (
+                f"Expected {_BUSYBAR_SERVICE_TYPE} discovery-only port "
+                f"{_BUSYBAR_DISCOVERY_PORT}, got {service.port}"
+            )
+
+    @allure.title("HTTP service advertises a reachable local API endpoint")
+    def test_http_service_advertises_local_api_endpoint(
+        self,
+        mdns_interface_ip: str,
+        mdns_device_ip: str,
+        discovery_instance: str,
+        web_session,
+    ):
+        with allure.step("Resolve the BusyBar identity service"):
+            busybar_service = _discover(
+                mdns_interface_ip,
+                _BUSYBAR_SERVICE_TYPE,
+                discovery_instance,
+            )
+
+        with allure.step("Resolve the HTTP DNS-SD service"):
+            http_service = _discover(
+                mdns_interface_ip,
+                _HTTP_SERVICE_TYPE,
+                _HTTP_INSTANCE,
+            )
+
+        with allure.step("Verify the HTTP record points to the local API"):
+            expected_name = f"{_HTTP_INSTANCE}.{_HTTP_SERVICE_TYPE}"
+            addresses = http_service.parsed_addresses(IPVersion.V4Only)
+            advertised_path = http_service.properties.get(b"path")
+            assert http_service.name == expected_name, (
+                f"Expected HTTP service instance {expected_name!r}, "
+                f"got {http_service.name!r}"
+            )
+            assert (
+                http_service.server.casefold() == busybar_service.server.casefold()
+            ), (
+                "BusyBar identity and HTTP services point to different hosts: "
+                f"busybar={busybar_service.server!r}, "
+                f"http={http_service.server!r}"
+            )
+            assert http_service.port == _LOCAL_API_PORT, (
+                f"Expected {_HTTP_SERVICE_TYPE} port {_LOCAL_API_PORT}, "
+                f"got {http_service.port}"
+            )
+            assert mdns_device_ip in addresses, (
+                f"Expected HTTP discovery address {mdns_device_ip!r}, "
+                f"got {addresses!r}"
+            )
+            assert advertised_path == b"/", (
+                f"Expected HTTP TXT path=b'/', "
+                f"got {advertised_path!r} from {http_service.properties!r}"
+            )
+
+        with allure.step("Verify the advertised HTTP endpoint responds"):
+            endpoint = (
+                f"http://{mdns_device_ip}:{http_service.port}"
+                f"{advertised_path.decode()}"
+            )
+            response = web_session.get(endpoint)
+            assert response.status_code == 200, (
+                f"Expected discovered endpoint {endpoint!r} to return HTTP 200, "
+                f"got {response.status_code}: {response.text[:200]!r}"
             )
 
     @allure.title("Discovery publishes the device name without display quoting")
@@ -144,7 +217,11 @@ class TestMdnsDiscovery:
             expected_name = settings_api.get_name().name
 
         with allure.step("Resolve the BusyBar TXT record"):
-            service = _discover(mdns_interface_ip, discovery_instance)
+            service = _discover(
+                mdns_interface_ip,
+                _BUSYBAR_SERVICE_TYPE,
+                discovery_instance,
+            )
 
         with allure.step("Verify TXT name matches the configured name exactly"):
             advertised_name = service.properties.get(b"name")
@@ -167,22 +244,27 @@ class TestMdnsDiscovery:
             settings_api.set_name(new_name)
 
         with allure.step("Discover the service after the name change"):
-            service = _discover(mdns_interface_ip, discovery_instance, timeout=10)
+            service = _discover(
+                mdns_interface_ip,
+                _BUSYBAR_SERVICE_TYPE,
+                discovery_instance,
+                timeout=10,
+            )
 
         with allure.step("Verify updated metadata with stable identity"):
             advertised_name = service.properties.get(b"name", b"").decode()
             expected_target = "".join(
                 character.lower() for character in new_name if character.isalnum()
             )
-            assert advertised_name == new_name, (
-                f"Expected reannounced name {new_name!r}, got {advertised_name!r}"
-            )
+            assert (
+                advertised_name == new_name
+            ), f"Expected reannounced name {new_name!r}, got {advertised_name!r}"
             assert service.server.lower() == f"{expected_target}.local.", (
                 f"Expected renamed host {expected_target!r}.local., "
                 f"got {service.server!r}"
             )
             assert (
-                service.name == f"{discovery_instance}.{_SERVICE_TYPE}"
+                service.name == f"{discovery_instance}.{_BUSYBAR_SERVICE_TYPE}"
             ), f"Discovery identity changed after rename: {service.name!r}"
 
     @allure.title("Discovery identity survives a device reboot")
@@ -195,7 +277,11 @@ class TestMdnsDiscovery:
         web_base_url: str,
     ):
         with allure.step("Discover the device before reboot"):
-            before = _discover(mdns_interface_ip, discovery_instance)
+            before = _discover(
+                mdns_interface_ip,
+                _BUSYBAR_SERVICE_TYPE,
+                discovery_instance,
+            )
 
         with allure.step("Reboot the device and wait for the local API"):
             recovered = persistent_cli_connection.reboot_and_wait_for_api(
@@ -205,7 +291,12 @@ class TestMdnsDiscovery:
             assert recovered, "Device did not recover after discovery reboot"
 
         with allure.step("Discover the device again after reboot"):
-            after = _discover(mdns_interface_ip, discovery_instance, timeout=15)
+            after = _discover(
+                mdns_interface_ip,
+                _BUSYBAR_SERVICE_TYPE,
+                discovery_instance,
+                timeout=15,
+            )
 
         with allure.step("Verify discovery identity and address are stable"):
             before_addresses = before.parsed_addresses(IPVersion.V4Only)
