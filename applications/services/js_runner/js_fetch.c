@@ -468,8 +468,12 @@ static void process_rx_data(JsFetch* instance, SizedBuffer data) {
 
 static void process_done(JsFetch* instance) {
     JS_TRACE("done");
-    if(instance->promise.status != ChildStatusDone ||
-       instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
+    if(instance->promise.status == ChildStatusRunning) {
+        // Done before headers
+        process_error(instance, furi_string_alloc_set("Connection closed unexpectedly"));
+        return;
+    }
+    if(instance->response.status != ChildStatusDone || instance->sink.status != ChildStatusDone) {
         DataEventQueue_push_back(
             instance->chunk_queue,
             (JsFetchDataEvent){

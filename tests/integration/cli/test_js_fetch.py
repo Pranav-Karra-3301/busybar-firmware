@@ -111,7 +111,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch decodes a non-BMP Unicode text response.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_get_non_bmp_unicode_text_response(self, js_case_runner, http_server):
         case_name = "get_non_bmp_unicode_text_response"
         url = json.dumps(http_server.url("/unicode-non-bmp"))
@@ -273,7 +272,6 @@ class TestJSFetch:
             ), f"captured={captured!r}"
 
     @allure.title("JavaScript fetch parses a JSON response.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_get_json_response(self, js_case_runner, http_server):
         case_name = "get_json_response"
         url = json.dumps(http_server.url("/json"))
@@ -292,7 +290,6 @@ class TestJSFetch:
 
     @allure.title("JavaScript fetch reads the production update directory over HTTPS.")
     @pytest.mark.external_service
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_https_get_json(self, js_case_runner):
         case_name = "https_get_json"
         url = json.dumps(UPDATE_DIRECTORY_URL)
@@ -313,7 +310,6 @@ class TestJSFetch:
         js_case_runner(case_name, body, timeout=60)
 
     @allure.title("JavaScript fetch rejects json() for malformed JSON.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_invalid_json_rejects(self, js_case_runner, http_server):
         case_name = "invalid_json"
         url = json.dumps(http_server.url("/invalid-json"))
@@ -369,7 +365,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch rejects a disconnect before response headers.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_disconnect_before_headers_rejects(self, js_case_runner, http_server):
         case_name = "disconnect_before_headers"
         url = json.dumps(http_server.url("/disconnect"))
@@ -388,7 +383,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch supports multiple concurrent requests.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_concurrent_requests(self, js_case_runner, http_server):
         case_name = "concurrent_requests"
         text_url = json.dumps(http_server.url("/text"))
@@ -419,7 +413,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript response headers support entries, keys, and values.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_headers_iterators(self, js_case_runner, http_server):
         case_name = "headers_iterators"
         url = json.dumps(http_server.url("/headers"))
@@ -452,7 +445,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript Headers.has is case-insensitive.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_headers_has_is_case_insensitive(self, js_case_runner, http_server):
         case_name = "headers_has_case_insensitive"
         url = json.dumps(http_server.url("/headers"))
@@ -469,7 +461,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript Headers.forEach uses value-key-parent arguments.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_headers_for_each_argument_order(self, js_case_runner, http_server):
         case_name = "headers_foreach_order"
         url = json.dumps(http_server.url("/headers"))
@@ -510,7 +501,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch exposes a 404 response and its body.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_http_404_resolves(self, js_case_runner, http_server):
         case_name = "http_404"
         url = json.dumps(http_server.url("/not-found"))
@@ -563,7 +553,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch exposes an HTTP 204 response with an empty body.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_empty_body(self, js_case_runner, http_server):
         case_name = "empty_body"
         url = json.dumps(http_server.url("/empty"))
@@ -583,7 +572,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript response body can only be consumed once.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_body_is_single_use(self, js_case_runner, http_server):
         case_name = "body_single_use"
         url = json.dumps(http_server.url("/text"))
@@ -605,7 +593,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch rejects a truncated text response.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_truncated_body_rejects(self, js_case_runner, http_server):
         case_name = "truncated_body"
         url = json.dumps(http_server.url("/truncated"))
@@ -625,7 +612,6 @@ class TestJSFetch:
         js_case_runner(case_name, body)
 
     @allure.title("JavaScript fetch rejects inactivity after response headers.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_inactivity_after_headers_rejects(self, js_case_runner, http_server):
         case_name = "inactivity_after_headers"
         url = json.dumps(http_server.url("/stall"))
@@ -645,7 +631,6 @@ class TestJSFetch:
         js_case_runner(case_name, body, timeout=12)
 
     @allure.title("JavaScript fetch accepts the documented ten request headers.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     def test_ten_request_headers(self, js_case_runner, http_server):
         case_name = "ten_request_headers"
         url = json.dumps(http_server.url("/request"))
@@ -671,7 +656,6 @@ class TestJSFetch:
                 )
 
     @allure.title("JavaScript fetch releases resources across repeated requests.")
-    @pytest.mark.skip(reason="fetch may hang or crash the device")
     @pytest.mark.long_running
     def test_repeated_requests(self, js_case_runner, http_server):
         case_name = "repeated_requests"

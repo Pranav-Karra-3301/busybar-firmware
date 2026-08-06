@@ -100,6 +100,7 @@ static jerry_value_t run_js_method(JsFetch* parent, BodyCollectedCallback on_bod
     ByteArray_init(*instance->body);
     instance->on_body_collected = on_body_collected;
     if(!js_fetch_set_data_sink(parent, data_sink_callback, instance)) {
+        jerry_value_free(instance->promise);
         ByteArray_clear(*instance->body);
         free(instance->body);
         free(instance);
@@ -112,7 +113,7 @@ static jerry_value_t run_js_method(JsFetch* parent, BodyCollectedCallback on_bod
 }
 
 static void process_data(BodyMethod* instance, SizedBuffer data) {
-    JS_TRACE("process_data");
+    JS_TRACE("process_data (size=%zu)", data.size);
     size_t old_size = ByteArray_size(*instance->body);
     ByteArray_resize(*instance->body, old_size + data.size);
     memcpy(ByteArray_get(*instance->body, old_size), data.buffer, data.size);
@@ -165,8 +166,14 @@ static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* ca
 }
 
 static bool array_buffer_body_collected(BodyMethod* instance) {
-    jerry_value_t array_buffer = jerry_arraybuffer_external(
-        ByteArray_get(*instance->body, 0), ByteArray_size(*instance->body), instance->body);
+    size_t body_size = ByteArray_size(*instance->body);
+    jerry_value_t array_buffer;
+    if(body_size > 0) {
+        array_buffer = jerry_arraybuffer_external(
+            ByteArray_get(*instance->body, 0), body_size, instance->body);
+    } else {
+        array_buffer = jerry_arraybuffer(0);
+    }
     js_check_and_free(jerry_promise_resolve(instance->promise, array_buffer));
     jerry_value_free(instance->promise);
     jerry_value_free(array_buffer);
@@ -183,22 +190,32 @@ static bool blob_body_collected(BodyMethod* instance) {
 }
 
 static bool bytes_body_collected(BodyMethod* instance) {
-    jerry_value_t array_buffer = jerry_arraybuffer_external(
-        ByteArray_get(*instance->body, 0), ByteArray_size(*instance->body), instance->body);
-    jerry_value_t bytes = jerry_typedarray_with_buffer(JERRY_TYPEDARRAY_UINT8, array_buffer);
+    size_t body_size = ByteArray_size(*instance->body);
+    jerry_value_t bytes;
+    if(body_size > 0) {
+        jerry_value_t array_buffer = jerry_arraybuffer_external(
+            ByteArray_get(*instance->body, 0), body_size, instance->body);
+        bytes = jerry_typedarray_with_buffer(JERRY_TYPEDARRAY_UINT8, array_buffer);
+        jerry_value_free(array_buffer);
+    } else {
+        bytes = jerry_typedarray(JERRY_TYPEDARRAY_UINT8, 0);
+    }
 
-    js_check_and_free(jerry_promise_resolve(instance->promise, array_buffer));
+    js_check_and_free(jerry_promise_resolve(instance->promise, bytes));
     jerry_value_free(instance->promise);
-    jerry_value_free(array_buffer);
     jerry_value_free(bytes);
     js_run_jobs();
     return true;
 }
 
 static bool json_body_collected(BodyMethod* instance) {
-    JS_TRACE("json_body_collected");
-    jerry_value_t json =
-        jerry_json_parse(ByteArray_cget(*instance->body, 0), ByteArray_size(*instance->body));
+    size_t body_size = ByteArray_size(*instance->body);
+    jerry_value_t json;
+    if(body_size > 0) {
+        json = jerry_json_parse(ByteArray_cget(*instance->body, 0), body_size);
+    } else {
+        json = jerry_object();
+    }
     if(jerry_value_is_exception(json)) {
         jerry_value_free(jerry_promise_reject(instance->promise, json));
     } else {
@@ -219,8 +236,13 @@ static bool form_data_body_collected(BodyMethod* instance) {
 }
 
 static bool text_body_collected(BodyMethod* instance) {
-    jerry_value_t string = jerry_string_external(
-        ByteArray_get(*instance->body, 0), ByteArray_size(*instance->body), instance->body);
+    size_t body_size = ByteArray_size(*instance->body);
+    jerry_value_t string;
+    if(body_size > 0) {
+        string = jerry_string(ByteArray_get(*instance->body, 0), body_size, JERRY_ENCODING_UTF8);
+    } else {
+        string = jerry_string_sz("");
+    }
     js_check_and_free(jerry_promise_resolve(instance->promise, string));
     jerry_value_free(instance->promise);
     jerry_value_free(string);
