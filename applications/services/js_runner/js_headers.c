@@ -146,14 +146,12 @@ jerry_value_t headers_has(
     if(!jerry_value_is_string(name)) {
         return jerry_throw_sz(JERRY_ERROR_TYPE, "Not a string");
     }
-    size_t name_len = jerry_string_size(name, JERRY_ENCODING_UTF8);
-    char* name_buf = malloc(name_len + 1);
-    jerry_string_to_buffer(name, JERRY_ENCODING_UTF8, (jerry_char_t*)name_buf, name_len);
+    char* name_buf = js_string_to_c_string(name);
 
     bool found = false;
     for(size_t i = 0; i != http_headers_get_header_count(instance->headers); ++i) {
         const HttpHeader* header = http_headers_get_header(instance->headers, i);
-        if(furi_string_cmp(header->key, name_buf) == 0) {
+        if(furi_string_cmpi(header->key, name_buf) == 0) {
             found = true;
             break;
         }
@@ -185,8 +183,8 @@ jerry_value_t headers_foreach(
         const HttpHeader* header = http_headers_get_header(instance->headers, i);
 
         jerry_value_t args[3] = {
-            [0] = jerry_string_sz(furi_string_get_cstr(header->key)),
-            [1] = jerry_string_sz(furi_string_get_cstr(header->value)),
+            [0] = jerry_string_sz(furi_string_get_cstr(header->value)),
+            [1] = jerry_string_sz(furi_string_get_cstr(header->key)),
             [2] = call_info->this_value,
         };
         jerry_value_t call_result = jerry_call(callback, this_value, args, 3);
