@@ -68,12 +68,7 @@ void js_set_property_getset(
     }
     js_check_and_free(jerry_object_define_own_prop(object, name_val, &desc));
     jerry_value_free(name_val);
-    if(getter) {
-        jerry_value_free(desc.getter);
-    }
-    if(setter) {
-        jerry_value_free(desc.setter);
-    }
+    jerry_property_descriptor_free(&desc);
 }
 
 jerry_value_t js_iterator_result(bool done, jerry_value_t value) {

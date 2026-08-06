@@ -28,4 +28,5 @@ App(
     entry_point="cli_command_js",
     sources=["cli/cli_command_js.c"],
     stack_size=1024 * 8,
+    resources="resources",
 )
