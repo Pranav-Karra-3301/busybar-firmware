@@ -190,50 +190,57 @@ static jerry_value_t readable_stream_cancel(
     }
 }
 
+static void handle_data(JsReadableStream* instance, SizedBuffer data) {
+    jerry_value_t promise;
+    PromiseQueue_pop_front(&promise, instance->promise_queue);
+
+    jerry_value_t result = js_iterator_result(false, chunk_to_uint8array(data));
+    js_check_and_free(jerry_promise_resolve(promise, result));
+    jerry_value_free(promise);
+    jerry_value_free(result);
+    js_run_jobs();
+}
+
+static void handle_done(JsReadableStream* instance) {
+    instance->data_expected = false;
+    resolve_closed_promise(instance, NULL);
+    detach_sink(instance);
+
+    resolve_everything_with_done(instance, jerry_undefined());
+    js_run_jobs();
+}
+
+static void handle_error(JsReadableStream* instance, FuriString* error) {
+    instance->data_expected = false;
+
+    resolve_closed_promise(instance, "cancelled");
+    detach_sink(instance);
+
+    // resolve_everything_with_done(instance, jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(event->error)));
+    resolve_everything_with_done(instance, jerry_string_sz(furi_string_get_cstr(error)));
+
+    furi_string_free(error);
+    js_run_jobs();
+}
+
 static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* callback_context) {
     UNUSED(fetch);
     JsReadableStream* instance = callback_context;
     if(!PromiseQueue_empty_p(instance->promise_queue)) {
         switch(event->type) {
-        case JsFetchDataEventTypeData: {
-            jerry_value_t promise;
-            PromiseQueue_pop_front(&promise, instance->promise_queue);
-
-            jerry_value_t result = js_iterator_result(false, chunk_to_uint8array(event->data));
-            js_check_and_free(jerry_promise_resolve(promise, result));
-            jerry_value_free(promise);
-            jerry_value_free(result);
+        case JsFetchDataEventTypeData:
+            handle_data(instance, event->data);
             break;
-        }
-        case JsFetchDataEventTypeDone: {
-            instance->data_expected = false;
-            resolve_closed_promise(instance, NULL);
-            detach_sink(instance);
-
-            resolve_everything_with_done(instance, jerry_undefined());
-            js_run_jobs();
-
+        case JsFetchDataEventTypeDone:
+            handle_done(instance);
             break;
-        }
-        case JsFetchDataEventTypeError: {
-            instance->data_expected = false;
-
-            resolve_closed_promise(instance, "cancelled");
-            detach_sink(instance);
-
-            // resolve_everything_with_done(
-                // instance, jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(event->error)));
-            resolve_everything_with_done(instance, jerry_string_sz(furi_string_get_cstr(event->error)));
-
-            furi_string_free(event->error);
-            js_run_jobs();
+        case JsFetchDataEventTypeError:
+            handle_error(instance, event->error);
             break;
-        }
         case JsFetchDataEventTypeInvalid:
             furi_check(false);
             break;
         }
-        js_run_jobs();
         return true;
     } else {
         return false;
