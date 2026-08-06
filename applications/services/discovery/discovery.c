@@ -303,7 +303,7 @@ static void discovery_busybar_txt(DiscoveryRequest* request, void* context) {
     device_name_get(discovery->device_name, device_name);
 
     FuriString* txt_record =
-        furi_string_alloc_printf("name=\"%s\"", furi_string_get_cstr(device_name));
+        furi_string_alloc_printf("name=%s", furi_string_get_cstr(device_name));
     discovery_request_feed_txt(request, furi_string_get_cstr(txt_record));
 
     furi_string_free(txt_record);
