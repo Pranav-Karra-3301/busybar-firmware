@@ -9,6 +9,11 @@
 #pragma GCC diagnostic pop
 #include <furi/core/string.h>
 
+/** @brief Check if value is not and exception and free it
+ * @param value value to check and free
+ */
+void js_check_and_free(jerry_value_t value);
+
 /** @brief Set a property in a JS object
  *
  * @param object Object (not freed)
@@ -105,3 +110,5 @@ jerry_value_t js_rejected_promise_from_exception(jerry_value_t exception);
  * @return exception string or NULL if conversion failed.
  */
 FuriString* js_get_exception_string(jerry_value_t exception);
+
+void js_log_exception(const char* tag, const char* msg, jerry_value_t exception);

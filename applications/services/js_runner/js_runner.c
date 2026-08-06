@@ -65,19 +65,6 @@ void js_run_jobs(void) {
     }
 }
 
-static void log_exception(const char* msg, jerry_value_t exception);
-
-void js_check_and_free(jerry_value_t val) {
-    furi_check(!jerry_value_is_exception(val));
-    jerry_value_free(val);
-}
-
-static void log_exception(const char* msg, jerry_value_t exception) {
-    FuriString* exception_string = js_get_exception_string(exception);
-    FURI_LOG_E(TAG, "%s: %s", msg, furi_string_get_cstr(exception_string));
-    furi_string_free(exception_string);
-}
-
 static void fetch_event_queue_callback(FuriEventLoopObject* object, void* context) {
     UNUSED(object);
     JsRunnerApp* app = context;
@@ -138,6 +125,7 @@ static void js_runner_app_init(
 }
 
 static void js_runner_app_deinit(JsRunnerApp* app) {
+    JS_TRACE("app deinit");
     furi_event_loop_unsubscribe(app->event_loop, app->fetch.event_queue);
     furi_event_loop_free(app->event_loop);
     furi_string_free(app->root_path);
@@ -154,6 +142,7 @@ static void arraybuffer_free_callback(
     UNUSED(buffer_type);
     UNUSED(buffer_size);
     UNUSED(user_p);
+    JS_TRACE("free arraybuffer");
     if(arraybuffer_user_p) {
         ByteArray_t* array = arraybuffer_user_p;
         ByteArray_clear(*array);
@@ -166,6 +155,7 @@ static void arraybuffer_free_callback(
 static void
     external_string_free_callback(jerry_char_t* string_p, jerry_size_t string_size, void* user_p) {
     UNUSED(string_size);
+    JS_TRACE("free external string");
     if(user_p) {
         ByteArray_t* array = user_p;
         ByteArray_clear(*array);
@@ -251,17 +241,17 @@ JsRunnerError js_runner_run(
         free(buf);
         do {
             if(jerry_value_is_exception(parsed_script)) {
-                log_exception("Error parsing script", parsed_script);
+                js_log_exception(TAG, "Error parsing script", parsed_script);
                 ret = JsRunnerParseException;
                 break;
             } else {
                 jerry_value_t link_result = jerry_module_link(parsed_script, NULL, NULL);
                 if(jerry_value_is_exception(link_result)) {
-                    log_exception("Error linking modules", link_result);
+                    js_log_exception(TAG, "Error linking modules", link_result);
                 } else {
                     jerry_value_t result = jerry_module_evaluate(parsed_script);
                     if(jerry_value_is_exception(result)) {
-                        log_exception("Error running script", result);
+                        js_log_exception(TAG, "Error running script", result);
                     } else {
                         js_run_jobs();
                         if(app_has_background_tasks(&app)) {

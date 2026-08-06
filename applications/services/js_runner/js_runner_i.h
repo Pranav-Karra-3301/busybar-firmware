@@ -19,7 +19,7 @@
 #include <jerryscript.h>
 #pragma GCC diagnostic pop
 
-#define JS_DEBUG
+// #define JS_DEBUG
 
 #if defined(JS_DEBUG)
 #define JS_TRACE(...) FURI_LOG_D(TAG, __VA_ARGS__)
@@ -108,7 +108,6 @@ typedef struct JsRunner {
 
 #define JS_ARG(n) (args_count > (n) ? args[(n)] : jerry_undefined())
 
-void js_check_and_free(jerry_value_t val);
 void js_runner_check_event_loop(JsRunnerApp* app);
 void js_run_jobs(void);
 

@@ -221,8 +221,9 @@ static bool data_sink_callback(JsFetch* fetch, JsFetchDataEvent* event, void* ca
             resolve_closed_promise(instance, "cancelled");
             detach_sink(instance);
 
-            resolve_everything_with_done(
-                instance, jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(event->error)));
+            // resolve_everything_with_done(
+                // instance, jerry_throw_sz(JERRY_ERROR_TYPE, furi_string_get_cstr(event->error)));
+            resolve_everything_with_done(instance, jerry_string_sz(furi_string_get_cstr(event->error)));
 
             furi_string_free(event->error);
             js_run_jobs();

@@ -2,6 +2,20 @@
 
 #define TAG "JsUtil"
 
+void js_log_exception(const char* tag, const char* msg, jerry_value_t exception) {
+    FuriString* exception_string = js_get_exception_string(exception);
+    FURI_LOG_E(tag, "%s: %s", msg, furi_string_get_cstr(exception_string));
+    furi_string_free(exception_string);
+}
+
+void js_check_and_free(jerry_value_t val) {
+    if(jerry_value_is_exception(val)) {
+        js_log_exception(TAG, "check-and-free", val);
+    }
+    furi_check(!jerry_value_is_exception(val));
+    jerry_value_free(val);
+}
+
 void js_set_property(jerry_value_t object, const char* name, jerry_value_t property) {
     js_check_and_free(jerry_object_set_sz(object, name, property));
     jerry_value_free(property);
@@ -54,6 +68,12 @@ void js_set_property_getset(
     }
     js_check_and_free(jerry_object_define_own_prop(object, name_val, &desc));
     jerry_value_free(name_val);
+    if(getter) {
+        jerry_value_free(desc.getter);
+    }
+    if(setter) {
+        jerry_value_free(desc.setter);
+    }
 }
 
 jerry_value_t js_iterator_result(bool done, jerry_value_t value) {
