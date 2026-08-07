@@ -327,29 +327,36 @@ static HttpApiAccessStatusEx http_api_access_status(
             }
         }
 
+        int token_length = 0;
+
         if(method == HttpMethodWebSocket) {
-            mg_http_get_var(&msg->query, "x-api-token", status_ex.token, sizeof(status_ex.token));
+            token_length = mg_http_get_var(
+                &msg->query, "x-api-token", status_ex.token, sizeof(status_ex.token));
         } else {
             struct mg_str* request_key = mg_http_get_header(msg, "X-API-Token");
-            if(request_key)
+            if(request_key) {
+                token_length = request_key->len;
                 memcpy(
                     status_ex.token,
                     request_key->buf,
                     MIN(request_key->len, sizeof(status_ex.token) - 1));
+            }
         }
 
         bool token_provided = strlen(status_ex.token);
 
         if(token_provided) {
-            if(context->access_key &&
-               (furi_string_cmp_str(context->access_key, status_ex.token) == 0)) {
-                status_ex.status = HttpApiAccessStatusGrantedViaUserPassword;
-                break;
-            }
+            if(token_length <= TOKENS_LENGTH) {
+                if(context->access_key &&
+                   (furi_string_cmp_str(context->access_key, status_ex.token) == 0)) {
+                    status_ex.status = HttpApiAccessStatusGrantedViaUserPassword;
+                    break;
+                }
 
-            if(tokens_validate_and_record_usage(context->tokens, status_ex.token)) {
-                status_ex.status = HttpApiAccessStatusGrantedViaToken;
-                break;
+                if(tokens_validate_and_record_usage(context->tokens, status_ex.token)) {
+                    status_ex.status = HttpApiAccessStatusGrantedViaToken;
+                    break;
+                }
             }
         } else if(is_usb) {
             status_ex.status = HttpApiAccessStatusGrantedViaNetifWhitelist;
@@ -475,6 +482,12 @@ bool api_access_tokens_mint_callback(
     if(!IS_HTTP_ENDPOINT(path)) {
         MG_REPLY_NOT_FOUND(conn);
         return false;
+    }
+
+    HttpApiAccessStatusEx status_ex = http_api_access_status(context, path, method, conn, msg);
+    if(status_ex.status == HttpApiAccessStatusGrantedViaToken) {
+        MG_REPLY_FORBIDDEN(conn);
+        return true;
     }
 
     char* name = mg_json_get_str(msg->body, "$.name");
@@ -771,8 +784,13 @@ bool http_api_root_callback(
         }
         handled = true;
     } else if(furi_string_start_with_str(path, access_tokens_path)) {
-        furi_string_right(path, strlen(access_tokens_path));
-        handled = api_access_tokens_callback(path, method, conn, msg, ctx);
+        if(method == HttpMethodOptions) {
+            http_reply_cors_preflight(conn, HttpMethodGet | HttpMethodPost | HttpMethodDelete);
+            handled = true;
+        } else {
+            furi_string_right(path, strlen(access_tokens_path));
+            handled = api_access_tokens_callback(path, method, conn, msg, ctx);
+        }
     } else {
         handled = http_handle_request(path, method, context->handlers, conn, msg);
     }
