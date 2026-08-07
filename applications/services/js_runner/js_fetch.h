@@ -45,6 +45,11 @@ typedef struct JsFetchDataEvent {
 
 M_DEQUE_DEF(DataEventQueue, JsFetchDataEvent, M_POD_OPLIST);
 
+/**
+ * @brief Data sink callback - called when there is new event.
+ *
+ * @return true if event is consumed
+ */
 typedef bool (
     *JsFetchDataSinkCallback)(JsFetch* instance, JsFetchDataEvent* event, void* callback_context);
 
@@ -117,8 +122,3 @@ void js_fetch_data_sink_ready(JsFetch* instance);
  * @param instance JsFetch instance
  */
 bool js_fetch_cancel(JsFetch* instance);
-
-/**
- * @param buffer if NULL, no more chunks
- * @return true if data is consumed
- */
