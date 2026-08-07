@@ -440,7 +440,10 @@ bool api_access_tokens_list_callback(
     UNUSED(method);
     UNUSED(msg);
     ApiRootCtx* context = ctx;
-    if(!furi_string_empty(path)) MG_REPLY_NOT_FOUND(conn);
+    if(!IS_HTTP_ENDPOINT(path)) {
+        MG_REPLY_NOT_FOUND(conn);
+        return false;
+    }
 
     cJSON* json = cJSON_CreateObject();
     cJSON* json_tokens = cJSON_AddArrayToObject(json, "tokens");
@@ -469,7 +472,10 @@ bool api_access_tokens_mint_callback(
     UNUSED(method);
     UNUSED(msg);
     ApiRootCtx* context = ctx;
-    if(!furi_string_empty(path)) MG_REPLY_NOT_FOUND(conn);
+    if(!IS_HTTP_ENDPOINT(path)) {
+        MG_REPLY_NOT_FOUND(conn);
+        return false;
+    }
 
     char* name = mg_json_get_str(msg->body, "$.name");
     if(!name) {
