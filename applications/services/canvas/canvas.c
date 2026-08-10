@@ -32,6 +32,7 @@ typedef struct {
     void* callback_ctx;
     union {
         CanvasElementsArray_t elements;
+        const char* const* element_ids;
     };
 } CanvasSrvQueueEvent;
 
@@ -125,14 +126,36 @@ static void canvas_element_destroy(CanvasSrv* canvas, CanvasWidget* widget) {
     with_gui(canvas->gui, { canvas_widget_delete(widget); });
 }
 
-static void canvas_element_destroy_all(CanvasSrv* canvas) {
-    CanvasWidgetsDict_it_t it;
-    for(CanvasWidgetsDict_it(it, canvas->widgets); !CanvasWidgetsDict_end_p(it);
-        CanvasWidgetsDict_next(it)) {
-        CanvasWidgetsDict_itref_t* itref = CanvasWidgetsDict_ref(it);
-        CanvasWidget* widget = &itref->value;
-        canvas_element_destroy(canvas, widget);
+static CanvasResult
+    canvas_element_destroy_multi(CanvasSrv* canvas, const char* const* element_ids) {
+    if(element_ids) {
+        const char* const* iterator = element_ids;
+        const char* element_id = NULL;
+        while((element_id = *(iterator++))) {
+            bool exists = !!CanvasWidgetsDict_cget(canvas->widgets, element_id);
+            if(!exists) return CanvasResultNonexistentElementId;
+        }
+
+        iterator = element_ids;
+        element_id = NULL;
+        while((element_id = *(iterator++))) {
+            CanvasWidget* widget = CanvasWidgetsDict_get(canvas->widgets, element_id);
+            canvas_element_destroy(canvas, widget);
+            CanvasWidgetsDict_erase(canvas->widgets, element_id);
+        }
+
+    } else {
+        CanvasWidgetsDict_it_t it;
+        for(CanvasWidgetsDict_it(it, canvas->widgets); !CanvasWidgetsDict_end_p(it);
+            CanvasWidgetsDict_next(it)) {
+            CanvasWidgetsDict_itref_t* itref = CanvasWidgetsDict_ref(it);
+            CanvasWidget* widget = &itref->value;
+            canvas_element_destroy(canvas, widget);
+        }
+        CanvasWidgetsDict_reset(canvas->widgets);
     }
+
+    return CanvasResultOk;
 }
 
 static bool canvas_srv_check_elements_visible(CanvasElementsArray_t elements) {
@@ -152,17 +175,21 @@ static bool canvas_srv_check_elements_visible(CanvasElementsArray_t elements) {
     return elements_visible > 0;
 }
 
-static void canvas_srv_clear_all(CanvasSrv* canvas) {
+static CanvasResult canvas_srv_clear(CanvasSrv* canvas, const char* const* element_ids) {
     furi_assert(canvas);
 
-    canvas_element_destroy_all(canvas);
-    CanvasWidgetsDict_reset(canvas->widgets);
+    CanvasResult result = CanvasResultOk;
+
+    if((result = canvas_element_destroy_multi(canvas, element_ids)) != CanvasResultOk)
+        return result;
 
     canvas_check_back_screen_empty(canvas);
 
     if(CanvasWidgetsDict_empty_p(canvas->widgets)) {
         canvas_screen_close(canvas);
     }
+
+    return result;
 }
 
 static bool canvas_element_update(CanvasSrv* canvas, const CanvasElement* element) {
@@ -272,8 +299,7 @@ static CanvasResult canvas_srv_do_draw(
     }
     if(canvas->app_id) {
         if(strcmp(app_id, canvas->app_id) != 0) {
-            canvas_element_destroy_all(canvas);
-            CanvasWidgetsDict_reset(canvas->widgets);
+            canvas_element_destroy_multi(canvas, NULL);
             free(canvas->app_id);
             canvas->app_id = strdup(app_id);
         }
@@ -354,24 +380,22 @@ static void canvas_srv_queue_event_callback(FuriEventLoopObject* object, void* c
 
     } else if(event.type == CanvasSrvEventClear) {
         if(canvas->gui == NULL) {
-            res = CanvasResultOk;
+            res = event.element_ids ? CanvasResultNonexistentElementId : CanvasResultOk;
         } else if(event.app_id && canvas->app_id) {
             bool id_match = (strcmp(event.app_id, canvas->app_id) == 0);
             if(id_match) {
-                canvas_srv_clear_all(canvas);
-                res = CanvasResultOk;
+                res = canvas_srv_clear(canvas, event.element_ids);
             }
         } else {
-            canvas_srv_clear_all(canvas);
-            res = CanvasResultOk;
+            res = canvas_srv_clear(canvas, event.element_ids);
         }
     } else if(event.type == CanvasSrvEventExit) {
-        if(canvas->gui) canvas_srv_clear_all(canvas);
+        if(canvas->gui) canvas_srv_clear(canvas, NULL);
         res = CanvasResultOk;
 
     } else if(event.type == CanvasSrvEventReevaluatePriority) {
         if(canvas->gui != NULL && canvas->priority < event.loader_priority) {
-            canvas_srv_clear_all(canvas);
+            canvas_srv_clear(canvas, NULL);
         }
         canvas_deferred_try(canvas);
         res = CanvasResultOk;
@@ -589,7 +613,8 @@ void canvas_show_elements_async(
     furi_check(furi_message_queue_put(canvas->event_queue, &evt, FuriWaitForever) == FuriStatusOk);
 }
 
-CanvasResult canvas_delete_elements(CanvasSrv* canvas, const char* app_id) {
+CanvasResult
+    canvas_delete_elements(CanvasSrv* canvas, const char* app_id, const char* const* element_ids) {
     furi_check(canvas);
 
     CanvasResult res = CanvasResultOk;
@@ -598,6 +623,7 @@ CanvasResult canvas_delete_elements(CanvasSrv* canvas, const char* app_id) {
         .lock = api_lock_alloc_locked(),
         .type = CanvasSrvEventClear,
         .app_id = app_id ? strdup(app_id) : NULL,
+        .element_ids = element_ids,
         .result = &res,
     };
     furi_check(furi_message_queue_put(canvas->event_queue, &evt, FuriWaitForever) == FuriStatusOk);

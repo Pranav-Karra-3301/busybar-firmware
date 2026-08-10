@@ -131,22 +131,27 @@ paths:
       tags:
         - Assets
       summary: Clear display
-      description: Deletes display elements drawn by the Canvas application. If application_name is specified, only elements for that app are removed.
+      description: Deletes display elements drawn via this API. This operation can be selective - see the request body type.
       operationId: clearDisplay
-      parameters:
-        - name: application_name
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/ApplicationName"
-          description: Application identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeletionParameters"
       responses:
         "200":
-          description: Display cleared successfully
+          description: Display or some elements cleared successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid deletion data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/audio/play:
     post:
@@ -587,3 +592,18 @@ schemas:
                 - "sounds/alert.snd"
           required:
               - stock_path
+
+  DeletionParameters:
+    type: object
+    properties:
+      application_name:
+        $ref: "#/components/schemas/ApplicationName"
+        description: Fill in this field for a sanity check that you actually own these elements. Omit it to delete them anyway.
+        example: my_app
+      element_ids:
+        type: array
+        items:
+          type: string
+          pattern: "^[a-zA-Z0-9._-]+$"
+          description: Unique identifiers of elements that should be deleted. Omit this field to delete all elements.
+          example: my_element
