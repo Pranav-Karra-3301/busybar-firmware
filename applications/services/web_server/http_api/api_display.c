@@ -534,7 +534,8 @@ static bool api_display_draw_parse_element(
     CanvasElementsArray_t elements_array,
     char* app_name,
     struct mg_str element,
-    FuriString* error) {
+    FuriString* error,
+    int32_t* default_z_index) {
     bool success = false;
     char* element_type = NULL;
     CanvasElement* canvas_element = CanvasElementsArray_push_new(elements_array);
@@ -545,6 +546,14 @@ static bool api_display_draw_parse_element(
 
         int32_t temp_val = mg_json_get_long(element, "$.timeout", -1);
         canvas_element->timeout = (temp_val > 0) ? temp_val : 0;
+
+        temp_val = mg_json_get_long(element, "$.z_index", -1);
+        if(temp_val >= 0) {
+            canvas_element->z_index = temp_val;
+        } else {
+            canvas_element->z_index = *default_z_index;
+            *default_z_index += 10;
+        }
 
         char* disp_until = mg_json_get_str(element, "$.display_until");
         if(disp_until) {
@@ -731,8 +740,10 @@ static void api_display_canvas_draw(struct mg_connection* conn, struct mg_http_m
         struct mg_str element;
         bool ok = true;
         size_t elements_count = 0;
+        int32_t default_z_index = 0;
         while((offset = mg_json_next(elements_obj, offset, NULL, &element)) > 0) {
-            ok = api_display_draw_parse_element(elements_array, app_name, element, error);
+            ok = api_display_draw_parse_element(
+                elements_array, app_name, element, error, &default_z_index);
             if(!ok) break;
             elements_count++;
             if(elements_count > CANVAS_MAX_ELEMENTS) {

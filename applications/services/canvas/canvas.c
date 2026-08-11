@@ -258,6 +258,11 @@ static bool canvas_element_update(CanvasSrv* canvas, const CanvasElement* elemen
 static CanvasResult canvas_update_all(CanvasSrv* canvas, CanvasElementsArray_t elements) {
     CanvasResult result = CanvasResultOk;
 
+    int compare_z_index(const CanvasElement* a, const CanvasElement* b) {
+        return a->z_index - b->z_index;
+    }
+    CanvasElementsArray_special_sort(elements, compare_z_index);
+
     CanvasElementsArray_it_t it;
     for(CanvasElementsArray_it(it, elements); !CanvasElementsArray_end_p(it);
         CanvasElementsArray_next(it)) {

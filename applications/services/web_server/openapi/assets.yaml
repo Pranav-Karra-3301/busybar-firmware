@@ -353,6 +353,11 @@ schemas:
           - bottom_left
           - bottom_mid
           - bottom_right
+      z_index:
+        type: integer
+        minimum: 0
+        maximum: 2147483647
+        description: Order of the element. Elements with higher Z-indexes are drawn on top of those with lower ones.
     discriminator:
       propertyName: type
       mapping:

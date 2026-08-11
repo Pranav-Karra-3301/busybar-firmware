@@ -46,6 +46,7 @@ typedef struct {
     GuiDisplayId display;
     Align align;
     CanvasElementType type;
+    int32_t z_index;
 
     union {
         struct {

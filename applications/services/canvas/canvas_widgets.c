@@ -212,6 +212,7 @@ void canvas_widget_update(CanvasWidget* widget, Widget* root, const CanvasElemen
     canvas_widget_reanchor(root, align, &x, &y);
     widget_set_align(base, align);
     widget_set_pos(base, x, y);
+    widget_move_to_foreground(base);
 }
 
 void canvas_widget_delete(CanvasWidget* widget) {
