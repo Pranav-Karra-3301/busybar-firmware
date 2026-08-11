@@ -290,15 +290,47 @@ class TestJSFetch:
 
     @allure.title("JavaScript fetch reads the production update directory over HTTPS.")
     @pytest.mark.external_service
-    def test_https_get_json(self, js_case_runner):
+    def test_https_get_json(
+        self,
+        js_case_runner,
+        device_wifi_ready,
+    ):
         case_name = "https_get_json"
         url = json.dumps(UPDATE_DIRECTORY_URL)
         body = dedent(
             f"""
-                const response = await fetch({url});
+                async function fetchExternalJson(url) {{
+                    const transientErrors = [];
+                    for (let attempt = 1; attempt <= 4; attempt++) {{
+                        try {{
+                            const response = await fetch(url);
+                            const directory = await response.json();
+                            return {{response: response, directory: directory}};
+                        }} catch (error) {{
+                            const message = String(error);
+                            transientErrors.push(message);
+                            if (message !== "DNS error" &&
+                                message !== "Inactivity timeout") {{
+                                throw error;
+                            }}
+                            if (attempt < 4) {{
+                                await new Promise(function(resolve) {{
+                                    setTimeout(resolve, 2000);
+                                }});
+                            }}
+                        }}
+                    }}
+                    throw new Error(
+                        "external fetch retries exhausted: " +
+                        transientErrors.join(", ")
+                    );
+                }}
+
+                const result = await fetchExternalJson({url});
+                const response = result.response;
+                const directory = result.directory;
                 assert(response.status === 200, "status=" + response.status);
                 assert(response.ok === true, "ok=" + response.ok);
-                const directory = await response.json();
                 assert(Array.isArray(directory.channels), "channels is not an array");
                 assert(directory.channels.length > 0, "channels is empty");
                 const channel = directory.channels[0];
