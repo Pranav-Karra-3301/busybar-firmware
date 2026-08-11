@@ -789,26 +789,41 @@ static void api_display_canvas_draw(struct mg_connection* conn, struct mg_http_m
 
 static void api_display_canvas_clear(struct mg_connection* conn, struct mg_http_message* msg) {
     bool request_valid = false;
-    cJSON* body = cJSON_ParseWithLength(msg->body.buf, msg->body.len);
+    cJSON* body = NULL;
     char** element_ids = NULL;
 
     do {
-        if(!body) break;
-        if(!cJSON_IsObject(body)) break;
+        cJSON* json_app_name = NULL;
+        if(msg->body.buf && msg->body.len) {
+            body = cJSON_ParseWithLength(msg->body.buf, msg->body.len);
+            if(!body) break;
+            if(!cJSON_IsObject(body)) break;
 
-        cJSON* json_element_ids = cJSON_GetObjectItem(body, "element_ids");
-        if(json_element_ids) {
-            element_ids = malloc(sizeof(char*) * (cJSON_GetArraySize(json_element_ids) + 1));
-            size_t i = 0;
-            cJSON* json_element_id = NULL;
-            cJSON_ArrayForEach(json_element_id, json_element_ids) {
-                element_ids[i] = cJSON_GetStringValue(json_element_id);
-                i++;
+            cJSON* json_element_ids = cJSON_GetObjectItem(body, "element_ids");
+
+            if(json_element_ids) {
+                if(!cJSON_IsArray(json_element_ids)) break;
+
+                bool all_element_ids_valid = true;
+                element_ids = malloc(sizeof(char*) * (cJSON_GetArraySize(json_element_ids) + 1));
+                size_t i = 0;
+                cJSON* json_element_id = NULL;
+
+                cJSON_ArrayForEach(json_element_id, json_element_ids) {
+                    if(!cJSON_IsString(json_element_id)) {
+                        all_element_ids_valid = false;
+                        break;
+                    }
+                    element_ids[i] = cJSON_GetStringValue(json_element_id);
+                    i++;
+                }
+
+                if(!all_element_ids_valid) break;
             }
-        }
 
-        cJSON* json_app_name = cJSON_GetObjectItem(body, "application_name");
-        if(json_app_name && !cJSON_IsString(json_app_name)) break;
+            cJSON* json_app_name = cJSON_GetObjectItem(body, "application_name");
+            if(json_app_name && !cJSON_IsString(json_app_name)) break;
+        }
         char* body_app_name = cJSON_GetStringValue(json_app_name);
 
         char query_app_name_buf[64];
