@@ -4,6 +4,8 @@
 
 static Widget*
     canvas_image_update(CanvasWidget* widget, Widget* root, const CanvasElement* element) {
+    if(!element) return image_get_base(widget->image);
+
     if(!widget->image) {
         widget->image = image_alloc(root);
     }
@@ -20,6 +22,8 @@ static void canvas_image_delete(CanvasWidget* widget) {
 
 static Widget*
     canvas_raw_update(CanvasWidget* widget, Widget* root, const CanvasElement* element) {
+    if(!element) return image_get_base(widget->image);
+
     if(!widget->image) {
         widget->image = image_alloc(root);
     }
@@ -43,6 +47,8 @@ static void canvas_raw_delete(CanvasWidget* widget) {
 
 static Widget*
     canvas_anim_player_update(CanvasWidget* widget, Widget* root, const CanvasElement* element) {
+    if(!element) return anim_player_get_base(widget->anim_player);
+
     if(!widget->anim_player) {
         widget->anim_player = anim_player_alloc(root);
     }
@@ -66,6 +72,8 @@ static void canvas_anim_player_delete(CanvasWidget* widget) {
 
 static Widget*
     canvas_text_update(CanvasWidget* widget, Widget* root, const CanvasElement* element) {
+    if(!element) return label_get_base(widget->text);
+
     if(!widget->text) {
         widget->text = label_alloc(root);
     }
@@ -106,6 +114,8 @@ static_assert((size_t)RectangleWidgetBackgroundMax == (size_t)RectangleFillMax);
 
 static Widget*
     canvas_countdown_update(CanvasWidget* widget, Widget* root, const CanvasElement* element) {
+    if(!element) return label_get_base(widget->text);
+
     if(!widget->countdown) {
         widget->countdown = countdown_alloc(root);
     }
@@ -126,6 +136,8 @@ static void canvas_countdown_delete(CanvasWidget* widget) {
 
 static Widget*
     canvas_rectangle_update(CanvasWidget* widget, Widget* root, const CanvasElement* element) {
+    if(!element) return rectangle_widget_get_base(widget->rectangle);
+
     if(!widget->rectangle) {
         widget->rectangle = rectangle_widget_alloc(root);
     }
@@ -212,11 +224,16 @@ void canvas_widget_update(CanvasWidget* widget, Widget* root, const CanvasElemen
     canvas_widget_reanchor(root, align, &x, &y);
     widget_set_align(base, align);
     widget_set_pos(base, x, y);
-    widget_move_to_foreground(base);
 }
 
 void canvas_widget_delete(CanvasWidget* widget) {
     furi_assert(widget->type < CanvasElementTypeMax);
     furi_assert(canvas_widgets[widget->type].delete);
     canvas_widgets[widget->type].delete(widget);
+}
+
+void canvas_widget_to_front(CanvasWidget* widget) {
+    furi_assert(widget);
+    Widget* base = canvas_widgets[widget->type].update(widget, NULL, NULL);
+    widget_move_to_foreground(base);
 }

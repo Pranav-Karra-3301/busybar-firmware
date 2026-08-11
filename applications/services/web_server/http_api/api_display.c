@@ -547,9 +547,11 @@ static bool api_display_draw_parse_element(
         int32_t temp_val = mg_json_get_long(element, "$.timeout", -1);
         canvas_element->timeout = (temp_val > 0) ? temp_val : 0;
 
-        temp_val = mg_json_get_long(element, "$.z_index", -1);
-        if(temp_val >= 0) {
-            canvas_element->z_index = temp_val;
+        struct mg_str z_index_token = mg_json_get_tok(element, "$.z_index");
+        if(z_index_token.buf) {
+            int32_t z_index = mg_json_get_long(element, "$.z_index", -1);
+            if(z_index < 0) break;
+            canvas_element->z_index = z_index;
         } else {
             canvas_element->z_index = *default_z_index;
             *default_z_index += 10;
@@ -786,45 +788,51 @@ static void api_display_canvas_draw(struct mg_connection* conn, struct mg_http_m
 }
 
 static void api_display_canvas_clear(struct mg_connection* conn, struct mg_http_message* msg) {
+    bool request_valid = false;
     cJSON* body = cJSON_ParseWithLength(msg->body.buf, msg->body.len);
-
-    cJSON* json_element_ids = cJSON_GetObjectItem(body, "element_ids");
     char** element_ids = NULL;
-    if(json_element_ids) {
-        element_ids = malloc(sizeof(char*) * (cJSON_GetArraySize(json_element_ids) + 1));
-        size_t i = 0;
-        cJSON* json_element_id = NULL;
-        cJSON_ArrayForEach(json_element_id, json_element_ids) {
-            element_ids[i] = cJSON_GetStringValue(json_element_id);
-            i++;
+
+    do {
+        if(!body) break;
+        if(!cJSON_IsObject(body)) break;
+
+        cJSON* json_element_ids = cJSON_GetObjectItem(body, "element_ids");
+        if(json_element_ids) {
+            element_ids = malloc(sizeof(char*) * (cJSON_GetArraySize(json_element_ids) + 1));
+            size_t i = 0;
+            cJSON* json_element_id = NULL;
+            cJSON_ArrayForEach(json_element_id, json_element_ids) {
+                element_ids[i] = cJSON_GetStringValue(json_element_id);
+                i++;
+            }
         }
-    }
 
-    char* body_app_name = cJSON_GetStringValue(cJSON_GetObjectItem(body, "application_name"));
+        cJSON* json_app_name = cJSON_GetObjectItem(body, "application_name");
+        if(json_app_name && !cJSON_IsString(json_app_name)) break;
+        char* body_app_name = cJSON_GetStringValue(json_app_name);
 
-    char query_app_name_buf[64];
-    int query_app_name_len = mg_http_get_var(
-        &msg->query, "application_name", query_app_name_buf, sizeof(query_app_name_buf));
+        char query_app_name_buf[64];
+        int query_app_name_len = mg_http_get_var(
+            &msg->query, "application_name", query_app_name_buf, sizeof(query_app_name_buf));
 
-    if((query_app_name_len >= 1) && body_app_name) {
-        MG_REPLY_BAD_REQUEST(conn);
+        if((query_app_name_len >= 1) && body_app_name) break;
 
-    } else {
         const char* app_name = (query_app_name_len >= 1) ? query_app_name_buf : body_app_name;
         CanvasSrv* canvas = furi_record_open(RECORD_CANVAS);
         CanvasResult res =
             canvas_delete_elements(canvas, app_name, (const char* const*)element_ids);
         furi_record_close(RECORD_CANVAS);
 
-        if(element_ids) free(element_ids);
-        cJSON_Delete(body);
+        if(res != CanvasResultOk) break;
 
-        if(res == CanvasResultOk) {
-            MG_REPLY_OK(conn);
-        } else {
-            MG_REPLY_BAD_REQUEST(conn);
-        }
-    }
+        MG_REPLY_OK(conn);
+        request_valid = true;
+    } while(0);
+
+    if(element_ids) free(element_ids);
+    if(body) cJSON_Delete(body);
+
+    if(!request_valid) MG_REPLY_BAD_REQUEST(conn);
 }
 
 static bool api_display_draw_callback(

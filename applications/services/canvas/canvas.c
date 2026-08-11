@@ -140,6 +140,7 @@ static CanvasResult
         element_id = NULL;
         while((element_id = *(iterator++))) {
             CanvasWidget* widget = CanvasWidgetsDict_get(canvas->widgets, element_id);
+            if(!widget) continue;
             canvas_element_destroy(canvas, widget);
             CanvasWidgetsDict_erase(canvas->widgets, element_id);
         }
@@ -202,6 +203,8 @@ static bool canvas_element_update(CanvasSrv* canvas, const CanvasElement* elemen
         memcpy(&widget, widget_old, sizeof(CanvasWidget));
     }
 
+    widget.z_index = element->z_index;
+
     int32_t effective_timeout = -1;
     if(element->timeout > 0) {
         furi_check(element->display_until == 0);
@@ -255,13 +258,35 @@ static bool canvas_element_update(CanvasSrv* canvas, const CanvasElement* elemen
     return true;
 }
 
+static void canvas_reorder_elements(CanvasSrv* canvas) {
+    furi_assert(canvas);
+
+    CanvasWidget* widgets[CanvasWidgetsDict_size(canvas->widgets)];
+
+    size_t i = 0;
+    CanvasWidgetsDict_it_t it;
+    for(CanvasWidgetsDict_it(it, canvas->widgets); !CanvasWidgetsDict_end_p(it);
+        CanvasWidgetsDict_next(it)) {
+        CanvasWidgetsDict_itref_t* item = CanvasWidgetsDict_ref(it);
+        widgets[i++] = &item->value;
+    }
+
+    int compare_z_index(const void* untyped_a, const void* untyped_b) {
+        CanvasWidget* const* a = untyped_a;
+        CanvasWidget* const* b = untyped_b;
+        return (*a)->z_index - (*b)->z_index;
+    }
+    qsort(widgets, COUNT_OF(widgets), sizeof(widgets[0]), compare_z_index);
+
+    with_gui(canvas->gui, {
+        for(size_t i = 0; i < COUNT_OF(widgets); i++) {
+            canvas_widget_to_front(widgets[i]);
+        }
+    });
+}
+
 static CanvasResult canvas_update_all(CanvasSrv* canvas, CanvasElementsArray_t elements) {
     CanvasResult result = CanvasResultOk;
-
-    int compare_z_index(const CanvasElement* a, const CanvasElement* b) {
-        return a->z_index - b->z_index;
-    }
-    CanvasElementsArray_special_sort(elements, compare_z_index);
 
     CanvasElementsArray_it_t it;
     for(CanvasElementsArray_it(it, elements); !CanvasElementsArray_end_p(it);
@@ -276,7 +301,10 @@ static CanvasResult canvas_update_all(CanvasSrv* canvas, CanvasElementsArray_t e
             break;
         }
     }
+
+    canvas_reorder_elements(canvas);
     canvas_check_back_screen_empty(canvas);
+
     if(CanvasWidgetsDict_empty_p(canvas->widgets)) {
         canvas_screen_close(canvas);
     }

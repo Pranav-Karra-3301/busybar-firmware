@@ -613,9 +613,9 @@ schemas:
         description: Fill in this field for a sanity check that you actually own these elements. Omit it to delete them anyway.
         example: my_app
       element_ids:
+        description: Unique identifiers of elements that should be deleted. Omit this field to delete all elements.
         type: array
         items:
           type: string
           pattern: "^[a-zA-Z0-9._-]+$"
-          description: Unique identifiers of elements that should be deleted. Omit this field to delete all elements.
           example: my_element
