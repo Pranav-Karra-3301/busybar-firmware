@@ -786,19 +786,10 @@ static void api_display_canvas_draw(struct mg_connection* conn, struct mg_http_m
 }
 
 static void api_display_canvas_clear(struct mg_connection* conn, struct mg_http_message* msg) {
-    // char app_name_buf[64];
-    // int app_name_len =
-    //     mg_http_get_var(&msg->query, "application_name", app_name_buf, sizeof(app_name_buf));
-    // const char* app_name = (app_name_len >= 1) ? app_name_buf : NULL;
-
-    char* app_name = NULL;
-    char** element_ids = NULL;
-
     cJSON* body = cJSON_ParseWithLength(msg->body.buf, msg->body.len);
 
-    app_name = cJSON_GetStringValue(cJSON_GetObjectItem(body, "application_name"));
-
     cJSON* json_element_ids = cJSON_GetObjectItem(body, "element_ids");
+    char** element_ids = NULL;
     if(json_element_ids) {
         element_ids = malloc(sizeof(char*) * (cJSON_GetArraySize(json_element_ids) + 1));
         size_t i = 0;
@@ -809,24 +800,30 @@ static void api_display_canvas_clear(struct mg_connection* conn, struct mg_http_
         }
     }
 
-    CanvasSrv* canvas = furi_record_open(RECORD_CANVAS);
-    CanvasResult res = canvas_delete_elements(canvas, app_name, (const char* const*)element_ids);
-    furi_record_close(RECORD_CANVAS);
+    char* body_app_name = cJSON_GetStringValue(cJSON_GetObjectItem(body, "application_name"));
 
-    // if(app_name) free(app_name);
-    // if(element_ids) {
-    //     char** iterator = element_ids;
-    //     char* element_id = NULL;
-    //     while((element_id = *(iterator++))) free(element_id);
-    //     free(element_ids);
-    // }
-    if(element_ids) free(element_ids);
-    cJSON_Delete(body);
+    char query_app_name_buf[64];
+    int query_app_name_len = mg_http_get_var(
+        &msg->query, "application_name", query_app_name_buf, sizeof(query_app_name_buf));
 
-    if(res == CanvasResultOk) {
-        MG_REPLY_OK(conn);
-    } else {
+    if((query_app_name_len >= 1) && body_app_name) {
         MG_REPLY_BAD_REQUEST(conn);
+
+    } else {
+        const char* app_name = (query_app_name_len >= 1) ? query_app_name_buf : body_app_name;
+        CanvasSrv* canvas = furi_record_open(RECORD_CANVAS);
+        CanvasResult res =
+            canvas_delete_elements(canvas, app_name, (const char* const*)element_ids);
+        furi_record_close(RECORD_CANVAS);
+
+        if(element_ids) free(element_ids);
+        cJSON_Delete(body);
+
+        if(res == CanvasResultOk) {
+            MG_REPLY_OK(conn);
+        } else {
+            MG_REPLY_BAD_REQUEST(conn);
+        }
     }
 }
 

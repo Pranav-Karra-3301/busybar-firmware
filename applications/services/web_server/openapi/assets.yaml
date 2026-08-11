@@ -134,11 +134,18 @@ paths:
       description: Deletes display elements drawn via this API. This operation can be selective - see the request body type.
       operationId: clearDisplay
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/DeletionParameters"
+      parameters:
+        - name: application_name
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ApplicationName"
+          description: Application identifier
       responses:
         "200":
           description: Display or some elements cleared successfully
