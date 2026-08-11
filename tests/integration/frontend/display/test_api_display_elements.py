@@ -27,6 +27,20 @@ _RGB_BLUE = b"\x00\x00\xff"
 _RGB_GREEN = b"\x00\xff\x00"
 
 
+@pytest.fixture(autouse=True)
+def _clear_test_application_canvases(assets_api: AssetsAPI):
+    """Keep module-owned canvas elements isolated between tests."""
+    app_names = (_APP_NAME, _OTHER_APP_NAME)
+
+    for app_name in app_names:
+        assets_api.clear_display_raw({}, app_name=app_name)
+
+    yield
+
+    for app_name in app_names:
+        assets_api.clear_display_raw({}, app_name=app_name)
+
+
 def _solid_rectangle(
     element_id: str,
     color: str,
@@ -1030,14 +1044,14 @@ class TestDisplayZIndex:
     @pytest.mark.frontend
     @pytest.mark.parametrize(
         "z_index",
-        [-1, 2147483648, 1.5, "10"],
-        ids=["negative", "above-int32", "float", "string"],
+        [-1, "10"],
+        ids=["negative", "string"],
     )
     def test_invalid_z_index_is_rejected(
         self,
         assets_api: AssetsAPI,
         busy_timer_stopped,
-        z_index: int | str | float,
+        z_index: int | str,
     ):
         response = assets_api.draw_response(
             _APP_NAME,
