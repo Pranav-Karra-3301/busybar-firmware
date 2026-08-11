@@ -1186,13 +1186,13 @@ FuriString* storage_simply_read_entire_file_to_string(
 
         const size_t block_size = 128;
         char block[block_size + 1];
-        block[block_size] = 0;
 
         string = furi_string_alloc();
 
         while(read_size) {
             size_t iteration_size = MIN(read_size, block_size);
             if(storage_file_read(file, block, iteration_size) != iteration_size) break;
+            block[iteration_size] = '\0';
             furi_string_cat_str(string, block);
             read_size -= iteration_size;
         }

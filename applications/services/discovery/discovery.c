@@ -38,7 +38,7 @@ struct Discovery {
 
     DeviceName* device_name;
     DiscoveryInfo device_discovery;
-    char device_service_name[9];
+    char device_service_name[(FURI_HAL_VERSION_MAC_LENGTH * 2) + 1];
 
     Wifi* wifi;
     WifiState wifi_state;

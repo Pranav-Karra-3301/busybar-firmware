@@ -506,6 +506,8 @@ bool api_access_tokens_mint_callback(
     }
 
     tokens_mint(context->tokens, name, token_generated, NULL);
+
+    free(name);
     return true;
 }
 

@@ -314,6 +314,8 @@ schemas:
         type: string
         description: Arbitrary name to differentiate this token from others
         example: "My Script Name"
+    required:
+      - name
 
   NameInfo:
     type: object

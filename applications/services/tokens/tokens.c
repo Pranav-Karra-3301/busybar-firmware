@@ -73,12 +73,16 @@ static void tokens_infer_ids(const char* token, char* short_id, char* display_id
     furi_assert(display_id);
 
     memcpy(short_id, token, TOKENS_SHORT_ID_LENGTH);
+    short_id[TOKENS_SHORT_ID_LENGTH] = '\0';
+
     memcpy(display_id, short_id, TOKENS_SHORT_ID_LENGTH);
+    display_id[TOKENS_SHORT_ID_LENGTH] = '\0';
     strcat(display_id, TOKEN_DISPLAY_ID_JOINER);
     memcpy(
         display_id + strlen(display_id),
         token + NEW_TOKEN_LENGTH - TOKEN_DISPLAY_ID_RIGHT_PORTION,
         TOKEN_DISPLAY_ID_RIGHT_PORTION);
+    display_id[TOKEN_DISPLAY_ID_LENGTH] = '\0';
 }
 
 // ===========================
@@ -109,6 +113,7 @@ static bool tokens_load(Tokens* tokens, const char* path) {
         return false;
     }
 
+    TokensEntry* new_entries = NULL;
     cJSON* json = cJSON_Parse(furi_string_get_cstr(json_serialized));
     bool success = true;
 
@@ -120,8 +125,8 @@ static bool tokens_load(Tokens* tokens, const char* path) {
         }
 
         tokens->entry_count = cJSON_GetArraySize(json_tokens);
-        tokens->entries = realloc(tokens->entries, sizeof(TokensEntry) * tokens->entry_count);
-        TokensEntry* c_entry = &tokens->entries[0];
+        new_entries = malloc(sizeof(TokensEntry) * tokens->entry_count);
+        TokensEntry* c_entry = &new_entries[0];
 
         cJSON* json_entry;
         cJSON_ArrayForEach(json_entry, json_tokens) {
@@ -192,6 +197,13 @@ static bool tokens_load(Tokens* tokens, const char* path) {
     } while(0);
 
     cJSON_Delete(json);
+    furi_string_free(json_serialized);
+
+    if(success) {
+        free(tokens->entries);
+        tokens->entries = new_entries;
+    }
+
     return success;
 }
 
@@ -245,8 +257,9 @@ static void tokens_flush_timer_callback(void* context) {
     tokens_lock(tokens);
 
     if(tokens->is_dirty) {
-        tokens_dump(tokens, TOKEN_LIST_PATH);
-        tokens->is_dirty = false;
+        if(tokens_dump(tokens, TOKEN_LIST_PATH)) {
+            tokens->is_dirty = false;
+        }
     }
 
     tokens_unlock(tokens);
@@ -338,6 +351,12 @@ bool tokens_revoke(Tokens* tokens, const char* short_id) {
     for(size_t i = 0; i < tokens->entry_count; i++) {
         TokensEntry* entry = &tokens->entries[i];
         if(strcmp(entry->short_id, short_id) != 0) continue;
+
+        free(entry->short_id);
+        free(entry->display_id);
+        free(entry->owner);
+        furi_assert(entry->type == TokensEntryTypeHashed);
+        free(entry->token_hash);
 
         size_t entries_before_matching = i;
         size_t entries_after_matching = tokens->entry_count - entries_before_matching - 1;
