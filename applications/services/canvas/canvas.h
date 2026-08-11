@@ -22,6 +22,7 @@ typedef enum {
     CanvasResultEmptyScreen,
     CanvasResultTooManyElements,
     CanvasResultNonexistentElementId,
+    CanvasResultWrongAppId,
 
     CanvasResultMax,
 } CanvasResult;

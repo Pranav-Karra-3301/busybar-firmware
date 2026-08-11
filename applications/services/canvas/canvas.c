@@ -418,6 +418,8 @@ static void canvas_srv_queue_event_callback(FuriEventLoopObject* object, void* c
             bool id_match = (strcmp(event.app_id, canvas->app_id) == 0);
             if(id_match) {
                 res = canvas_srv_clear(canvas, event.element_ids);
+            } else {
+                res = CanvasResultWrongAppId;
             }
         } else {
             res = canvas_srv_clear(canvas, event.element_ids);
