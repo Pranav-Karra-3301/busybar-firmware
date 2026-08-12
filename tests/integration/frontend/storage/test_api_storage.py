@@ -83,6 +83,48 @@ class TestStorageAPI:
             remove_response = storage_api.remove_raw(test_file)
             assert remove_response.status_code == 200
 
+    @allure.title("POST /api/storage/write (append=1)")
+    @pytest.mark.api
+    @pytest.mark.frontend
+    def test_api_storage_write_append(self, storage_api: StorageAPI):
+        """Test POST /api/storage/write with the append parameter"""
+        test_file = f"/ext/test_append_{int(time.time())}.txt"
+        first_part = b"First part of the file. "
+        second_part = b"Second part of the file."
+
+        try:
+            with allure.step(f"Append to non-existent file creates it: {test_file}"):
+                write_response = storage_api.write(test_file, first_part, append=True)
+                assert write_response.status_code == 200
+
+            with allure.step("Append second part"):
+                write_response = storage_api.write(test_file, second_part, append=True)
+                assert write_response.status_code == 200
+
+            with allure.step("Verify file contains both parts in order"):
+                read_response = storage_api.read(test_file)
+                assert read_response.status_code == 200
+                assert read_response.content == first_part + second_part
+
+            with allure.step("Write without append replaces the file"):
+                write_response = storage_api.write(test_file, first_part)
+                assert write_response.status_code == 200
+                read_response = storage_api.read(test_file)
+                assert read_response.status_code == 200
+                assert read_response.content == first_part
+
+            with allure.step("Invalid append value is rejected"):
+                response = storage_api.post_raw(
+                    "/api/storage/write",
+                    params={"path": test_file, "append": "2"},
+                    data=b"rejected",
+                    headers={"Content-Type": "application/octet-stream"},
+                )
+                assert response.status_code == 400
+
+        finally:
+            storage_api.remove_raw(test_file)
+
     @allure.title("POST /api/storage/rename")
     @pytest.mark.api
     @pytest.mark.frontend
