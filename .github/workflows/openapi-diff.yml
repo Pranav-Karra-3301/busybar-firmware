@@ -31,10 +31,10 @@ jobs:
     oasdiff:
         runs-on: ubuntu-latest
 
+        # Job outputs only accept scalar expressions; the description/value
+        # object form is only valid for on.workflow_call.outputs.
         outputs:
-            oasdiff_report:
-                description: OpenAPI diff report (exported for fork PRs, which cannot receive PR comments)
-                value: ${{ steps.export-report.outputs.oasdiff_report }}
+            oasdiff_report: ${{ steps.export-report.outputs.oasdiff_report }}
 
         env:
             OAPI_DIR: applications/services/web_server/openapi
