@@ -3,6 +3,7 @@ import pytest
 
 from clients.api import InputAPI
 from utils.simple_websocket import websocket_upgrade, websocket_url
+from utils.wait import wait_for
 
 
 @allure.feature("5. Web Frontend")
@@ -33,6 +34,30 @@ class TestInputAPI:
 
         data = response.json()
         assert "error" in data
+
+    @allure.title("GET /api/input/switch (tracks injected switch positions)")
+    @pytest.mark.api
+    @pytest.mark.frontend
+    def test_api_input_switch_get(self, input_api: InputAPI):
+        """GET /api/input/switch reports the switch position selected via POST /api/input"""
+        initial_position = input_api.get_switch().position
+
+        try:
+            for position in InputAPI.SWITCH_POSITIONS:
+                with allure.step(f"Inject switch position: {position}"):
+                    assert input_api.send_key(position).status_code == 200
+
+                with allure.step(f"Verify GET /api/input/switch reports {position}"):
+                    wait_for(
+                        f"switch position {position}",
+                        input_api.get_switch,
+                        lambda reply, expected=position: reply.position == expected,
+                        timeout=2.0,
+                        interval=0.1,
+                    )
+        finally:
+            if initial_position in InputAPI.SWITCH_POSITIONS:
+                input_api.send_key(initial_position)
 
 
 @allure.feature("5. Web Frontend")
