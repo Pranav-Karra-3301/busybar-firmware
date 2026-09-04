@@ -7,7 +7,7 @@ from clients.api import InputAPI
 from clients.state_pb import input_pb2
 from clients.state_publisher import StatePublisherWebSocket, state_update_kinds
 from utils.simple_websocket import websocket_upgrade, websocket_url
-from utils.wait import wait_for
+from utils.input_helpers import wait_for_switch_position
 
 
 @allure.feature("5. Web Frontend")
@@ -87,13 +87,7 @@ class TestStatePublisherRegressions:
         try:
             with allure.step("Inject switch position: apps"):
                 assert input_api.send_key("apps").status_code == 200
-                wait_for(
-                    "switch position apps",
-                    input_api.get_switch,
-                    lambda response: response.position == "apps",
-                    timeout=2.0,
-                    interval=0.1,
-                )
+                wait_for_switch_position(input_api, "apps")
 
             with StatePublisherWebSocket(web_base_url) as state_ws:
                 state_ws.enable()
@@ -117,3 +111,4 @@ class TestStatePublisherRegressions:
         finally:
             if initial_position in InputAPI.SWITCH_POSITIONS:
                 input_api.send_key(initial_position)
+                wait_for_switch_position(input_api, initial_position)

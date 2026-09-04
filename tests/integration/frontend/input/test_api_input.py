@@ -3,7 +3,7 @@ import pytest
 
 from clients.api import InputAPI
 from utils.simple_websocket import websocket_upgrade, websocket_url
-from utils.wait import wait_for
+from utils.input_helpers import wait_for_switch_position
 
 
 @allure.feature("5. Web Frontend")
@@ -48,16 +48,11 @@ class TestInputAPI:
                     assert input_api.send_key(position).status_code == 200
 
                 with allure.step(f"Verify GET /api/input/switch reports {position}"):
-                    wait_for(
-                        f"switch position {position}",
-                        input_api.get_switch,
-                        lambda reply, expected=position: reply.position == expected,
-                        timeout=2.0,
-                        interval=0.1,
-                    )
+                    wait_for_switch_position(input_api, position)
         finally:
             if initial_position in InputAPI.SWITCH_POSITIONS:
                 input_api.send_key(initial_position)
+                wait_for_switch_position(input_api, initial_position)
 
 
 @allure.feature("5. Web Frontend")
